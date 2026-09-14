@@ -34,7 +34,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
-import { analyseTender, type AnalysisResult } from "@/lib/api";
+import { analyseFile, analyseTender, reportUrl, saveReview, type AnalysisResult } from "@/lib/api";
 
 type NavItemProps = {
   icon: React.ElementType;
@@ -92,6 +92,9 @@ export default function Home() {
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const [inputMode, setInputMode] = useState<"text" | "file">("text");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [reviewNote, setReviewNote] = useState("");
   const [form, setForm] = useState({
     title: "Construction safety helmets",
     description: "Purchase 1,000 industrial safety helmets for construction workers with impact testing and permanent marking.",
@@ -108,7 +111,7 @@ export default function Home() {
     setSubmitting(true);
     setFormError("");
     try {
-      const result = await analyseTender(form);
+      const result = inputMode === "file" && selectedFile ? await analyseFile(selectedFile) : await analyseTender(form);
       setAnalysis(result);
       setAnalysisOpen(false);
       setApproved(false);
@@ -124,6 +127,26 @@ export default function Home() {
   const primary = analysis?.recommendations[0];
   const recommendationCount = analysis?.recommendations.length ?? 4;
   const gapCount = analysis?.missing_requirements.length ?? 3;
+  const exportReport = () => {
+    if (!analysis) {
+      notify("Run an analysis first to generate a real report");
+      return;
+    }
+    window.open(reportUrl(analysis.tender.id, "pdf"), "_blank", "noopener,noreferrer");
+  };
+
+  const approveReview = async () => {
+    if (!analysis) {
+      notify("Run an analysis before recording a decision");
+      return;
+    }
+    try {
+      await saveReview(analysis.tender.id, "approved", reviewNote);
+      setApproved(true);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Review could not be saved");
+    }
+  };
 
   return (
     <main className="min-h-screen bg-mist text-ink">
@@ -188,7 +211,7 @@ export default function Home() {
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#68766f]">Validate evidence-backed standards, resolve tender gaps, and record a human decision before export.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button className="button-secondary" onClick={() => notify("Demo JSON export prepared")}><FileText size={16} /> Export report</button>
+              <button className="button-secondary" onClick={exportReport}><FileText size={16} /> Export report</button>
               <button className="button-primary" onClick={() => setAnalysisOpen(true)}><Plus size={16} /> New analysis</button>
             </div>
           </div>
@@ -313,8 +336,8 @@ export default function Home() {
                   ) : (
                     <>
                       <label className="mt-5 block text-[11px] font-semibold uppercase tracking-[.12em] text-[#6d7a73]">Reviewer note</label>
-                      <textarea className="review-note" placeholder="Add context for your decision…" />
-                      <button className="approve-button" onClick={() => setApproved(true)}><CheckCircle2 size={17} /> Approve for report</button>
+                      <textarea className="review-note" placeholder="Add context for your decision…" value={reviewNote} onChange={event => setReviewNote(event.target.value)} />
+                      <button className="approve-button" onClick={approveReview}><CheckCircle2 size={17} /> Approve for report</button>
                       <button className="flag-button" onClick={() => notify("Recommendation set flagged for expert review")}><Flag size={15} /> Flag for expert review</button>
                     </>
                   )}
@@ -339,11 +362,14 @@ export default function Home() {
               <button onClick={() => setAnalysisOpen(false)} aria-label="Close analysis" disabled={submitting}><X size={19} /></button>
             </div>
             <form onSubmit={submitAnalysis} className="analysis-form">
-              <label>Tender title<input value={form.title} onChange={event => setForm({...form, title:event.target.value})} minLength={3} required /></label>
-              <label>Product description or technical requirement<textarea value={form.description} onChange={event => setForm({...form, description:event.target.value})} minLength={10} required /></label>
+              <div className="input-switch"><button type="button" className={inputMode === "text" ? "active" : ""} onClick={() => setInputMode("text")}><MessageSquareText size={14} /> Text description</button><button type="button" className={inputMode === "file" ? "active" : ""} onClick={() => setInputMode("file")}><UploadCloud size={14} /> Upload document</button></div>
+              {inputMode === "text" ? <>
+                <label>Tender title<input value={form.title} onChange={event => setForm({...form, title:event.target.value})} minLength={3} required /></label>
+                <label>Product description or technical requirement<textarea value={form.description} onChange={event => setForm({...form, description:event.target.value})} minLength={10} required /></label>
+              </> : <label className="file-drop"><input type="file" accept=".pdf,.docx,.xlsx,.txt" onChange={event => setSelectedFile(event.target.files?.[0] ?? null)} required /><UploadCloud size={27} /><strong>{selectedFile?.name ?? "Choose a tender document"}</strong><span>PDF, DOCX, XLSX or TXT · maximum 20 MB</span></label>}
               <div className="form-meta"><span><ShieldCheck size={15} /> Processed locally. Human review remains mandatory.</span><select value={form.language} onChange={event => setForm({...form, language:event.target.value})} aria-label="Input language"><option value="en">English</option><option value="hi">हिन्दी</option><option value="te">తెలుగు</option></select></div>
               {formError && <p className="form-error"><TriangleAlert size={14} /> {formError}</p>}
-              <div className="modal-actions"><button type="button" className="button-secondary" onClick={() => setAnalysisOpen(false)} disabled={submitting}>Cancel</button><button type="submit" className="button-primary" disabled={submitting}>{submitting ? <LoaderCircle className="animate-spin" size={16} /> : <Sparkles size={16} />}{submitting ? "Analysing…" : "Run verified search"}</button></div>
+              <div className="modal-actions"><button type="button" className="button-secondary" onClick={() => setAnalysisOpen(false)} disabled={submitting}>Cancel</button><button type="submit" className="button-primary" disabled={submitting || (inputMode === "file" && !selectedFile)}>{submitting ? <LoaderCircle className="animate-spin" size={16} /> : <Sparkles size={16} />}{submitting ? "Analysing…" : "Run verified search"}</button></div>
             </form>
           </section>
         </div>

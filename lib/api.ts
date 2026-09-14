@@ -50,3 +50,27 @@ export async function analyseTender(input: { title: string; description: string;
   }
   return response.json();
 }
+
+export async function analyseFile(file: File): Promise<AnalysisResult> {
+  const body = new FormData();
+  body.append("file", file);
+  const response = await fetch(`${API_URL}/tenders/upload/analyse`, { method: "POST", body });
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.detail ?? "The document could not be analysed.");
+  }
+  return response.json();
+}
+
+export async function saveReview(tenderId: number, decision: "approved" | "rejected" | "expert_review", note: string): Promise<void> {
+  const response = await fetch(`${API_URL}/tenders/${tenderId}/review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ decision, note }),
+  });
+  if (!response.ok) throw new Error("The review decision could not be saved.");
+}
+
+export function reportUrl(tenderId: number, format: "json" | "pdf" | "docx" | "xlsx" = "pdf"): string {
+  return `${API_URL}/tenders/${tenderId}/report/${format}`;
+}

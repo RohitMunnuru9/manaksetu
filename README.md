@@ -15,6 +15,10 @@ ManakSetu AI is an explainable, human-in-the-loop system for identifying applica
 - Deterministic QCO check that refuses mandatory claims from unverified records
 - JWT/Argon2 authentication foundation
 - Validated PDF, DOCX and TXT upload endpoint with size limits
+- Text extraction for digital PDF, DOCX, XLSX and TXT tenders
+- Scanned-document detection with a safe `ocr_required` handoff
+- Human review decisions and queryable audit history
+- Downloadable JSON, PDF, DOCX and XLSX recommendation reports
 - Alembic migration foundation
 - Optional Docker Compose profiles for Neo4j Community and Ollama
 - Pytest guardrail tests
@@ -79,3 +83,10 @@ backend/.venv/Scripts/python.exe -m pytest backend
 ## Safety boundary
 
 The local language model will be added only as an explanation and structured-extraction layer. It will never be allowed to invent standard numbers or decide certification status. A record must have verified metadata, an official source, and deterministic rule evidence before the API may present it as factual.
+
+## Prototype boundaries
+
+- Seeded catalogue entries are demonstration records, not Indian Standards.
+- PaddleOCR, BGE-M3, Neo4j traversal and Ollama are integration-ready next-stage services; they are not silently simulated.
+- Real BIS/QCO metadata must be imported only from permitted official sources and reviewed before its verification status is changed.
+- Target quality metrics in `prompt.txt` remain targets until evaluated against an expert-labelled dataset.

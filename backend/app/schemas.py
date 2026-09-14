@@ -69,3 +69,34 @@ class AnalysisResponse(BaseModel):
     recommendations: list[RecommendationRead]
     missing_requirements: list[str]
     guardrail_message: str | None = None
+
+
+class ReviewCreate(BaseModel):
+    decision: str = Field(pattern="^(approved|rejected|expert_review)$")
+    note: str = Field(default="", max_length=5_000)
+
+
+class ReviewRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    tender_id: int
+    decision: str
+    note: str
+    created_at: datetime
+
+
+class AuditRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    action: str
+    entity_type: str
+    entity_id: str
+    details: dict
+    created_at: datetime
+
+
+class DashboardStats(BaseModel):
+    total_tenders: int
+    pending_reviews: int
+    verified_standards: int
+    completed_reviews: int
