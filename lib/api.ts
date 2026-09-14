@@ -17,6 +17,9 @@ export type ApiRecommendation = {
   confidence_level: "high" | "medium" | "low";
   certification_required: boolean;
   qco_applicable: boolean;
+  qco_title: string | null;
+  qco_enforcement_date: string | null;
+  qco_source_url: string | null;
   human_review_required: boolean;
   warning: string | null;
 };

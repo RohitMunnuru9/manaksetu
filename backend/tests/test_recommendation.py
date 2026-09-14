@@ -42,6 +42,27 @@ def test_unverified_qco_never_creates_mandatory_claim() -> None:
     assert result["qco_applicable"] is False
 
 
+def test_verified_qco_honours_export_exemption() -> None:
+    db = make_db()
+    standard = Standard(official_title="Verified helmet standard", standard_number="IS TEST:2026", official_source_url="https://example.gov.in/standard", verification_status=VerificationStatus.verified)
+    db.add(standard)
+    db.flush()
+    db.add(QualityControlOrder(
+        title="Verified test order",
+        product_keyword="industrial safety helmet",
+        mandated_standard_id=standard.id,
+        enforcement_date=date.today() - timedelta(days=1),
+        official_source_url="https://example.gov.in/qco",
+        verification_status=VerificationStatus.verified,
+        exemptions=["goods manufactured for export"],
+    ))
+    db.commit()
+    domestic = evaluate_qco(db, "industrial safety helmet for construction", standard)
+    exported = evaluate_qco(db, "industrial safety helmet manufactured for export", standard)
+    assert domestic["certification_required"] is True
+    assert exported["certification_required"] is False
+
+
 def test_requirement_gap_detection() -> None:
     gaps = missing_requirements("Purchase helmets for workers")
     assert "Measurable acceptance or test criteria" in gaps

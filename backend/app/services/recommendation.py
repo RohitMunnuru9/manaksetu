@@ -50,7 +50,9 @@ def evaluate_qco(db: Session, product_text: str, standard: Standard, on_date: da
         keyword_match = qco.product_keyword.lower() in product_text.lower()
         enforceable = qco.enforcement_date <= today
         verified = qco.verification_status == VerificationStatus.verified
-        if keyword_match and enforceable and verified:
+        lowered = product_text.lower()
+        export_exemption = any(term in lowered for term in ("for export", "export order", "manufactured for export"))
+        if keyword_match and enforceable and verified and not export_exemption:
             return {"qco_applicable": True, "certification_required": True, "qco": qco}
     return {"qco_applicable": False, "certification_required": False, "qco": None}
 

@@ -2,7 +2,7 @@
 
 ManakSetu AI is an explainable, human-in-the-loop system for identifying applicable Indian Standards in public procurement. It retrieves candidates from controlled records, checks deterministic regulatory rules, exposes evidence status, and keeps the final decision with an authorised reviewer.
 
-> The included seed records are explicitly marked `demo`. They have no IS number or official source and must never be cited in a tender.
+> Seed records carry an explicit `demo` or `verified` status. Demo records have no IS number or official source and must never be cited in a tender.
 
 ## Implemented MVP foundation
 
@@ -13,6 +13,7 @@ ManakSetu AI is an explainable, human-in-the-loop system for identifying applica
 - PostgreSQL/pgvector Docker service with SQLite development fallback
 - Keyword candidate ranking and tender-gap detection
 - Deterministic QCO check that refuses mandatory claims from unverified records
+- Source-traceable IS 2925:1984 public metadata and its 2023 helmet QCO from official BIS sources
 - JWT/Argon2 authentication foundation
 - Validated PDF, DOCX and TXT upload endpoint with size limits
 - Text extraction for digital PDF, DOCX, XLSX and TXT tenders
@@ -86,7 +87,8 @@ The local language model will be added only as an explanation and structured-ext
 
 ## Prototype boundaries
 
-- Seeded catalogue entries are demonstration records, not Indian Standards.
+- Most seeded catalogue entries are demonstration records, not Indian Standards.
+- The safety-helmet category includes one separately marked verified public-metadata record; its source URLs, content hash and check date are stored with the record.
 - PaddleOCR, BGE-M3, Neo4j traversal and Ollama are integration-ready next-stage services; they are not silently simulated.
 - Real BIS/QCO metadata must be imported only from permitted official sources and reviewed before its verification status is changed.
 - Target quality metrics in `prompt.txt` remain targets until evaluated against an expert-labelled dataset.

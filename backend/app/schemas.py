@@ -60,6 +60,9 @@ class RecommendationRead(BaseModel):
     confidence_level: str
     certification_required: bool
     qco_applicable: bool
+    qco_title: str | None = None
+    qco_enforcement_date: date | None = None
+    qco_source_url: str | None = None
     human_review_required: bool
     warning: str | None = None
 

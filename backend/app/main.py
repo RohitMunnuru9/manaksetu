@@ -103,6 +103,9 @@ def run_analysis(db: Session, tender: Tender) -> AnalysisResponse:
             confidence_level=confidence_level(score),
             certification_required=qco["certification_required"],
             qco_applicable=qco["qco_applicable"],
+            qco_title=qco["qco"].title if qco["qco"] else None,
+            qco_enforcement_date=qco["qco"].enforcement_date if qco["qco"] else None,
+            qco_source_url=qco["qco"].official_source_url if qco["qco"] else None,
             human_review_required=True,
             warning=warning,
         ))
@@ -128,6 +131,9 @@ def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
             confidence_level=confidence_level(item.confidence_score),
             certification_required=qco["certification_required"],
             qco_applicable=qco["qco_applicable"],
+            qco_title=qco["qco"].title if qco["qco"] else None,
+            qco_enforcement_date=qco["qco"].enforcement_date if qco["qco"] else None,
+            qco_source_url=qco["qco"].official_source_url if qco["qco"] else None,
             human_review_required=item.human_review_required,
             warning=None if verified else "Demonstration or unverified record. Do not cite in a tender.",
         ))

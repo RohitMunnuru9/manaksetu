@@ -217,7 +217,7 @@ export default function Home() {
           </div>
 
           <div className="demo-banner">
-            <div className="flex items-center gap-2.5"><Sparkles size={15} /><span><strong>Prototype workspace</strong> — all standard names and references below are illustrative placeholders, not verified BIS records.</span></div>
+            <div className="flex items-center gap-2.5"><Sparkles size={15} /><span><strong>Prototype workspace</strong> — check each result’s verification badge and official evidence before use.</span></div>
             <button onClick={() => notify("About demo data: no factual standard claims are shown")}>About demo data</button>
           </div>
 
@@ -267,14 +267,14 @@ export default function Home() {
                           <div className="flex flex-wrap items-center gap-2"><span className="type-chip primary">{primary?.standard_type ?? "Primary standard"}</span><span className="type-chip current"><Check size={11} /> {primary?.standard.status ?? "Current"}</span><span className="type-chip demo">{primary?.standard.verification_status ?? "Demo ID"}</span></div>
                           <div className="mt-3 flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
                             <div><p className="text-xs font-bold tracking-[.08em] text-pine">{primary?.standard.standard_number ?? "VERIFICATION PENDING"}</p><h4 className="mt-1 text-[17px] font-semibold tracking-[-.02em]">{primary?.standard.official_title ?? "Industrial safety helmets — specification"}</h4></div>
-                            <button className="link-button" onClick={() => notify("Official evidence viewer opened in demo mode")}><Link2 size={14} /> Evidence</button>
+                            <button className="link-button" onClick={() => primary?.standard.official_source_url ? window.open(primary.standard.official_source_url, "_blank", "noopener,noreferrer") : notify("No official evidence exists for this demo record")}><Link2 size={14} /> Evidence</button>
                           </div>
                           <p className="mt-3 text-[13px] leading-6 text-[#64726b]">{primary?.reason_for_recommendation ?? "Directly matches the specified product and intended construction-site use. Final applicability must be confirmed against the official BIS catalogue."}</p>
                           <div className="mt-4 flex flex-wrap gap-2">{(primary?.matched_requirements ?? ["Impact protection", "Shell material", "Worksite use"]).map(item => <span className="match-chip" key={item}>{item}</span>)}</div>
                           <div className="mt-5 grid gap-4 border-t border-[#e8ece8] pt-4 sm:grid-cols-3">
-                            <div><p className="meta-label">Source status</p><p className="meta-value"><ShieldCheck size={13} /> Verification required</p></div>
+                            <div><p className="meta-label">Source status</p><p className="meta-value"><ShieldCheck size={13} /> {primary?.standard.verification_status === "verified" ? "BIS source verified" : "Verification required"}</p></div>
                             <div><p className="meta-label">Last checked</p><p className="meta-value"><Clock3 size={13} /> Demo record</p></div>
-                            <div><p className="meta-label">Human review</p><p className="meta-value text-[#9b651c]"><UserRound size={13} /> Required</p></div>
+                            <div><p className="meta-label">Certification</p><p className="meta-value text-[#9b651c]"><UserRound size={13} /> {primary?.certification_required ? "Required by verified QCO" : "Review required"}</p></div>
                           </div>
                         </div>
                       </div>
