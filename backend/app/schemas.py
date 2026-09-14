@@ -1,0 +1,71 @@
+from datetime import date, datetime
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from .models import StandardStatus, VerificationStatus
+
+
+class HealthResponse(BaseModel):
+    status: str
+    service: str
+    database: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class TenderCreate(BaseModel):
+    title: str = Field(min_length=3, max_length=300)
+    description: str = Field(min_length=10, max_length=50_000)
+    language: str = Field(default="en", max_length=20)
+
+
+class TenderRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    reference: str
+    title: str
+    status: str
+    language: str
+    filename: str | None
+    created_at: datetime
+
+
+class StandardRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    standard_number: str | None
+    official_title: str
+    scope_summary: str
+    publication_year: int | None
+    status: StandardStatus
+    official_source_url: str | None
+    last_checked_date: date | None
+    verification_status: VerificationStatus
+
+
+class RecommendationRead(BaseModel):
+    standard: StandardRead
+    standard_type: str
+    reason_for_recommendation: str
+    matched_requirements: list[str]
+    confidence_score: float
+    confidence_level: str
+    certification_required: bool
+    qco_applicable: bool
+    human_review_required: bool
+    warning: str | None = None
+
+
+class AnalysisResponse(BaseModel):
+    tender: TenderRead
+    recommendations: list[RecommendationRead]
+    missing_requirements: list[str]
+    guardrail_message: str | None = None

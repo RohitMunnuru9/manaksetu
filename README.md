@@ -1,29 +1,81 @@
 # ManakSetu AI
 
-An explainable, human-in-the-loop interface for reviewing Indian Standards recommendations in public procurement.
+ManakSetu AI is an explainable, human-in-the-loop system for identifying applicable Indian Standards in public procurement. It retrieves candidates from controlled records, checks deterministic regulatory rules, exposes evidence status, and keeps the final decision with an authorised reviewer.
 
-## Frontend MVP
+> The included seed records are explicitly marked `demo`. They have no IS number or official source and must never be cited in a tender.
 
-- Next.js 15, React 19, TypeScript and Tailwind CSS
-- Responsive procurement dashboard
-- Recommendation, requirement and tender-gap review views
-- Confidence, evidence, audit-trail and human-decision interactions
-- Explicit prototype labeling for unverified demonstration data
+## Implemented MVP foundation
 
-## Run locally
+- Next.js 15, React 19, TypeScript and Tailwind CSS frontend
+- Responsive analysis dashboard and live tender-submission workflow
+- FastAPI and Pydantic API with OpenAPI documentation
+- SQLAlchemy schema for users, categories, standards, QCOs, tenders, recommendations and audit logs
+- PostgreSQL/pgvector Docker service with SQLite development fallback
+- Keyword candidate ranking and tender-gap detection
+- Deterministic QCO check that refuses mandatory claims from unverified records
+- JWT/Argon2 authentication foundation
+- Validated PDF, DOCX and TXT upload endpoint with size limits
+- Alembic migration foundation
+- Optional Docker Compose profiles for Neo4j Community and Ollama
+- Pytest guardrail tests
 
-```bash
-npm install
-npm run dev
+## Repository structure
+
+```text
+app/                    Next.js application
+lib/api.ts              Typed frontend API client
+backend/app/            FastAPI application and domain services
+backend/alembic/        Database migrations
+backend/tests/          Backend tests
+compose.yaml            Local PostgreSQL, API and frontend stack
+prompt.txt              Complete product source of truth
 ```
 
-Open `http://localhost:3000`.
+## Run with Docker Compose
 
-## Production build
+Docker Desktop is the recommended full-stack path:
 
 ```bash
-npm run build
-npm start
+docker compose up --build
 ```
 
-This repository currently contains the frontend foundation. Backend APIs, verified standards data, authentication and report generation will be connected in subsequent phases.
+- Frontend: `http://localhost:3000`
+- API: `http://localhost:8000`
+- OpenAPI: `http://localhost:8000/docs`
+
+Optional local services remain off by default to keep laptop requirements manageable:
+
+```bash
+docker compose --profile graph --profile ai up --build
+```
+
+## Run without Docker
+
+Frontend:
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Backend on Windows PowerShell:
+
+```powershell
+python -m venv backend/.venv
+backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
+Set-Location backend
+.venv/Scripts/python.exe -m uvicorn app.main:app --reload
+```
+
+The backend defaults to a local SQLite file when `DATABASE_URL` is absent. Copy `backend/.env.example` to `backend/.env` and change its values to use PostgreSQL outside Docker.
+
+## Verify
+
+```bash
+pnpm build
+backend/.venv/Scripts/python.exe -m pytest backend
+```
+
+## Safety boundary
+
+The local language model will be added only as an explanation and structured-extraction layer. It will never be allowed to invent standard numbers or decide certification status. A record must have verified metadata, an official source, and deterministic rule evidence before the API may present it as factual.

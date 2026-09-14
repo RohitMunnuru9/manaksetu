@@ -4,6 +4,11 @@ node_modules/
 out/
 .env*
 !.env.example
+backend/.venv/
+backend/*.db
+backend/data/
+__pycache__/
+.pytest_cache/
 npm-debug.log*
 *.tsbuildinfo
 .DS_Store
