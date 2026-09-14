@@ -46,6 +46,10 @@ export type AnalysisResult = {
   guardrail_message: string | null;
 };
 
+export type TenderSummary = AnalysisResult["tender"];
+export type AuditEntry = { id: number; action: string; entity_type: string; entity_id: string; details: Record<string, unknown>; created_at: string };
+export type DashboardStats = { total_tenders: number; pending_reviews: number; verified_standards: number; completed_reviews: number };
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
 export async function analyseTender(input: { title: string; description: string; language: string }): Promise<AnalysisResult> {
@@ -84,3 +88,18 @@ export async function saveReview(tenderId: number, decision: "approved" | "rejec
 export function reportUrl(tenderId: number, format: "json" | "pdf" | "docx" | "xlsx" = "pdf"): string {
   return `${API_URL}/tenders/${tenderId}/report/${format}`;
 }
+
+async function getJson<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`);
+  if (!response.ok) throw new Error("The requested data could not be loaded.");
+  return response.json();
+}
+
+export const getLatestAnalysis = async (): Promise<AnalysisResult | null> => {
+  const tenders = await getJson<TenderSummary[]>("/tenders");
+  return tenders.length ? getJson<AnalysisResult>(`/tenders/${tenders[0].id}`) : null;
+};
+
+export const getStandards = (query = "") => getJson<ApiStandard[]>(`/standards${query ? `?q=${encodeURIComponent(query)}` : ""}`);
+export const getAuditHistory = () => getJson<AuditEntry[]>("/audit");
+export const getDashboardStats = () => getJson<DashboardStats>("/dashboard");

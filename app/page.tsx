@@ -33,15 +33,18 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useState } from "react";
-import { analyseFile, analyseTender, reportUrl, saveReview, type AnalysisResult } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { analyseFile, analyseTender, getAuditHistory, getDashboardStats, getLatestAnalysis, getStandards, reportUrl, saveReview, type AnalysisResult, type ApiStandard, type AuditEntry, type DashboardStats } from "@/lib/api";
 
 type NavItemProps = {
   icon: React.ElementType;
   label: string;
   active?: boolean;
   badge?: string;
+  onClick?: () => void;
 };
+
+type Overlay = "standards" | "audit" | "reports" | "overview" | "team" | "settings" | "notifications" | "search" | "profile" | "about" | null;
 
 const stages = [
   { name: "Document read", detail: "18 sections indexed", status: "done" },
@@ -57,9 +60,9 @@ const requirements = [
   ["Material", "High-impact shell"],
 ];
 
-function NavItem({ icon: Icon, label, active, badge }: NavItemProps) {
+function NavItem({ icon: Icon, label, active, badge, onClick }: NavItemProps) {
   return (
-    <button className={`nav-item ${active ? "active" : ""}`}>
+    <button className={`nav-item ${active ? "active" : ""}`} onClick={onClick}>
       <Icon size={18} strokeWidth={active ? 2.3 : 1.8} />
       <span>{label}</span>
       {badge && <span className="nav-badge">{badge}</span>}
@@ -95,6 +98,14 @@ export default function Home() {
   const [inputMode, setInputMode] = useState<"text" | "file">("text");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [reviewNote, setReviewNote] = useState("");
+  const [overlay, setOverlay] = useState<Overlay>(null);
+  const [standards, setStandards] = useState<ApiStandard[]>([]);
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loadingOverlay, setLoadingOverlay] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<"all" | "verified" | "demo">("all");
+  const [detailsOpen, setDetailsOpen] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "Construction safety helmets",
     description: "Purchase 1,000 industrial safety helmets for construction workers with impact testing and permanent marking.",
@@ -104,6 +115,31 @@ export default function Home() {
   const notify = (message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(""), 2600);
+  };
+
+  useEffect(() => {
+    getLatestAnalysis().then(result => result && setAnalysis(result)).catch(() => notify("Backend unavailable — showing demonstration data"));
+  }, []);
+
+  const openWorkspace = async (next: Overlay) => {
+    setOverlay(next);
+    setSidebarOpen(false);
+    setLoadingOverlay(true);
+    try {
+      if (next === "standards" || next === "search") setStandards(await getStandards(searchQuery));
+      if (next === "audit") setAuditEntries(await getAuditHistory());
+      if (next === "overview") setDashboardStats(await getDashboardStats());
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Could not load workspace data");
+    } finally {
+      setLoadingOverlay(false);
+    }
+  };
+
+  const searchStandards = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoadingOverlay(true);
+    try { setStandards(await getStandards(searchQuery)); } finally { setLoadingOverlay(false); }
   };
 
   const submitAnalysis = async (event: React.FormEvent) => {
@@ -128,6 +164,21 @@ export default function Home() {
   const displayedRequirements = analysis?.extracted_requirements.length ? analysis.extracted_requirements.map(item => [item.requirement_type.replaceAll("_", " "), item.value]) : requirements;
   const recommendationCount = analysis?.recommendations.length ?? 4;
   const gapCount = analysis?.missing_requirements.length ?? 3;
+  const filteredStandards = standards.filter(item => typeFilter === "all" || item.verification_status === typeFilter);
+  const showPrimaryRecommendation = typeFilter === "all" || (primary?.standard.verification_status ?? "demo") === typeFilter;
+  const showDemoRecommendations = typeFilter === "all" || typeFilter === "demo";
+  const overlayTitle: Record<Exclude<Overlay, null>, string> = {
+    standards: "Standards library",
+    audit: "Audit history",
+    reports: "Export centre",
+    overview: "Workspace overview",
+    team: "Team members",
+    settings: "Workspace settings",
+    notifications: "Notifications",
+    search: "Search standards",
+    profile: "Your profile",
+    about: "About this prototype",
+  };
   const exportReport = () => {
     if (!analysis) {
       notify("Run an analysis first to generate a real report");
@@ -149,6 +200,25 @@ export default function Home() {
     }
   };
 
+  const requestExpertReview = async () => {
+    if (!analysis) {
+      notify("Run an analysis before requesting expert review");
+      return;
+    }
+    try {
+      await saveReview(analysis.tender.id, "expert_review", reviewNote || "Expert review requested from dashboard");
+      notify("Expert review request saved to the audit trail");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Expert review could not be requested");
+    }
+  };
+
+  const prepareGapCorrection = (title: string) => {
+    setReviewNote(`Correction required: ${title}. `);
+    document.querySelector(".review-note")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => document.querySelector<HTMLTextAreaElement>(".review-note")?.focus(), 450);
+  };
+
   return (
     <main className="min-h-screen bg-mist text-ink">
       <div className="noise" />
@@ -160,28 +230,28 @@ export default function Home() {
           </div>
 
           <nav className="space-y-1 px-3">
-            <NavItem icon={LayoutDashboard} label="Overview" />
-            <NavItem icon={FileSearch} label="Tender analysis" active />
-            <NavItem icon={BookOpenCheck} label="Standards library" />
-            <NavItem icon={FileCheck2} label="Reports" />
-            <NavItem icon={History} label="Audit history" />
+            <NavItem icon={LayoutDashboard} label="Overview" onClick={() => openWorkspace("overview")} />
+            <NavItem icon={FileSearch} label="Tender analysis" active onClick={() => { setOverlay(null); setSidebarOpen(false); window.scrollTo({top:0,behavior:"smooth"}); }} />
+            <NavItem icon={BookOpenCheck} label="Standards library" onClick={() => openWorkspace("standards")} />
+            <NavItem icon={FileCheck2} label="Reports" onClick={() => openWorkspace("reports")} />
+            <NavItem icon={History} label="Audit history" onClick={() => openWorkspace("audit")} />
           </nav>
 
           <div className="mx-6 my-6 h-px bg-white/[.08]" />
           <p className="px-6 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Workspace</p>
           <nav className="space-y-1 px-3">
-            <NavItem icon={MessageSquareText} label="Review queue" badge="3" />
-            <NavItem icon={UserRound} label="Team members" />
-            <NavItem icon={Settings} label="Settings" />
+            <NavItem icon={MessageSquareText} label="Review queue" badge={String(gapCount)} onClick={() => { setSidebarOpen(false); document.querySelector(".review-note")?.scrollIntoView({behavior:"smooth",block:"center"}); }} />
+            <NavItem icon={UserRound} label="Team members" onClick={() => openWorkspace("team")} />
+            <NavItem icon={Settings} label="Settings" onClick={() => openWorkspace("settings")} />
           </nav>
 
           <div className="mt-auto p-4">
             <div className="support-card">
               <div className="flex items-center gap-2 text-white"><CircleHelp size={16} /><span className="text-xs font-semibold">Need an expert?</span></div>
               <p className="mt-2 text-[11px] leading-relaxed text-white/50">Flag uncertain results for standards-team review.</p>
-              <button onClick={() => notify("Review request added to the queue")}>Request review <ArrowRight size={12} /></button>
+              <button onClick={requestExpertReview}>Request review <ArrowRight size={12} /></button>
             </div>
-            <button className="mt-4 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-white/5">
+            <button className="mt-4 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-white/5" onClick={() => openWorkspace("profile")}>
               <span className="grid h-9 w-9 place-items-center rounded-full bg-saffron text-xs font-bold text-pine">AR</span>
               <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold text-white">Ananya Rao</span><span className="block text-[10px] text-white/40">Procurement officer</span></span>
               <MoreHorizontal className="text-white/30" size={17} />
@@ -197,10 +267,10 @@ export default function Home() {
           <button className="lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open navigation"><Menu size={21} /></button>
           <div className="hidden items-center gap-2 text-xs text-[#6f7d76] sm:flex"><span>Procurement workspace</span><span>/</span><span className="font-semibold text-ink">Tender analysis</span></div>
           <div className="ml-auto flex items-center gap-2">
-            <button className="icon-button" aria-label="Search"><Search size={18} /></button>
-            <button className="icon-button relative" aria-label="Notifications"><Bell size={18} /><span className="notification-dot" /></button>
+            <button className="icon-button" aria-label="Search" onClick={() => openWorkspace("search")}><Search size={18} /></button>
+            <button className="icon-button relative" aria-label="Notifications" onClick={() => openWorkspace("notifications")}><Bell size={18} /><span className="notification-dot" /></button>
             <div className="mx-1 h-5 w-px bg-[#d9dfda]" />
-            <button className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-xs font-semibold hover:bg-black/[.03]"><Globe2 size={16} /> EN <ChevronDown size={13} /></button>
+            <button className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-xs font-semibold hover:bg-black/[.03]" onClick={() => notify("Language selection is available in New analysis")}><Globe2 size={16} /> EN <ChevronDown size={13} /></button>
           </div>
         </header>
 
@@ -219,7 +289,7 @@ export default function Home() {
 
           <div className="demo-banner">
             <div className="flex items-center gap-2.5"><Sparkles size={15} /><span><strong>Prototype workspace</strong> — check each result’s verification badge and official evidence before use.</span></div>
-            <button onClick={() => notify("About demo data: no factual standard claims are shown")}>About demo data</button>
+            <button onClick={() => openWorkspace("about")}>About demo data</button>
           </div>
 
           <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.62fr)_minmax(320px,.72fr)]">
@@ -235,7 +305,7 @@ export default function Home() {
                         <p className="mt-1 text-xs text-white/45">{analysis ? "Text submission · Processed just now" : "24 pages · Uploaded 14 Sep 2026, 10:42 AM"}</p>
                       </div>
                     </div>
-                    <button className="shrink-0 rounded-xl border border-white/10 p-2 text-white/60 transition hover:bg-white/10 hover:text-white" aria-label="More actions"><MoreHorizontal size={20} /></button>
+                    <button className="shrink-0 rounded-xl border border-white/10 p-2 text-white/60 transition hover:bg-white/10 hover:text-white" aria-label="More actions" onClick={() => openWorkspace("reports")}><MoreHorizontal size={20} /></button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-5 sm:grid-cols-4 sm:gap-3">
@@ -258,10 +328,10 @@ export default function Home() {
                   <div className="p-4 sm:p-6">
                     <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                       <div><h3 className="section-title">Verified recommendation set</h3><p className="section-subtitle">Ranked using relevance, product fit, graph links and rules.</p></div>
-                      <button className="filter-button">All types <ChevronDown size={14} /></button>
+                      <select className="filter-button" value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)} aria-label="Filter recommendation type"><option value="all">All types</option><option value="verified">Verified only</option><option value="demo">Demo only</option></select>
                     </div>
 
-                    <article className="recommendation-card featured">
+                    {showPrimaryRecommendation && <article className="recommendation-card featured">
                       <div className="flex flex-col gap-5 sm:flex-row">
                         <div className="confidence-ring"><div><strong>{primary ? Math.round(primary.confidence_score * 100) : 94}</strong><span>%</span></div><small>Confidence</small></div>
                         <div className="min-w-0 flex-1">
@@ -279,24 +349,28 @@ export default function Home() {
                           </div>
                         </div>
                       </div>
-                    </article>
+                    </article>}
 
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {showDemoRecommendations && <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       <article className="compact-rec">
                         <div className="flex items-start justify-between"><span className="type-chip test">Test method</span><span className="score">87%</span></div>
                         <p className="mt-4 text-xs font-bold tracking-[.08em] text-pine">IS YYYY : 20XX</p><h4 className="mt-1 text-sm font-semibold leading-5">Protective equipment — impact testing</h4>
                         <p className="mt-3 text-xs leading-5 text-[#708078]">Supports verification of the impact-resistance requirement.</p>
-                        <button onClick={() => notify("Candidate details opened")}>View rationale <ArrowRight size={13} /></button>
+                        <button onClick={() => setDetailsOpen(detailsOpen === "test" ? null : "test")}>View rationale <ArrowRight size={13} /></button>
+                        {detailsOpen === "test" && <div className="rationale-detail">This supporting candidate maps to the tender’s impact-test requirement. Confirm the method and acceptance thresholds against an official source before use.</div>}
                       </article>
                       <article className="compact-rec">
                         <div className="flex items-start justify-between"><span className="type-chip safety">Safety / marking</span><span className="score medium">79%</span></div>
                         <p className="mt-4 text-xs font-bold tracking-[.08em] text-pine">IS ZZZZ : 20XX</p><h4 className="mt-1 text-sm font-semibold leading-5">Safety marking and user information</h4>
                         <p className="mt-3 text-xs leading-5 text-[#708078]">Potentially relevant to permanent marking and instructions.</p>
-                        <button onClick={() => notify("Candidate details opened")}>View rationale <ArrowRight size={13} /></button>
+                        <button onClick={() => setDetailsOpen(detailsOpen === "safety" ? null : "safety")}>View rationale <ArrowRight size={13} /></button>
+                        {detailsOpen === "safety" && <div className="rationale-detail">This allied candidate covers permanent product marking and user-information clauses. It remains illustrative until an official catalogue record is linked.</div>}
                       </article>
-                    </div>
+                    </div>}
 
-                    <button className="show-more" onClick={() => notify("1 allied candidate shown in full product")}>Show 1 more allied standard <ChevronDown size={14} /></button>
+                    {!showPrimaryRecommendation && !showDemoRecommendations && <div className="workspace-empty mt-3"><FileSearch size={25} /><strong>No recommendations match this filter</strong><span>Choose another verification state to see candidates.</span></div>}
+
+                    <button className="show-more" onClick={() => openWorkspace("standards")}>Browse all standards <ArrowRight size={14} /></button>
                   </div>
                 )}
 
@@ -312,7 +386,7 @@ export default function Home() {
                   <div className="p-5 sm:p-7">
                     <h3 className="section-title">Tender quality gaps</h3><p className="section-subtitle">Resolve these items before approving the recommendation set.</p>
                     <div className="mt-5 space-y-3">
-                      {(analysis?.missing_requirements.map(item => ["Missing", item, "Add a measurable, reviewable requirement before approval."]) ?? [['Missing', 'Impact-test acceptance criteria', 'Add measurable thresholds and the applicable verified test method.'], ['Ambiguous', 'Service-temperature range', 'Specify the minimum and maximum operating temperatures.'], ['Review', 'Certification clause', 'Confirm applicability through the deterministic QCO rule check.']]).map(([tag, title, desc], i) => <div className="gap-row" key={title}><span className={`gap-icon g${i}`}><TriangleAlert size={17} /></span><div><div className="flex items-center gap-2"><h4>{title}</h4><span>{tag}</span></div><p>{desc}</p></div><button onClick={() => notify(`Opening correction for: ${title}`)}><ArrowRight size={16} /></button></div>)}
+                      {(analysis?.missing_requirements.map(item => ["Missing", item, "Add a measurable, reviewable requirement before approval."]) ?? [['Missing', 'Impact-test acceptance criteria', 'Add measurable thresholds and the applicable verified test method.'], ['Ambiguous', 'Service-temperature range', 'Specify the minimum and maximum operating temperatures.'], ['Review', 'Certification clause', 'Confirm applicability through the deterministic QCO rule check.']]).map(([tag, title, desc], i) => <div className="gap-row" key={title}><span className={`gap-icon g${i}`}><TriangleAlert size={17} /></span><div><div className="flex items-center gap-2"><h4>{title}</h4><span>{tag}</span></div><p>{desc}</p></div><button onClick={() => prepareGapCorrection(title)} aria-label={`Add correction note for ${title}`}><ArrowRight size={16} /></button></div>)}
                     </div>
                   </div>
                 )}
@@ -325,7 +399,7 @@ export default function Home() {
                 <div className="mt-6 space-y-0">
                   {stages.map((stage, index) => <div className="timeline" key={stage.name}><div className="timeline-track"><span className={stage.status}>{stage.status === 'done' ? <Check size={12} /> : index + 1}</span>{index < stages.length - 1 && <i />}</div><div className="pb-6"><p>{stage.name}</p><small>{stage.detail}</small></div></div>)}
                 </div>
-                <button className="audit-link" onClick={() => notify("Audit trail opened")}>View full audit trail <ArrowRight size={14} /></button>
+                <button className="audit-link" onClick={() => openWorkspace("audit")}>View full audit trail <ArrowRight size={14} /></button>
               </section>
 
               <section className="panel overflow-hidden animate-fade-up [animation-delay:240ms]">
@@ -339,7 +413,7 @@ export default function Home() {
                       <label className="mt-5 block text-[11px] font-semibold uppercase tracking-[.12em] text-[#6d7a73]">Reviewer note</label>
                       <textarea className="review-note" placeholder="Add context for your decision…" value={reviewNote} onChange={event => setReviewNote(event.target.value)} />
                       <button className="approve-button" onClick={approveReview}><CheckCircle2 size={17} /> Approve for report</button>
-                      <button className="flag-button" onClick={() => notify("Recommendation set flagged for expert review")}><Flag size={15} /> Flag for expert review</button>
+                      <button className="flag-button" onClick={requestExpertReview}><Flag size={15} /> Flag for expert review</button>
                     </>
                   )}
                 </div>
@@ -353,6 +427,82 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {overlay && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setOverlay(null)}>
+          <section className="workspace-modal" role="dialog" aria-modal="true" aria-labelledby="workspace-title" onMouseDown={event => event.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-icon">{overlay === "standards" || overlay === "search" ? <BookOpenCheck size={21} /> : overlay === "audit" ? <History size={21} /> : overlay === "reports" ? <FileCheck2 size={21} /> : <LayoutDashboard size={21} />}</div>
+              <div><p className="eyebrow">ManakSetu workspace</p><h2 id="workspace-title">{overlayTitle[overlay]}</h2></div>
+              <button onClick={() => setOverlay(null)} aria-label="Close workspace panel"><X size={19} /></button>
+            </div>
+            <div className="workspace-body">
+              {loadingOverlay && <div className="workspace-loading"><LoaderCircle className="animate-spin" size={22} /> Loading live workspace data…</div>}
+
+              {!loadingOverlay && (overlay === "standards" || overlay === "search") && (
+                <>
+                  <form className="workspace-search" onSubmit={searchStandards}>
+                    <Search size={17} />
+                    <input value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Search by standard number, title, or scope" autoFocus={overlay === "search"} />
+                    <button type="submit">Search</button>
+                  </form>
+                  <div className="workspace-toolbar">
+                    <span>{filteredStandards.length} records</span>
+                    <select value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)}><option value="all">All records</option><option value="verified">Verified only</option><option value="demo">Demo only</option></select>
+                  </div>
+                  <div className="workspace-list">
+                    {filteredStandards.map(item => <article className="workspace-row" key={item.id}>
+                      <div className="workspace-row-icon"><ShieldCheck size={17} /></div>
+                      <div><div className="flex flex-wrap items-center gap-2"><strong>{item.standard_number ?? "Verification pending"}</strong><span className={`record-status ${item.verification_status}`}>{item.verification_status}</span></div><h3>{item.official_title}</h3><p>{item.scope_summary}</p></div>
+                      {item.official_source_url ? <button className="row-action" onClick={() => window.open(item.official_source_url!, "_blank", "noopener,noreferrer")} aria-label={`Open official source for ${item.official_title}`}><Link2 size={16} /></button> : <span className="row-action muted"><TriangleAlert size={16} /></span>}
+                    </article>)}
+                    {!filteredStandards.length && <div className="workspace-empty"><FileSearch size={25} /><strong>No matching standards</strong><span>Try a broader term or change the verification filter.</span></div>}
+                  </div>
+                </>
+              )}
+
+              {!loadingOverlay && overlay === "audit" && <div className="workspace-list">
+                {auditEntries.map(entry => <article className="audit-entry" key={entry.id}><span><Check size={13} /></span><div><strong>{entry.action.replaceAll("_", " ")}</strong><p>{entry.entity_type} · {entry.entity_id}</p><time>{new Date(entry.created_at).toLocaleString()}</time></div></article>)}
+                {!auditEntries.length && <div className="workspace-empty"><History size={25} /><strong>No audit events yet</strong><span>Analyse a tender or record a review decision to create one.</span></div>}
+              </div>}
+
+              {!loadingOverlay && overlay === "reports" && <>
+                <p className="workspace-intro">Download the current analysis in the format your review team needs. Every export is generated by the local API.</p>
+                <div className="report-grid">
+                  {([['pdf','PDF review pack','Presentation-ready report'],['docx','Editable DOCX','Continue drafting in Word'],['xlsx','Evidence workbook','Inspect structured evidence'],['json','JSON record','Use with another system']] as const).map(([format,title,description]) => <button key={format} onClick={() => analysis ? window.open(reportUrl(analysis.tender.id, format), "_blank", "noopener,noreferrer") : notify("Run an analysis before exporting")}><FileText size={21} /><span><strong>{title}</strong><small>{description}</small></span><ArrowRight size={16} /></button>)}
+                </div>
+                {!analysis && <p className="workspace-callout"><TriangleAlert size={15} /> No analysis is loaded. Close this panel and choose New analysis first.</p>}
+              </>}
+
+              {!loadingOverlay && overlay === "overview" && <>
+                <div className="stat-grid">
+                  <div><span>Total tenders</span><strong>{dashboardStats?.total_tenders ?? 0}</strong></div><div><span>Pending reviews</span><strong>{dashboardStats?.pending_reviews ?? 0}</strong></div><div><span>Verified standards</span><strong>{dashboardStats?.verified_standards ?? 0}</strong></div><div><span>Completed reviews</span><strong>{dashboardStats?.completed_reviews ?? 0}</strong></div>
+                </div>
+                <p className="workspace-intro">This overview is calculated from the local application database and updates after analyses and review decisions.</p>
+              </>}
+
+              {!loadingOverlay && overlay === "team" && <div className="workspace-list">
+                {[['AR','Ananya Rao','Procurement officer'],['VS','Vikram Shah','Standards reviewer'],['MK','Meera Kapoor','Compliance lead']].map(([initials,name,role]) => <article className="member-row" key={name}><span>{initials}</span><div><strong>{name}</strong><p>{role}</p></div><i>Active</i></article>)}
+              </div>}
+
+              {!loadingOverlay && overlay === "settings" && <div className="settings-list">
+                <label><span><strong>Require human approval</strong><small>Block final reports until an officer records a decision.</small></span><input type="checkbox" defaultChecked /></label>
+                <label><span><strong>Official evidence only</strong><small>Prefer verified catalogue records over demonstration records.</small></span><input type="checkbox" defaultChecked /></label>
+                <label><span><strong>Audit notifications</strong><small>Show an alert when a review state changes.</small></span><input type="checkbox" defaultChecked /></label>
+              </div>}
+
+              {!loadingOverlay && overlay === "notifications" && <div className="workspace-list">
+                <article className="notice-row"><span><TriangleAlert size={16} /></span><div><strong>{gapCount} tender gaps need review</strong><p>Open the Tender gaps tab to prepare correction notes.</p></div></article>
+                <article className="notice-row success"><span><CheckCircle2 size={16} /></span><div><strong>Analysis service is ready</strong><p>Document extraction and standards matching are available locally.</p></div></article>
+              </div>}
+
+              {!loadingOverlay && overlay === "profile" && <div className="profile-card"><span>AR</span><h3>Ananya Rao</h3><p>Procurement officer · ManakSetu demonstration workspace</p><div><ShieldCheck size={16} /> Authorised reviewer</div></div>}
+
+              {!loadingOverlay && overlay === "about" && <div className="about-copy"><ShieldCheck size={32} /><h3>Evidence before confidence</h3><p>ManakSetu separates verified official records from demonstration data. A high matching score never turns an unverified identifier into a fact.</p><p>Look for the <strong>verified</strong> badge and follow the source link before using a recommendation in procurement.</p></div>}
+            </div>
+          </section>
+        </div>
+      )}
 
       {analysisOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => !submitting && setAnalysisOpen(false)}>

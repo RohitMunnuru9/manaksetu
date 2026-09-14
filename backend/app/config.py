@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     access_token_minutes: int = 60
     upload_dir: Path = Path("./data/uploads")
     max_upload_mb: int = 20
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

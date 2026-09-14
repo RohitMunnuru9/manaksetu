@@ -5,7 +5,7 @@ out/
 .env*
 !.env.example
 backend/.venv/
-backend/*.db
+*.db
 backend/data/
 __pycache__/
 .pytest_cache/
