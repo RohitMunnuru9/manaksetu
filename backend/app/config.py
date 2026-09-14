@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     upload_dir: Path = Path("./data/uploads")
     max_upload_mb: int = 20
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    demo_user_email: str = "officer@manaksetu.gov.in"
+    demo_user_password: str = "ManakSetu@2026"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

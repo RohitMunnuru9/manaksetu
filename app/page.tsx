@@ -18,6 +18,7 @@ import {
   History,
   LayoutDashboard,
   Link2,
+  LockKeyhole,
   LoaderCircle,
   LogOut,
   Menu,
@@ -34,7 +35,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { analyseFile, analyseTender, getAuditHistory, getDashboardStats, getLatestAnalysis, getStandards, reportUrl, saveReview, type AnalysisResult, type ApiStandard, type AuditEntry, type DashboardStats } from "@/lib/api";
+import { analyseFile, analyseTender, downloadReport, getAuditHistory, getCurrentUser, getDashboardStats, getLatestAnalysis, getStandards, login as loginUser, logout, saveReview, type AnalysisResult, type ApiStandard, type AuditEntry, type DashboardStats, type UserProfile } from "@/lib/api";
 
 type NavItemProps = {
   icon: React.ElementType;
@@ -106,6 +107,11 @@ export default function Home() {
   const [loadingOverlay, setLoadingOverlay] = useState(false);
   const [typeFilter, setTypeFilter] = useState<"all" | "verified" | "demo">("all");
   const [detailsOpen, setDetailsOpen] = useState<string | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [signingIn, setSigningIn] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [credentials, setCredentials] = useState({ email: "officer@manaksetu.gov.in", password: "ManakSetu@2026" });
   const [form, setForm] = useState({
     title: "Construction safety helmets",
     description: "Purchase 1,000 industrial safety helmets for construction workers with impact testing and permanent marking.",
@@ -118,8 +124,34 @@ export default function Home() {
   };
 
   useEffect(() => {
-    getLatestAnalysis().then(result => result && setAnalysis(result)).catch(() => notify("Backend unavailable — showing demonstration data"));
+    getCurrentUser().then(setUser).catch(() => setUser(null)).finally(() => setAuthLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    getLatestAnalysis().then(result => result && setAnalysis(result)).catch(() => notify("Could not load the latest analysis"));
+  }, [user]);
+
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSigningIn(true);
+    setLoginError("");
+    try {
+      setUser(await loginUser(credentials.email, credentials.password));
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : "Sign in failed");
+    } finally {
+      setSigningIn(false);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    setUser(null);
+    setAnalysis(null);
+    setOverlay(null);
+    setApproved(false);
+  };
 
   const openWorkspace = async (next: Overlay) => {
     setOverlay(next);
@@ -179,12 +211,12 @@ export default function Home() {
     profile: "Your profile",
     about: "About this prototype",
   };
-  const exportReport = () => {
+  const exportReport = async () => {
     if (!analysis) {
       notify("Run an analysis first to generate a real report");
       return;
     }
-    window.open(reportUrl(analysis.tender.id, "pdf"), "_blank", "noopener,noreferrer");
+    try { await downloadReport(analysis.tender.id, "pdf"); } catch (error) { notify(error instanceof Error ? error.message : "Report could not be generated"); }
   };
 
   const approveReview = async () => {
@@ -219,6 +251,29 @@ export default function Home() {
     window.setTimeout(() => document.querySelector<HTMLTextAreaElement>(".review-note")?.focus(), 450);
   };
 
+  if (authLoading) return <main className="login-loading"><div className="logo-mark"><span /><span /><span /></div><LoaderCircle className="animate-spin" size={22} /><p>Securing your workspace…</p></main>;
+
+  if (!user) return (
+    <main className="login-shell">
+      <section className="login-story">
+        <Logo />
+        <div className="login-story-copy"><p className="login-kicker"><ShieldCheck size={14} /> Government procurement intelligence</p><h1>Standards evidence your team can defend.</h1><p>Turn tender language into traceable Indian Standards recommendations, deterministic compliance checks, and review-ready evidence.</p></div>
+        <div className="login-proof"><span><Check size={14} /> Official-source traceability</span><span><Check size={14} /> Human approval required</span><span><Check size={14} /> Auditable decisions</span></div>
+      </section>
+      <section className="login-panel">
+        <form className="login-card" onSubmit={handleLogin}>
+          <div className="login-icon"><LockKeyhole size={22} /></div>
+          <p className="eyebrow">Secure officer access</p><h2>Welcome back</h2><p className="login-subtitle">Sign in to continue to the ManakSetu review workspace.</p>
+          <label>Official email<input type="email" value={credentials.email} onChange={event => setCredentials({...credentials,email:event.target.value})} autoComplete="username" required /></label>
+          <label>Password<input type="password" value={credentials.password} onChange={event => setCredentials({...credentials,password:event.target.value})} autoComplete="current-password" required /></label>
+          {loginError && <p className="form-error"><TriangleAlert size={14} /> {loginError}</p>}
+          <button className="login-button" type="submit" disabled={signingIn}>{signingIn ? <LoaderCircle className="animate-spin" size={17} /> : <LockKeyhole size={17} />}{signingIn ? "Signing in…" : "Sign in securely"}</button>
+          <div className="demo-credentials"><Sparkles size={15} /><div><strong>Judge demo access</strong><span>Credentials are prefilled for this local prototype.</span></div></div>
+        </form>
+      </section>
+    </main>
+  );
+
   return (
     <main className="min-h-screen bg-mist text-ink">
       <div className="noise" />
@@ -252,8 +307,8 @@ export default function Home() {
               <button onClick={requestExpertReview}>Request review <ArrowRight size={12} /></button>
             </div>
             <button className="mt-4 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-white/5" onClick={() => openWorkspace("profile")}>
-              <span className="grid h-9 w-9 place-items-center rounded-full bg-saffron text-xs font-bold text-pine">AR</span>
-              <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold text-white">Ananya Rao</span><span className="block text-[10px] text-white/40">Procurement officer</span></span>
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-saffron text-xs font-bold text-pine">{user.full_name.split(" ").map(part => part[0]).join("").slice(0,2)}</span>
+              <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold text-white">{user.full_name}</span><span className="block text-[10px] capitalize text-white/40">{user.role.replaceAll("_", " ")}</span></span>
               <MoreHorizontal className="text-white/30" size={17} />
             </button>
           </div>
@@ -469,7 +524,7 @@ export default function Home() {
               {!loadingOverlay && overlay === "reports" && <>
                 <p className="workspace-intro">Download the current analysis in the format your review team needs. Every export is generated by the local API.</p>
                 <div className="report-grid">
-                  {([['pdf','PDF review pack','Presentation-ready report'],['docx','Editable DOCX','Continue drafting in Word'],['xlsx','Evidence workbook','Inspect structured evidence'],['json','JSON record','Use with another system']] as const).map(([format,title,description]) => <button key={format} onClick={() => analysis ? window.open(reportUrl(analysis.tender.id, format), "_blank", "noopener,noreferrer") : notify("Run an analysis before exporting")}><FileText size={21} /><span><strong>{title}</strong><small>{description}</small></span><ArrowRight size={16} /></button>)}
+                  {([['pdf','PDF review pack','Presentation-ready report'],['docx','Editable DOCX','Continue drafting in Word'],['xlsx','Evidence workbook','Inspect structured evidence'],['json','JSON record','Use with another system']] as const).map(([format,title,description]) => <button key={format} onClick={async () => { if (!analysis) return notify("Run an analysis before exporting"); try { await downloadReport(analysis.tender.id, format); } catch (error) { notify(error instanceof Error ? error.message : "Report could not be generated"); } }}><FileText size={21} /><span><strong>{title}</strong><small>{description}</small></span><ArrowRight size={16} /></button>)}
                 </div>
                 {!analysis && <p className="workspace-callout"><TriangleAlert size={15} /> No analysis is loaded. Close this panel and choose New analysis first.</p>}
               </>}
@@ -496,7 +551,7 @@ export default function Home() {
                 <article className="notice-row success"><span><CheckCircle2 size={16} /></span><div><strong>Analysis service is ready</strong><p>Document extraction and standards matching are available locally.</p></div></article>
               </div>}
 
-              {!loadingOverlay && overlay === "profile" && <div className="profile-card"><span>AR</span><h3>Ananya Rao</h3><p>Procurement officer · ManakSetu demonstration workspace</p><div><ShieldCheck size={16} /> Authorised reviewer</div></div>}
+              {!loadingOverlay && overlay === "profile" && <div className="profile-card"><span>{user.full_name.split(" ").map(part => part[0]).join("").slice(0,2)}</span><h3>{user.full_name}</h3><p>{user.email} · {user.role.replaceAll("_", " ")}</p><div><ShieldCheck size={16} /> Authorised reviewer</div><button className="logout-button" onClick={handleLogout}><LogOut size={15} /> Sign out</button></div>}
 
               {!loadingOverlay && overlay === "about" && <div className="about-copy"><ShieldCheck size={32} /><h3>Evidence before confidence</h3><p>ManakSetu separates verified official records from demonstration data. A high matching score never turns an unverified identifier into a fact.</p><p>Look for the <strong>verified</strong> badge and follow the source link before using a recommendation in procurement.</p></div>}
             </div>

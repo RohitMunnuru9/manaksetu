@@ -4,7 +4,9 @@ from hashlib import sha256
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import ProductCategory, QualityControlOrder, Standard, StandardStatus, VerificationStatus
+from .config import get_settings
+from .models import ProductCategory, QualityControlOrder, Standard, StandardStatus, User, VerificationStatus
+from .security import hash_password
 
 
 DEMO_STANDARDS = [
@@ -24,6 +26,15 @@ DEMO_STANDARDS = [
 
 
 def seed_demo_data(db: Session) -> None:
+    settings = get_settings()
+    if db.scalar(select(User.id).where(User.email == settings.demo_user_email).limit(1)) is None:
+        db.add(User(
+            email=settings.demo_user_email,
+            full_name="Ananya Rao",
+            role="procurement_officer",
+            password_hash=hash_password(settings.demo_user_password),
+        ))
+
     category = db.scalar(select(ProductCategory).where(ProductCategory.name == "Personal protective equipment"))
     if category is None:
         category = ProductCategory(name="Personal protective equipment", description="Curated MVP category")

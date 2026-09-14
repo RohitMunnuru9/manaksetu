@@ -15,6 +15,7 @@ ManakSetu AI is an explainable, human-in-the-loop system for identifying applica
 - Deterministic QCO check that refuses mandatory claims from unverified records
 - Source-traceable IS 2925:1984 public metadata and its 2023 helmet QCO from official BIS sources
 - JWT/Argon2 authentication foundation
+- Protected JWT workspace with role-gated review, audit and report actions
 - Validated PDF, DOCX and TXT upload endpoint with size limits
 - Text extraction for digital PDF, DOCX, XLSX and TXT tenders
 - PDF table extraction with pdfplumber
@@ -50,6 +51,13 @@ docker compose up --build
 - Frontend: `http://localhost:3000`
 - API: `http://localhost:8000`
 - OpenAPI: `http://localhost:8000/docs`
+
+### Local judge login
+
+- Email: `officer@manaksetu.gov.in`
+- Password: `ManakSetu@2026`
+
+These credentials are for the local demonstration environment only. Override `DEMO_USER_EMAIL`, `DEMO_USER_PASSWORD`, and `JWT_SECRET` before any shared deployment.
 
 Optional local services remain off by default to keep laptop requirements manageable:
 

@@ -21,6 +21,14 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class UserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    email: str
+    full_name: str
+    role: str
+
+
 class TenderCreate(BaseModel):
     title: str = Field(min_length=3, max_length=300)
     description: str = Field(min_length=10, max_length=50_000)
