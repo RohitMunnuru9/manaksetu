@@ -35,6 +35,13 @@ export type AnalysisResult = {
     created_at: string;
   };
   recommendations: ApiRecommendation[];
+  extracted_requirements: Array<{
+    requirement_type: string;
+    value: string;
+    confidence: number;
+    source_excerpt: string;
+    needs_confirmation: boolean;
+  }>;
   missing_requirements: string[];
   guardrail_message: string | null;
 };

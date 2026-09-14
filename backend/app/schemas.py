@@ -67,9 +67,19 @@ class RecommendationRead(BaseModel):
     warning: str | None = None
 
 
+class ExtractedRequirement(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    requirement_type: str
+    value: str
+    confidence: float
+    source_excerpt: str
+    needs_confirmation: bool
+
+
 class AnalysisResponse(BaseModel):
     tender: TenderRead
     recommendations: list[RecommendationRead]
+    extracted_requirements: list[ExtractedRequirement] = Field(default_factory=list)
     missing_requirements: list[str]
     guardrail_message: str | None = None
 

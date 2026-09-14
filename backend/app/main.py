@@ -12,13 +12,14 @@ from sqlalchemy.orm import Session
 
 from .config import get_settings
 from .database import Base, SessionLocal, engine, get_db
-from .models import AuditLog, Recommendation, ReviewDecision, Standard, Tender, User, VerificationStatus
+from .models import AuditLog, Recommendation, ReviewDecision, Standard, Tender, TenderRequirement, User, VerificationStatus
 from .schemas import AnalysisResponse, AuditRead, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse
 from .security import create_access_token, verify_password
 from .seed import seed_demo_data
 from .services.recommendation import confidence_level, evaluate_qco, find_candidates, missing_requirements
 from .services.documents import extract_document
 from .services.reports import build_docx, build_json, build_pdf, build_xlsx
+from .services.requirements import detect_language, extract_requirements
 
 settings = get_settings()
 
@@ -76,6 +77,17 @@ def list_tenders(db: Session = Depends(get_db)) -> list[Tender]:
 
 
 def run_analysis(db: Session, tender: Tender) -> AnalysisResponse:
+    tender.language = detect_language(tender.source_text)
+    extracted = extract_requirements(tender.source_text)
+    for item in extracted:
+        db.add(TenderRequirement(
+            tender_id=tender.id,
+            requirement_type=item.requirement_type,
+            value=item.value,
+            confidence=item.confidence,
+            source_excerpt=item.source_excerpt,
+            needs_confirmation=item.needs_confirmation,
+        ))
     candidates = find_candidates(db, tender.source_text)
     response_items: list[RecommendationRead] = []
     for index, candidate in enumerate(candidates):
@@ -113,7 +125,7 @@ def run_analysis(db: Session, tender: Tender) -> AnalysisResponse:
     db.add(AuditLog(action="tender.analysis.completed", entity_type="tender", entity_id=str(tender.id), details={"candidate_count": len(response_items)}))
     db.commit()
     guardrail = None if response_items else "No verified recommendation found. Expert review is required."
-    return AnalysisResponse(tender=TenderRead.model_validate(tender), recommendations=response_items, missing_requirements=missing_requirements(tender.source_text), guardrail_message=guardrail)
+    return AnalysisResponse(tender=TenderRead.model_validate(tender), recommendations=response_items, extracted_requirements=extracted, missing_requirements=missing_requirements(tender.source_text), guardrail_message=guardrail)
 
 
 def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
@@ -138,7 +150,8 @@ def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
             warning=None if verified else "Demonstration or unverified record. Do not cite in a tender.",
         ))
     guardrail = None if recommendations else "No verified recommendation found. Expert review is required."
-    return AnalysisResponse(tender=TenderRead.model_validate(tender), recommendations=recommendations, missing_requirements=missing_requirements(tender.source_text), guardrail_message=guardrail)
+    extracted = list(db.scalars(select(TenderRequirement).where(TenderRequirement.tender_id == tender.id)).all())
+    return AnalysisResponse(tender=TenderRead.model_validate(tender), recommendations=recommendations, extracted_requirements=extracted, missing_requirements=missing_requirements(tender.source_text), guardrail_message=guardrail)
 
 
 @app.post("/api/v1/tenders/analyse", response_model=AnalysisResponse, tags=["tenders"])
@@ -162,13 +175,15 @@ ALLOWED_UPLOADS = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "text/plain",
+    "image/png",
+    "image/jpeg",
 }
 
 
 async def save_upload(file: UploadFile) -> tuple[Path, str]:
     content_type = file.content_type or "application/octet-stream"
     if content_type not in ALLOWED_UPLOADS:
-        raise HTTPException(status_code=415, detail="Only PDF, DOCX, XLSX, and TXT files are accepted")
+        raise HTTPException(status_code=415, detail="Only PDF, DOCX, XLSX, TXT, PNG, and JPEG files are accepted")
     content = await file.read(settings.max_upload_mb * 1024 * 1024 + 1)
     if len(content) > settings.max_upload_mb * 1024 * 1024:
         raise HTTPException(status_code=413, detail=f"File exceeds {settings.max_upload_mb} MB")
@@ -205,7 +220,7 @@ async def upload_and_analyse(file: UploadFile = File(...), db: Session = Depends
     )
     db.add(tender)
     db.flush()
-    db.add(AuditLog(action="document.extracted", entity_type="tender", entity_id=str(tender.id), details={"method": extraction.method, "page_count": extraction.page_count, "requires_ocr": extraction.requires_ocr}))
+    db.add(AuditLog(action="document.extracted", entity_type="tender", entity_id=str(tender.id), details={"method": extraction.method, "page_count": extraction.page_count, "tables_found": extraction.tables_found, "requires_ocr": extraction.requires_ocr}))
     if extraction.requires_ocr:
         db.commit()
         return AnalysisResponse(tender=TenderRead.model_validate(tender), recommendations=[], missing_requirements=[], guardrail_message="Scanned document detected. Local OCR processing is required before recommendations can be generated.")

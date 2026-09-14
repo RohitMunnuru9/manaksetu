@@ -17,6 +17,9 @@ ManakSetu AI is an explainable, human-in-the-loop system for identifying applica
 - JWT/Argon2 authentication foundation
 - Validated PDF, DOCX and TXT upload endpoint with size limits
 - Text extraction for digital PDF, DOCX, XLSX and TXT tenders
+- PDF table extraction with pdfplumber
+- Local Tesseract OCR adapter for scanned PDFs, PNG and JPEG files when the executable is installed
+- Deterministic Hindi/Telugu/English detection and structured requirement extraction
 - Scanned-document detection with a safe `ocr_required` handoff
 - Human review decisions and queryable audit history
 - Downloadable JSON, PDF, DOCX and XLSX recommendation reports
@@ -90,5 +93,6 @@ The local language model will be added only as an explanation and structured-ext
 - Most seeded catalogue entries are demonstration records, not Indian Standards.
 - The safety-helmet category includes one separately marked verified public-metadata record; its source URLs, content hash and check date are stored with the record.
 - PaddleOCR, BGE-M3, Neo4j traversal and Ollama are integration-ready next-stage services; they are not silently simulated.
+- This machine currently has no Tesseract executable, so scanned files are safely marked `ocr_required`; digital-document extraction remains fully operational.
 - Real BIS/QCO metadata must be imported only from permitted official sources and reviewed before its verification status is changed.
 - Target quality metrics in `prompt.txt` remain targets until evaluated against an expert-labelled dataset.

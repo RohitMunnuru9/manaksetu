@@ -125,6 +125,7 @@ export default function Home() {
   };
 
   const primary = analysis?.recommendations[0];
+  const displayedRequirements = analysis?.extracted_requirements.length ? analysis.extracted_requirements.map(item => [item.requirement_type.replaceAll("_", " "), item.value]) : requirements;
   const recommendationCount = analysis?.recommendations.length ?? 4;
   const gapCount = analysis?.missing_requirements.length ?? 3;
   const exportReport = () => {
@@ -302,8 +303,8 @@ export default function Home() {
                 {tab === "requirements" && (
                   <div className="p-5 sm:p-7">
                     <h3 className="section-title">Extracted tender requirements</h3><p className="section-subtitle">Structured by the local extraction pipeline for officer confirmation.</p>
-                    <div className="mt-6 grid gap-3 sm:grid-cols-2">{requirements.map(([key, value]) => <div className="requirement-row" key={key}><span>{key}</span><strong>{value}</strong><CheckCircle2 size={16} /></div>)}</div>
-                    <div className="mt-4 rounded-2xl border border-dashed border-[#cbd5ce] bg-[#f8faf7] p-5 text-center text-sm text-[#65736c]">8 more extracted attributes are available in the complete analysis.</div>
+                    <div className="mt-6 grid gap-3 sm:grid-cols-2">{displayedRequirements.map(([key, value]) => <div className="requirement-row" key={`${key}-${value}`}><span className="capitalize">{key}</span><strong>{value}</strong><CheckCircle2 size={16} /></div>)}</div>
+                    {!analysis && <div className="mt-4 rounded-2xl border border-dashed border-[#cbd5ce] bg-[#f8faf7] p-5 text-center text-sm text-[#65736c]">Run an analysis to replace these illustrative attributes with extracted requirements.</div>}
                   </div>
                 )}
 
@@ -366,7 +367,7 @@ export default function Home() {
               {inputMode === "text" ? <>
                 <label>Tender title<input value={form.title} onChange={event => setForm({...form, title:event.target.value})} minLength={3} required /></label>
                 <label>Product description or technical requirement<textarea value={form.description} onChange={event => setForm({...form, description:event.target.value})} minLength={10} required /></label>
-              </> : <label className="file-drop"><input type="file" accept=".pdf,.docx,.xlsx,.txt" onChange={event => setSelectedFile(event.target.files?.[0] ?? null)} required /><UploadCloud size={27} /><strong>{selectedFile?.name ?? "Choose a tender document"}</strong><span>PDF, DOCX, XLSX or TXT · maximum 20 MB</span></label>}
+              </> : <label className="file-drop"><input type="file" accept=".pdf,.docx,.xlsx,.txt,.png,.jpg,.jpeg" onChange={event => setSelectedFile(event.target.files?.[0] ?? null)} required /><UploadCloud size={27} /><strong>{selectedFile?.name ?? "Choose a tender document"}</strong><span>PDF, DOCX, XLSX, TXT or image · maximum 20 MB</span></label>}
               <div className="form-meta"><span><ShieldCheck size={15} /> Processed locally. Human review remains mandatory.</span><select value={form.language} onChange={event => setForm({...form, language:event.target.value})} aria-label="Input language"><option value="en">English</option><option value="hi">हिन्दी</option><option value="te">తెలుగు</option></select></div>
               {formError && <p className="form-error"><TriangleAlert size={14} /> {formError}</p>}
               <div className="modal-actions"><button type="button" className="button-secondary" onClick={() => setAnalysisOpen(false)} disabled={submitting}>Cancel</button><button type="submit" className="button-primary" disabled={submitting || (inputMode === "file" && !selectedFile)}>{submitting ? <LoaderCircle className="animate-spin" size={16} /> : <Sparkles size={16} />}{submitting ? "Analysing…" : "Run verified search"}</button></div>

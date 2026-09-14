@@ -97,6 +97,18 @@ class Tender(Base):
     recommendations: Mapped[list[Recommendation]] = relationship(back_populates="tender", cascade="all, delete-orphan")
 
 
+class TenderRequirement(Base):
+    __tablename__ = "tender_requirements"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tender_id: Mapped[int] = mapped_column(ForeignKey("tenders.id"), index=True)
+    requirement_type: Mapped[str] = mapped_column(String(80), index=True)
+    value: Mapped[str] = mapped_column(Text)
+    confidence: Mapped[float] = mapped_column(Float)
+    source_excerpt: Mapped[str] = mapped_column(Text, default="")
+    needs_confirmation: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class Recommendation(Base):
     __tablename__ = "recommendations"
 
