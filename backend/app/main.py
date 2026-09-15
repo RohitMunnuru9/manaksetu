@@ -17,7 +17,8 @@ from .models import AuditLog, Recommendation, ReviewDecision, Standard, Tender, 
 from .schemas import AnalysisResponse, AuditRead, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
 from .security import create_access_token, get_current_user, require_reviewer, verify_password
 from .seed import seed_demo_data
-from .services.recommendation import confidence_level, evaluate_qco, find_candidates, missing_requirements
+from .services.recommendation import apply_graph_context, confidence_level, evaluate_qco, find_candidates, missing_requirements, retrieval_mode
+from .services.embeddings import semantic_index
 from .services.documents import extract_document
 from .services.reports import build_docx, build_json, build_pdf, build_xlsx
 from .services.requirements import detect_language, extract_requirements
@@ -104,8 +105,17 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
             needs_confirmation=item.needs_confirmation,
         ))
     candidates = find_candidates(db, tender.source_text)
+    if candidates:
+        # Highest-ranked retrieval hit is the primary; the rest matched on text
+        # alone, so they are allied candidates rather than primary standards.
+        for position, candidate in enumerate(candidates):
+            candidate.standard_type = "primary" if position == 0 else "allied"
+        # Graph traversal then re-labels anything linked to the primary and adds
+        # normative references or test methods that retrieval missed.
+        candidates = apply_graph_context(db, candidates)
+
     response_items: list[RecommendationRead] = []
-    for index, candidate in enumerate(candidates):
+    for candidate in candidates:
         standard = candidate.standard
         qco = evaluate_qco(db, tender.source_text, standard)
         verified = standard.verification_status == VerificationStatus.verified and bool(standard.standard_number and standard.official_source_url)
@@ -114,11 +124,13 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
         recommendation = Recommendation(
             tender_id=tender.id,
             standard_id=standard.id,
-            standard_type="primary" if index == 0 else "allied",
-            reason="Matched against curated title and scope metadata.",
+            standard_type=candidate.standard_type,
+            reason=candidate.reason,
             matched_requirements=candidate.matched_terms,
             confidence_score=score,
             human_review_required=True,
+            score_breakdown=candidate.breakdown,
+            relation_note=candidate.relation_note,
         )
         db.add(recommendation)
         response_items.append(RecommendationRead(
@@ -135,12 +147,22 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
             qco_source_url=qco["qco"].official_source_url if qco["qco"] else None,
             human_review_required=True,
             warning=warning,
+            relation_note=candidate.relation_note,
+            score_breakdown=candidate.breakdown,
         ))
     tender.status = "review_required"
-    db.add(AuditLog(actor_id=actor_id, action="tender.analysis.completed", entity_type="tender", entity_id=str(tender.id), details={"candidate_count": len(response_items)}))
+    db.add(AuditLog(actor_id=actor_id, action="tender.analysis.completed", entity_type="tender", entity_id=str(tender.id), details={"candidate_count": len(response_items), "retrieval_mode": retrieval_mode()}))
     db.commit()
     guardrail = None if response_items else "No verified recommendation found. Expert review is required."
-    return AnalysisResponse(tender=TenderRead.model_validate(tender), recommendations=response_items, extracted_requirements=extracted, missing_requirements=missing_requirements(tender.source_text), guardrail_message=guardrail)
+    return AnalysisResponse(
+        tender=TenderRead.model_validate(tender),
+        recommendations=response_items,
+        extracted_requirements=extracted,
+        missing_requirements=missing_requirements(tender.source_text),
+        guardrail_message=guardrail,
+        retrieval_mode=retrieval_mode(),
+        embedding_model=semantic_index.model_name,
+    )
 
 
 def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
@@ -163,10 +185,20 @@ def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
             qco_source_url=qco["qco"].official_source_url if qco["qco"] else None,
             human_review_required=item.human_review_required,
             warning=None if verified else "Demonstration or unverified record. Do not cite in a tender.",
+            relation_note=item.relation_note,
+            score_breakdown=item.score_breakdown or {},
         ))
     guardrail = None if recommendations else "No verified recommendation found. Expert review is required."
     extracted = list(db.scalars(select(TenderRequirement).where(TenderRequirement.tender_id == tender.id)).all())
-    return AnalysisResponse(tender=TenderRead.model_validate(tender), recommendations=recommendations, extracted_requirements=extracted, missing_requirements=missing_requirements(tender.source_text), guardrail_message=guardrail)
+    return AnalysisResponse(
+        tender=TenderRead.model_validate(tender),
+        recommendations=recommendations,
+        extracted_requirements=extracted,
+        missing_requirements=missing_requirements(tender.source_text),
+        guardrail_message=guardrail,
+        retrieval_mode=retrieval_mode(),
+        embedding_model=semantic_index.model_name,
+    )
 
 
 @app.post("/api/v1/tenders/analyse", response_model=AnalysisResponse, tags=["tenders"])

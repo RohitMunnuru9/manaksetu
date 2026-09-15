@@ -47,19 +47,36 @@ type NavItemProps = {
 
 type Overlay = "standards" | "audit" | "reports" | "overview" | "team" | "settings" | "notifications" | "search" | "profile" | "about" | null;
 
-const stages = [
-  { name: "Document read", detail: "18 sections indexed", status: "done" },
-  { name: "Requirements extracted", detail: "12 technical attributes", status: "done" },
-  { name: "Verified records searched", detail: "Catalogue + graph + rules", status: "done" },
-  { name: "Expert review", detail: "Awaiting your decision", status: "current" },
-];
-
-const requirements = [
-  ["Product", "Industrial safety helmet"],
-  ["Intended use", "Construction site workforce"],
-  ["Quantity", "1,000 units"],
-  ["Material", "High-impact shell"],
-];
+const buildStages = (analysis: AnalysisResult | null) => {
+  if (!analysis) {
+    return [
+      { name: "Document read", detail: "Awaiting a submission", status: "pending" },
+      { name: "Requirements extracted", detail: "Awaiting a submission", status: "pending" },
+      { name: "Verified records searched", detail: "Awaiting a submission", status: "pending" },
+      { name: "Expert review", detail: "Awaiting a submission", status: "pending" },
+    ];
+  }
+  const requirementCount = analysis.extracted_requirements.length;
+  const candidateCount = analysis.recommendations.length;
+  return [
+    {
+      name: "Document read",
+      detail: `${analysis.tender.filename ? "Uploaded file" : "Text submission"} · language ${analysis.tender.language.toUpperCase()}`,
+      status: "done",
+    },
+    {
+      name: "Requirements extracted",
+      detail: requirementCount ? `${requirementCount} structured attribute${requirementCount === 1 ? "" : "s"}` : "No attributes matched",
+      status: requirementCount ? "done" : "current",
+    },
+    {
+      name: "Verified records searched",
+      detail: candidateCount ? `${candidateCount} candidate${candidateCount === 1 ? "" : "s"} from the controlled catalogue` : "No candidate matched",
+      status: candidateCount ? "done" : "current",
+    },
+    { name: "Expert review", detail: "Awaiting your decision", status: "current" },
+  ];
+};
 
 function NavItem({ icon: Icon, label, active, badge, onClick }: NavItemProps) {
   return (
@@ -192,13 +209,18 @@ export default function Home() {
     }
   };
 
-  const primary = analysis?.recommendations[0];
-  const displayedRequirements = analysis?.extracted_requirements.length ? analysis.extracted_requirements.map(item => [item.requirement_type.replaceAll("_", " "), item.value]) : requirements;
-  const recommendationCount = analysis?.recommendations.length ?? 4;
-  const gapCount = analysis?.missing_requirements.length ?? 3;
+  const stages = buildStages(analysis);
+  const visibleRecommendations = (analysis?.recommendations ?? []).filter(
+    item => typeFilter === "all" || item.standard.verification_status === typeFilter,
+  );
+  const primary = visibleRecommendations[0];
+  const supporting = visibleRecommendations.slice(1);
+  const displayedRequirements = (analysis?.extracted_requirements ?? []).map(item => [item.requirement_type.replaceAll("_", " "), item.value]);
+  const productRequirement = analysis?.extracted_requirements.find(item => item.requirement_type === "product");
+  const recommendationCount = analysis?.recommendations.length ?? 0;
+  const requirementCount = analysis?.extracted_requirements.length ?? 0;
+  const gapCount = analysis?.missing_requirements.length ?? 0;
   const filteredStandards = standards.filter(item => typeFilter === "all" || item.verification_status === typeFilter);
-  const showPrimaryRecommendation = typeFilter === "all" || (primary?.standard.verification_status ?? "demo") === typeFilter;
-  const showDemoRecommendations = typeFilter === "all" || typeFilter === "demo";
   const overlayTitle: Record<Exclude<Overlay, null>, string> = {
     standards: "Standards library",
     audit: "Audit history",
@@ -355,26 +377,26 @@ export default function Home() {
                     <div className="flex min-w-0 gap-4">
                       <div className="file-emblem"><FileText size={22} /></div>
                       <div className="min-w-0">
-                        <div className="mb-2 flex flex-wrap items-center gap-2"><span className="status-pill"><CheckCircle2 size={12} /> Analysis complete</span><span className="text-[11px] text-white/40">{analysis?.tender.reference ?? "MS-2026-00428"}</span></div>
-                        <h2 className="truncate text-lg font-semibold tracking-[-0.025em] text-white sm:text-xl">{analysis?.tender.title ?? "Safety_Helmets_Tender_2026.pdf"}</h2>
-                        <p className="mt-1 text-xs text-white/45">{analysis ? "Text submission · Processed just now" : "24 pages · Uploaded 14 Sep 2026, 10:42 AM"}</p>
+                        <div className="mb-2 flex flex-wrap items-center gap-2">{analysis ? <span className="status-pill"><CheckCircle2 size={12} /> Analysis complete</span> : <span className="status-pill"><Clock3 size={12} /> No analysis yet</span>}<span className="text-[11px] text-white/40">{analysis?.tender.reference ?? "—"}</span></div>
+                        <h2 className="truncate text-lg font-semibold tracking-[-0.025em] text-white sm:text-xl">{analysis?.tender.title ?? "Run an analysis to begin"}</h2>
+                        <p className="mt-1 text-xs text-white/45">{analysis ? `${analysis.tender.filename ?? "Text submission"} · ${new Date(analysis.tender.created_at).toLocaleString()}` : "Submit a tender description or upload a document"}</p>
                       </div>
                     </div>
                     <button className="shrink-0 rounded-xl border border-white/10 p-2 text-white/60 transition hover:bg-white/10 hover:text-white" aria-label="More actions" onClick={() => openWorkspace("reports")}><MoreHorizontal size={20} /></button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-5 sm:grid-cols-4 sm:gap-3">
-                    <div><p className="hero-label">Product identified</p><p className="hero-value">Safety helmets</p></div>
-                    <div><p className="hero-label">Recommendations</p><p className="hero-value">{recommendationCount} candidates</p></div>
+                    <div><p className="hero-label">Product identified</p><p className="hero-value">{productRequirement?.value ?? "Not determined"}</p></div>
+                    <div><p className="hero-label">Recommendations</p><p className="hero-value">{recommendationCount} candidate{recommendationCount === 1 ? "" : "s"}</p></div>
                     <div><p className="hero-label">Tender gaps</p><p className="hero-value text-[#ffc075]">{gapCount} require action</p></div>
-                    <div><p className="hero-label">Review status</p><p className="hero-value">Pending</p></div>
+                    <div><p className="hero-label">Review status</p><p className="hero-value">{approved ? "Approved" : analysis ? "Pending review" : "—"}</p></div>
                   </div>
                 </div>
               </section>
 
               <section className="panel overflow-hidden animate-fade-up [animation-delay:140ms]">
                 <div className="tabs" role="tablist">
-                  {[["recommendations", "Recommendations", String(recommendationCount)], ["requirements", "Requirements", "12"], ["gaps", "Tender gaps", String(gapCount)]].map(([id, label, count]) => (
+                  {[["recommendations", "Recommendations", String(recommendationCount)], ["requirements", "Requirements", String(requirementCount)], ["gaps", "Tender gaps", String(gapCount)]].map(([id, label, count]) => (
                     <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)} role="tab">{label}<span>{count}</span></button>
                   ))}
                 </div>
@@ -382,48 +404,50 @@ export default function Home() {
                 {tab === "recommendations" && (
                   <div className="p-4 sm:p-6">
                     <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                      <div><h3 className="section-title">Verified recommendation set</h3><p className="section-subtitle">Ranked using relevance, product fit, graph links and rules.</p></div>
+                      <div><h3 className="section-title">Verified recommendation set</h3><p className="section-subtitle">{analysis ? (analysis.retrieval_mode === "hybrid" ? `Hybrid retrieval — keyword + local semantic embeddings (${analysis.embedding_model?.split("/").pop()}), then graph traversal and deterministic rules.` : "Keyword retrieval only — the local embedding model is not loaded on this machine.") : "Ranked using keyword overlap, semantic similarity, graph links and deterministic rules."}</p></div>
                       <select className="filter-button" value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)} aria-label="Filter recommendation type"><option value="all">All types</option><option value="verified">Verified only</option><option value="demo">Demo only</option></select>
                     </div>
 
-                    {showPrimaryRecommendation && <article className="recommendation-card featured">
+                    {primary && <article className="recommendation-card featured">
                       <div className="flex flex-col gap-5 sm:flex-row">
-                        <div className="confidence-ring"><div><strong>{primary ? Math.round(primary.confidence_score * 100) : 94}</strong><span>%</span></div><small>Confidence</small></div>
+                        <div className="confidence-ring"><div><strong>{Math.round(primary.confidence_score * 100)}</strong><span>%</span></div><small>Confidence</small></div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2"><span className="type-chip primary">{primary?.standard_type ?? "Primary standard"}</span><span className="type-chip current"><Check size={11} /> {primary?.standard.status ?? "Current"}</span><span className="type-chip demo">{primary?.standard.verification_status ?? "Demo ID"}</span></div>
+                          <div className="flex flex-wrap items-center gap-2"><span className="type-chip primary">{primary.standard_type}</span><span className="type-chip current"><Check size={11} /> {primary.standard.status}</span><span className={`type-chip ${primary.standard.verification_status === "verified" ? "current" : "demo"}`}>{primary.standard.verification_status}</span></div>
                           <div className="mt-3 flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
-                            <div><p className="text-xs font-bold tracking-[.08em] text-pine">{primary?.standard.standard_number ?? "VERIFICATION PENDING"}</p><h4 className="mt-1 text-[17px] font-semibold tracking-[-.02em]">{primary?.standard.official_title ?? "Industrial safety helmets — specification"}</h4></div>
-                            <button className="link-button" onClick={() => primary?.standard.official_source_url ? window.open(primary.standard.official_source_url, "_blank", "noopener,noreferrer") : notify("No official evidence exists for this demo record")}><Link2 size={14} /> Evidence</button>
+                            <div><p className="text-xs font-bold tracking-[.08em] text-pine">{primary.standard.standard_number ?? "NO IS NUMBER — UNVERIFIED RECORD"}</p><h4 className="mt-1 text-[17px] font-semibold tracking-[-.02em]">{primary.standard.official_title}</h4></div>
+                            <button className="link-button" onClick={() => primary.standard.official_source_url ? window.open(primary.standard.official_source_url, "_blank", "noopener,noreferrer") : notify("No official evidence exists for this demo record")}><Link2 size={14} /> Evidence</button>
                           </div>
-                          <p className="mt-3 text-[13px] leading-6 text-[#64726b]">{primary?.reason_for_recommendation ?? "Directly matches the specified product and intended construction-site use. Final applicability must be confirmed against the official BIS catalogue."}</p>
-                          <div className="mt-4 flex flex-wrap gap-2">{(primary?.matched_requirements ?? ["Impact protection", "Shell material", "Worksite use"]).map(item => <span className="match-chip" key={item}>{item}</span>)}</div>
+                          <p className="mt-3 text-[13px] leading-6 text-[#64726b]">{primary.reason_for_recommendation}</p>
+                          {primary.warning && <p className="mt-3 rounded-lg border border-[#e8a353] bg-[#fff3e3] px-3 py-2 text-[12px] leading-5 text-[#8a5a12]"><TriangleAlert size={13} className="mr-1 inline" />{primary.warning}</p>}
+                          <div className="mt-4 flex flex-wrap gap-2">{primary.matched_requirements.map(item => <span className="match-chip" key={item}>{item}</span>)}</div>
                           <div className="mt-5 grid gap-4 border-t border-[#e8ece8] pt-4 sm:grid-cols-3">
-                            <div><p className="meta-label">Source status</p><p className="meta-value"><ShieldCheck size={13} /> {primary?.standard.verification_status === "verified" ? "BIS source verified" : "Verification required"}</p></div>
-                            <div><p className="meta-label">Last checked</p><p className="meta-value"><Clock3 size={13} /> Demo record</p></div>
-                            <div><p className="meta-label">Certification</p><p className="meta-value text-[#9b651c]"><UserRound size={13} /> {primary?.certification_required ? "Required by verified QCO" : "Review required"}</p></div>
+                            <div><p className="meta-label">Source status</p><p className="meta-value"><ShieldCheck size={13} /> {primary.standard.verification_status === "verified" ? "BIS source verified" : "Verification required"}</p></div>
+                            <div><p className="meta-label">Last checked</p><p className="meta-value"><Clock3 size={13} /> {primary.standard.last_checked_date ?? "Never checked"}</p></div>
+                            <div><p className="meta-label">Certification</p><p className="meta-value text-[#9b651c]"><UserRound size={13} /> {primary.certification_required ? `Mandatory — ${primary.qco_title ?? "QCO"}` : "No verified QCO applies"}</p></div>
                           </div>
                         </div>
                       </div>
                     </article>}
 
-                    {showDemoRecommendations && <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <article className="compact-rec">
-                        <div className="flex items-start justify-between"><span className="type-chip test">Test method</span><span className="score">87%</span></div>
-                        <p className="mt-4 text-xs font-bold tracking-[.08em] text-pine">IS YYYY : 20XX</p><h4 className="mt-1 text-sm font-semibold leading-5">Protective equipment — impact testing</h4>
-                        <p className="mt-3 text-xs leading-5 text-[#708078]">Supports verification of the impact-resistance requirement.</p>
-                        <button onClick={() => setDetailsOpen(detailsOpen === "test" ? null : "test")}>View rationale <ArrowRight size={13} /></button>
-                        {detailsOpen === "test" && <div className="rationale-detail">This supporting candidate maps to the tender’s impact-test requirement. Confirm the method and acceptance thresholds against an official source before use.</div>}
-                      </article>
-                      <article className="compact-rec">
-                        <div className="flex items-start justify-between"><span className="type-chip safety">Safety / marking</span><span className="score medium">79%</span></div>
-                        <p className="mt-4 text-xs font-bold tracking-[.08em] text-pine">IS ZZZZ : 20XX</p><h4 className="mt-1 text-sm font-semibold leading-5">Safety marking and user information</h4>
-                        <p className="mt-3 text-xs leading-5 text-[#708078]">Potentially relevant to permanent marking and instructions.</p>
-                        <button onClick={() => setDetailsOpen(detailsOpen === "safety" ? null : "safety")}>View rationale <ArrowRight size={13} /></button>
-                        {detailsOpen === "safety" && <div className="rationale-detail">This allied candidate covers permanent product marking and user-information clauses. It remains illustrative until an official catalogue record is linked.</div>}
-                      </article>
+                    {supporting.length > 0 && <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {supporting.map(item => {
+                        const key = String(item.standard.id);
+                        return (
+                          <article className="compact-rec" key={key}>
+                            <div className="flex items-start justify-between"><span className="type-chip test">{item.standard_type}</span><span className={`score ${item.confidence_level === "high" ? "" : "medium"}`}>{Math.round(item.confidence_score * 100)}%</span></div>
+                            <p className="mt-4 text-xs font-bold tracking-[.08em] text-pine">{item.standard.standard_number ?? "NO IS NUMBER"}</p><h4 className="mt-1 text-sm font-semibold leading-5">{item.standard.official_title}</h4>
+                            {item.relation_note && <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-[#eef3ef] px-2 py-1 text-[10px] font-semibold uppercase tracking-[.06em] text-pine"><Fingerprint size={11} /> graph link · {item.relation_note}</p>}
+                            <p className="mt-3 text-xs leading-5 text-[#708078]">{item.standard.scope_summary}</p>
+                            <button onClick={() => setDetailsOpen(detailsOpen === key ? null : key)}>View rationale <ArrowRight size={13} /></button>
+                            {detailsOpen === key && <div className="rationale-detail">{item.reason_for_recommendation}{item.warning ? ` — ${item.warning}` : ""}</div>}
+                          </article>
+                        );
+                      })}
                     </div>}
 
-                    {!showPrimaryRecommendation && !showDemoRecommendations && <div className="workspace-empty mt-3"><FileSearch size={25} /><strong>No recommendations match this filter</strong><span>Choose another verification state to see candidates.</span></div>}
+                    {analysis?.guardrail_message && <div className="mt-3 rounded-xl border border-[#e8a353] bg-[#fff3e3] px-4 py-3 text-[13px] leading-6 text-[#8a5a12]"><TriangleAlert size={15} className="mr-2 inline" />{analysis.guardrail_message}</div>}
+
+                    {visibleRecommendations.length === 0 && <div className="workspace-empty mt-3"><FileSearch size={25} /><strong>{analysis ? "No recommendations match this filter" : "No analysis yet"}</strong><span>{analysis ? "Choose another verification state to see candidates." : "Start a new analysis to generate evidence-backed candidates."}</span></div>}
 
                     <button className="show-more" onClick={() => openWorkspace("standards")}>Browse all standards <ArrowRight size={14} /></button>
                   </div>

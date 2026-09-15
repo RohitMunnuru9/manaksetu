@@ -73,6 +73,8 @@ class RecommendationRead(BaseModel):
     qco_source_url: str | None = None
     human_review_required: bool
     warning: str | None = None
+    relation_note: str | None = None
+    score_breakdown: dict[str, float] = Field(default_factory=dict)
 
 
 class ExtractedRequirement(BaseModel):
@@ -90,6 +92,11 @@ class AnalysisResponse(BaseModel):
     extracted_requirements: list[ExtractedRequirement] = Field(default_factory=list)
     missing_requirements: list[str]
     guardrail_message: str | None = None
+    # "hybrid" when the local embedding model is loaded, "lexical" when the
+    # system is running on keyword matching alone. Surfaced so the interface
+    # never claims semantic retrieval that did not actually run.
+    retrieval_mode: str = "lexical"
+    embedding_model: str | None = None
 
 
 class ReviewCreate(BaseModel):

@@ -12,10 +12,15 @@ class RequirementValue:
 
 
 PRODUCT_TERMS = {
-    "safety helmet": ("safety helmet", "industrial helmet", "protective helmet", "helmets"),
-    "electric cable": ("electric cable", "electrical cable", "power cable"),
-    "drinking water": ("packaged drinking water", "drinking water"),
-    "safety footwear": ("safety footwear", "safety shoes", "protective footwear"),
+    "safety helmet": (
+        "safety helmet", "industrial helmet", "protective helmet", "helmets", "helmet",
+        "head protection", "protective headgear", "headgear", "hard hat",
+    ),
+    "electric cable": ("electric cable", "electrical cable", "power cable", "wiring", "cable"),
+    "drinking water": ("packaged drinking water", "drinking water", "bottled water"),
+    "safety footwear": ("safety footwear", "safety shoes", "protective footwear", "safety boots"),
+    "cement": ("portland cement", "cement"),
+    "office furniture": ("office chair", "office seating", "office furniture"),
 }
 
 

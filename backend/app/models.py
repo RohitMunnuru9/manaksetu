@@ -67,6 +67,28 @@ class Standard(Base):
     content_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     category_id: Mapped[int | None] = mapped_column(ForeignKey("product_categories.id"), nullable=True)
     category: Mapped[ProductCategory | None] = relationship(back_populates="standards")
+    # Stored as JSON so the same schema works on SQLite and PostgreSQL. The
+    # catalogue is small enough that cosine similarity runs in-process; moving
+    # this to a pgvector column is the production upgrade path.
+    embedding: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
+
+
+class StandardRelationship(Base):
+    """Directed edge between two standards.
+
+    This is the Postgres-only substitute for the Neo4j knowledge graph that the
+    specification allows. It lets a primary standard pull in its normative
+    references, test methods and safety standards without a second database.
+    """
+
+    __tablename__ = "standard_relationships"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("standards.id"), index=True)
+    target_id: Mapped[int] = mapped_column(ForeignKey("standards.id"), index=True)
+    relationship_type: Mapped[str] = mapped_column(String(40), index=True)
+    source: Mapped[Standard] = relationship(foreign_keys=[source_id])
+    target: Mapped[Standard] = relationship(foreign_keys=[target_id])
 
 
 class QualityControlOrder(Base):
@@ -120,6 +142,10 @@ class Recommendation(Base):
     matched_requirements: Mapped[list[str]] = mapped_column(JSON, default=list)
     confidence_score: Mapped[float] = mapped_column(Float)
     human_review_required: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Kept so the officer can see which retrieval channel produced the result,
+    # and so a saved analysis replays identically to the original run.
+    score_breakdown: Mapped[dict] = mapped_column(JSON, default=dict)
+    relation_note: Mapped[str | None] = mapped_column(String(300), nullable=True)
     tender: Mapped[Tender] = relationship(back_populates="recommendations")
     standard: Mapped[Standard] = relationship()
 

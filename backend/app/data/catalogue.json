@@ -1,0 +1,205 @@
+{
+  "_README": [
+    "ManakSetu controlled standards catalogue.",
+    "",
+    "VERIFICATION RULE: a record may only carry verification_status 'verified' when",
+    "standard_number, official_title, official_source_url, source_organisation and",
+    "last_checked_date are all filled in from an official BIS source, and a human has",
+    "checked them. Anything else stays 'demo' and MUST have standard_number null, so",
+    "the interface renders it as an unverified record that cannot be cited.",
+    "",
+    "TO ADD A REAL STANDARD: set standard_number (e.g. 'IS 4151:2015'), official_title",
+    "exactly as published, official_source_url to the BIS catalogue page, fill",
+    "retrieved_date and last_checked_date, then change verification_status to",
+    "'verified'. Re-run the seed; the content hash and embedding regenerate.",
+    "",
+    "relationships: edges to other records in this file, by 'key'. Types are",
+    "references | tested_by | safety | installation | terminology."
+  ],
+
+  "categories": [
+    { "name": "Personal protective equipment", "description": "Head, foot and body protection for workers" },
+    { "name": "Electrical equipment and cables", "description": "Power cables, wiring and electrical accessories" },
+    { "name": "Packaged drinking water", "description": "Bottled and packaged water for human consumption" },
+    { "name": "Construction materials", "description": "Cement, aggregates and structural materials" },
+    { "name": "Office furniture", "description": "Seating, desks and storage for office environments" }
+  ],
+
+  "standards": [
+    {
+      "key": "ppe-helmet-primary",
+      "category": "Personal protective equipment",
+      "standard_number": "IS 2925:1984",
+      "official_title": "Specification for industrial safety helmets (Second Revision)",
+      "scope_summary": "Industrial safety helmets for occupational head protection on construction sites, factories and industrial workplaces; covers shell material, harness, impact and penetration resistance.",
+      "publication_year": 1984,
+      "revision_number": "Second Revision",
+      "status": "current",
+      "verification_status": "verified",
+      "official_source_url": "https://lims.bis.gov.in/home/search_is_number/?is_number__doc_no=2925",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-14",
+      "last_checked_date": "2026-09-14",
+      "relationships": [
+        { "target": "ppe-helmet-test", "type": "tested_by" },
+        { "target": "ppe-marking", "type": "safety" },
+        { "target": "ppe-terminology", "type": "terminology" }
+      ]
+    },
+    {
+      "key": "ppe-helmet-test",
+      "category": "Personal protective equipment",
+      "standard_number": null,
+      "official_title": "Protective headgear — impact and penetration test methods (demonstration record)",
+      "scope_summary": "Test procedures for shock absorption, penetration resistance, flammability and chin-strap retention of protective headgear. Demonstration placeholder pending official verification.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": []
+    },
+    {
+      "key": "ppe-marking",
+      "category": "Personal protective equipment",
+      "standard_number": null,
+      "official_title": "Personal protective equipment — permanent marking and user information (demonstration record)",
+      "scope_summary": "Requirements for permanent product marking, manufacturer identification, date of manufacture, size range and user instructions supplied with protective equipment. Demonstration placeholder.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": []
+    },
+    {
+      "key": "ppe-terminology",
+      "category": "Personal protective equipment",
+      "standard_number": null,
+      "official_title": "Personal protective equipment — vocabulary and definitions (demonstration record)",
+      "scope_summary": "Defines terms used across protective equipment standards including shell, harness, peak, crown clearance and vertical distance. Demonstration placeholder.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": []
+    },
+    {
+      "key": "ppe-footwear-primary",
+      "category": "Personal protective equipment",
+      "standard_number": null,
+      "official_title": "Occupational safety footwear with protective toecap (demonstration record)",
+      "scope_summary": "Safety boots and shoes for industrial workers, covering toecap impact resistance, slip resistance, sole penetration and antistatic properties. Demonstration placeholder.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": [{ "target": "ppe-footwear-test", "type": "tested_by" }]
+    },
+    {
+      "key": "ppe-footwear-test",
+      "category": "Personal protective equipment",
+      "standard_number": null,
+      "official_title": "Safety footwear — methods of test for slip and penetration resistance (demonstration record)",
+      "scope_summary": "Laboratory test methods for sole slip resistance, penetration force, toecap compression and leakproofness of occupational footwear. Demonstration placeholder.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": []
+    },
+    {
+      "key": "elec-cable-primary",
+      "category": "Electrical equipment and cables",
+      "standard_number": null,
+      "official_title": "PVC insulated power cables for working voltages up to 1100 V (demonstration record)",
+      "scope_summary": "Construction, dimensions and electrical requirements for polyvinyl chloride insulated copper and aluminium power cables used in building and industrial wiring. Demonstration placeholder.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": [
+        { "target": "elec-cable-test", "type": "tested_by" },
+        { "target": "elec-install", "type": "installation" }
+      ]
+    },
+    {
+      "key": "elec-cable-test",
+      "category": "Electrical equipment and cables",
+      "standard_number": null,
+      "official_title": "Electrical cables — methods of test for insulation resistance and voltage withstand (demonstration record)",
+      "scope_summary": "Test methods covering insulation resistance measurement, high-voltage withstand, conductor resistance and flame propagation for insulated cables. Demonstration placeholder.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": []
+    },
+    {
+      "key": "elec-install",
+      "category": "Electrical equipment and cables",
+      "standard_number": null,
+      "official_title": "Code of practice for electrical wiring installations (demonstration record)",
+      "scope_summary": "Guidance on selection, installation, earthing and protection of wiring systems in buildings, including cable routing and current-carrying capacity derating. Demonstration placeholder.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": []
+    },
+    {
+      "key": "water-primary",
+      "category": "Packaged drinking water",
+      "standard_number": null,
+      "official_title": "Packaged drinking water other than natural mineral water — specification (demonstration record)",
+      "scope_summary": "Quality requirements for packaged drinking water including physical, chemical, microbiological and pesticide residue limits, packaging and labelling. Demonstration placeholder.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": [{ "target": "water-test", "type": "tested_by" }]
+    },
+    {
+      "key": "water-test",
+      "category": "Packaged drinking water",
+      "standard_number": null,
+      "official_title": "Drinking water — methods of sampling and microbiological examination (demonstration record)",
+      "scope_summary": "Sampling procedures and laboratory methods for coliform count, total dissolved solids, turbidity and residual chlorine in drinking water. Demonstration placeholder.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": []
+    },
+    {
+      "key": "cement-primary",
+      "category": "Construction materials",
+      "standard_number": null,
+      "official_title": "Ordinary Portland cement — specification (demonstration record)",
+      "scope_summary": "Chemical composition, fineness, setting time and compressive strength requirements for ordinary Portland cement used in structural concrete. Demonstration placeholder.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": [{ "target": "cement-test", "type": "tested_by" }]
+    },
+    {
+      "key": "cement-test",
+      "category": "Construction materials",
+      "standard_number": null,
+      "official_title": "Cement — methods of physical tests for strength and consistency (demonstration record)",
+      "scope_summary": "Determination of compressive strength, standard consistency, initial and final setting time, and soundness of hydraulic cement. Demonstration placeholder.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": []
+    },
+    {
+      "key": "furniture-primary",
+      "category": "Office furniture",
+      "standard_number": null,
+      "official_title": "Office seating — general requirements and dimensions (demonstration record)",
+      "scope_summary": "Dimensional, stability, strength and durability requirements for office chairs including seat height adjustment, backrest and castor performance. Demonstration placeholder.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": [{ "target": "furniture-test", "type": "tested_by" }]
+    },
+    {
+      "key": "furniture-test",
+      "category": "Office furniture",
+      "standard_number": null,
+      "official_title": "Furniture — test methods for stability, strength and durability (demonstration record)",
+      "scope_summary": "Static load, impact, fatigue and stability test procedures for seating and storage furniture. Demonstration placeholder.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": []
+    }
+  ],
+
+  "quality_control_orders": [
+    {
+      "title": "Helmet for Police Force, Civil Defence and Personal Protection (Quality Control) Order, 2023 — S.O. 4649(E)",
+      "product_keyword": "industrial safety helmet",
+      "mandated_standard": "ppe-helmet-primary",
+      "enforcement_date": "2024-04-24",
+      "official_source_url": "https://www.bis.gov.in/wp-content/uploads/2023/10/Helmet-for-Police-Force-Civil-Defence-Personal-Protection-QCO-2023.pdf",
+      "verification_status": "verified",
+      "exemptions": ["goods or articles manufactured domestically for export"]
+    }
+  ]
+}

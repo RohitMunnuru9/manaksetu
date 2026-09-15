@@ -12,3 +12,6 @@ __pycache__/
 npm-debug.log*
 *.tsbuildinfo
 .DS_Store
+.pytest-tmp/
+backend/.model-cache/
+package-lock.json

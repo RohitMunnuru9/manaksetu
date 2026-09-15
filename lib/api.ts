@@ -3,8 +3,10 @@ export type ApiStandard = {
   standard_number: string | null;
   official_title: string;
   scope_summary: string;
+  publication_year: number | null;
   status: "current" | "revised" | "withdrawn" | "uncertain";
   official_source_url: string | null;
+  last_checked_date: string | null;
   verification_status: "verified" | "pending" | "demo";
 };
 
@@ -22,6 +24,8 @@ export type ApiRecommendation = {
   qco_source_url: string | null;
   human_review_required: boolean;
   warning: string | null;
+  relation_note: string | null;
+  score_breakdown: Record<string, number>;
 };
 
 export type AnalysisResult = {
@@ -44,6 +48,8 @@ export type AnalysisResult = {
   }>;
   missing_requirements: string[];
   guardrail_message: string | null;
+  retrieval_mode: "hybrid" | "lexical";
+  embedding_model: string | null;
 };
 
 export type TenderSummary = AnalysisResult["tender"];

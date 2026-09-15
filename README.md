@@ -4,6 +4,31 @@ ManakSetu AI is an explainable, human-in-the-loop system for identifying applica
 
 > Seed records carry an explicit `demo` or `verified` status. Demo records have no IS number or official source and must never be cited in a tender.
 
+## Demonstration script
+
+Five cases, in order. Sign in with the local judge credentials below, then use
+**New analysis** for each. Every claim here is reproducible from a clean database.
+
+| # | Paste this as the description | What to point out |
+|---|---|---|
+| 1 | `Purchase 1,000 industrial safety helmet units for construction workers with impact testing and permanent marking.` | IS 2925:1984 returned as **primary**, marked `verified`, with a live BIS source link and a **mandatory certification** flag raised by the 2023 helmet QCO. |
+| 2 | `Procurement of head protection gear for labourers working at elevated building sites.` | The same standard is still ranked first **although the word "helmet" never appears**. The reason line shows the embedding similarity. This is the difference between this system and keyword search. |
+| 3 | `औद्योगिक सुरक्षा हेलमेट निर्माण श्रमिकों के लिए खरीद` | A Hindi query retrieves the English-titled standard. Language is detected as `hi`; the embedding model is multilingual. |
+| 4 | `Supply of bottled water for office consumption with microbiological testing.` | Retrieval switches cleanly to the water category. No helmet records leak in. |
+| 5 | `Procurement of artisanal sourdough starter cultures for the canteen.` | Returns **zero** recommendations and the guardrail message *"No verified recommendation found. Expert review is required."* The system declines rather than guessing. |
+
+In cases 1-3, the supporting cards carry a **graph link** badge (`tested_by of IS
+2925:1984`) showing the allied standard was included because of a modelled
+relationship, not because of tender wording.
+
+### The claim to make to a reviewer
+
+Every IS number shown comes from a verified catalogue record with an official
+source URL, a content hash and a check date. Unverified records are rendered
+without any IS number at all and are score-capped so they can never present as
+high confidence. No language model generates standard identifiers anywhere in
+this system.
+
 ## Implemented MVP foundation
 
 - Next.js 15, React 19, TypeScript and Tailwind CSS frontend
@@ -11,7 +36,17 @@ ManakSetu AI is an explainable, human-in-the-loop system for identifying applica
 - FastAPI and Pydantic API with OpenAPI documentation
 - SQLAlchemy schema for users, categories, standards, QCOs, tenders, recommendations and audit logs
 - PostgreSQL/pgvector Docker service with SQLite development fallback
-- Keyword candidate ranking and tender-gap detection
+- Hybrid retrieval: PostgreSQL/SQLite keyword matching unioned with local
+  semantic embeddings (fastembed / ONNX, `paraphrase-multilingual-MiniLM-L12-v2`,
+  220 MB, CPU-only, no PyTorch and no external API)
+- Cross-lingual retrieval: a Hindi or Telugu query matches an English catalogue title
+- Standards knowledge graph as PostgreSQL relationship edges with one-hop
+  traversal, so allied standards are justified by a modelled relationship rather
+  than by rank position
+- Controlled catalogue in `backend/app/data/catalogue.json`, editable without
+  touching code; seeding refuses to promote a record to `verified` unless the IS
+  number, official title, source URL, source organisation and check date are all present
+- Tender-gap detection
 - Deterministic QCO check that refuses mandatory claims from unverified records
 - Source-traceable IS 2925:1984 public metadata and its 2023 helmet QCO from official BIS sources
 - JWT/Argon2 authentication foundation
@@ -100,7 +135,15 @@ The local language model will be added only as an explanation and structured-ext
 
 - Most seeded catalogue entries are demonstration records, not Indian Standards.
 - The safety-helmet category includes one separately marked verified public-metadata record; its source URLs, content hash and check date are stored with the record.
-- PaddleOCR, BGE-M3, Neo4j traversal and Ollama are integration-ready next-stage services; they are not silently simulated.
+- Semantic retrieval runs on fastembed rather than BGE-M3, and the knowledge
+  graph runs on PostgreSQL relationship edges rather than Neo4j. Both are the
+  laptop-scale options the specification permits; neither is simulated.
+- PaddleOCR and the Ollama/Qwen explanation layer are **not implemented**. The
+  reason text shown for each recommendation is generated deterministically from
+  retrieval evidence, not by a language model.
+- Version, amendment and withdrawal checking is **not implemented**; the schema
+  carries status fields but there is no revision-history table yet.
+- Ranking weights in `services/recommendation.py` are untuned starting values.
 - This machine currently has no Tesseract executable, so scanned files are safely marked `ocr_required`; digital-document extraction remains fully operational.
 - Real BIS/QCO metadata must be imported only from permitted official sources and reviewed before its verification status is changed.
 - Target quality metrics in `prompt.txt` remain targets until evaluated against an expert-labelled dataset.
