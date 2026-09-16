@@ -141,6 +141,18 @@ shared deployment.
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
+**To keep sessions alive across API restarts on a development machine**, write a
+fixed secret into `backend/.env`, which is gitignored:
+
+```bash
+python -c "import secrets; print('JWT_SECRET=' + secrets.token_urlsafe(48))" > backend/.env
+```
+
+Each developer generates their own. Never commit the file, and never share the
+value; anyone holding it can mint a token for any account. With no `backend/.env`
+present the API falls back to the ephemeral secret, and every restart signs
+everyone out.
+
 ### Optional: local language-model briefing
 
 A local Qwen model can write a plain-English briefing over the retrieved
