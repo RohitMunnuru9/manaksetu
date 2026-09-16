@@ -8,9 +8,9 @@ import {
 import { useEffect, useState } from "react";
 import {
   PERMISSIONS, analyseFile, analyseTender, downloadReport, getAuditHistory, getBriefing,
-  getCurrentUser, getDashboardStats, getLatestAnalysis, getNetwork, getStandards, login as loginUser,
+  getCategories, getCurrentUser, getDashboardStats, getLatestAnalysis, getNetwork, getStandards, login as loginUser,
   logout, saveReview,
-  type AnalysisResult, type ApiRecommendation, type ApiStandard, type AuditEntry,
+  type AnalysisResult, type ApiCategory, type ApiRecommendation, type ApiStandard, type AuditEntry,
   type DashboardStats, type StandardNetwork, type UserProfile,
 } from "@/lib/api";
 
@@ -436,6 +436,7 @@ export default function Home() {
   const [standards, setStandards] = useState<ApiStandard[]>([]);
   const [standardsQuery, setStandardsQuery] = useState("");
   const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [network, setNetwork] = useState<StandardNetwork | null>(null);
   const [networkOf, setNetworkOf] = useState<ApiStandard | null>(null);
   const [reviewNote, setReviewNote] = useState("");
@@ -452,6 +453,7 @@ export default function Home() {
     if (!user) return;
     getLatestAnalysis().then(r => r && setAnalysis(r)).catch(() => undefined);
     getDashboardStats().then(setStats).catch(() => undefined);
+    getCategories().then(setCategories).catch(() => undefined);
   }, [user]);
 
   // The written summary is slow, so it is fetched after results are on screen.
@@ -763,8 +765,22 @@ export default function Home() {
                             {!recs.length && (
                               <div className="empty">
                                 <FileSearch size={26} />
-                                <strong>Nothing matched</strong>
-                                <span>{analysis.guardrail_message ?? "We could not find a standard for this. An expert needs to look at it."}</span>
+                                <strong>Nothing in the catalogue matches this</strong>
+                                <span>
+                                  The system will not guess. It only returns a standard it can trace to a record, so
+                                  when a purchase falls outside what has been loaded it says so instead.
+                                </span>
+                                {categories.length > 0 && (
+                                  <div className="covers">
+                                    <p>What the catalogue covers today</p>
+                                    <div>
+                                      {categories.map(c => (
+                                        <span key={c.name} title={c.description}>{c.name}<em>{c.record_count}</em></span>
+                                      ))}
+                                    </div>
+                                    <small>Adding a new area means importing its BIS records — a data task, not a change to the software.</small>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </>

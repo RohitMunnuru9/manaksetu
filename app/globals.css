@@ -280,3 +280,11 @@ a { color: var(--rust); }
 .summary-figure { display: flex; align-items: center; gap: 12px; }
 .summary-figure .fig { font-family: var(--serif); font-size: 30px; line-height: 1; }
 .summary-figure .fig.warn { color: var(--amber); }
+
+/* What the catalogue covers — shown when a search finds nothing. */
+.covers { width: 100%; max-width: 560px; margin-top: 18px; border-top: 1px solid var(--line); padding-top: 16px; text-align: left; }
+.covers > p { margin: 0 0 10px; font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); }
+.covers > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.covers span { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; background: #fff; font-size: 11.5px; color: var(--ink); }
+.covers em { font-style: normal; font-size: 10px; font-weight: 700; color: var(--faint); }
+.covers small { display: block; margin-top: 11px; font-size: 11px; line-height: 1.55; color: var(--faint); }

@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 
 from .config import get_settings
 from .database import Base, SessionLocal, engine, get_db
-from .models import AuditLog, QualityControlOrder, Recommendation, ReviewDecision, Standard, StandardRelationship, StandardStatus, Tender, TenderRequirement, User, VerificationStatus
-from .schemas import AmendmentRead, AnalysisResponse, AuditRead, BriefingResponse, NetworkEdge, NetworkNode, NetworkResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
+from .models import AuditLog, ProductCategory, QualityControlOrder, Recommendation, ReviewDecision, Standard, StandardRelationship, StandardStatus, Tender, TenderRequirement, User, VerificationStatus
+from .schemas import AmendmentRead, AnalysisResponse, CategoryRead, AuditRead, BriefingResponse, NetworkEdge, NetworkNode, NetworkResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
 from .security import Permission, create_access_token, get_current_user, permissions_for, require_permission, verify_password
 from .seed import seed_demo_data
 from .services.recommendation import apply_graph_context, confidence_level, evaluate_qco, find_candidates, missing_requirements, retrieval_mode
@@ -176,6 +176,27 @@ def standard_network(standard_id: int, db: Session = Depends(get_db), _: User = 
         official_source_verified=bool(centre.official_source_url) and centre.verification_status == VerificationStatus.verified,
         current_version_confirmed=centre.status == StandardStatus.current,
     )
+
+
+@app.get("/api/v1/categories", response_model=list[CategoryRead], tags=["standards"])
+def list_categories(db: Session = Depends(get_db), _: User = Depends(require_permission(Permission.TENDER_READ))) -> list[CategoryRead]:
+    """What the catalogue actually covers.
+
+    Shown when a search returns nothing, so the officer learns the scope of the
+    catalogue instead of being told only that their tender failed.
+    """
+    rows = []
+    for category in db.scalars(select(ProductCategory).order_by(ProductCategory.name)).all():
+        records = db.scalars(select(Standard).where(Standard.category_id == category.id)).all()
+        if not records:
+            continue
+        rows.append(CategoryRead(
+            name=category.name,
+            description=category.description or "",
+            record_count=len(records),
+            verified_count=sum(1 for r in records if r.verification_status == VerificationStatus.verified),
+        ))
+    return rows
 
 
 @app.get("/api/v1/dashboard", response_model=DashboardStats, tags=["system"])

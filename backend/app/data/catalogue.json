@@ -49,6 +49,18 @@
     {
       "name": "Office furniture",
       "description": "Seating, desks and storage for office environments"
+    },
+    {
+      "name": "Classroom and institutional furniture",
+      "description": "Benches, desks, chairs and boards for schools and offices"
+    },
+    {
+      "name": "Information technology equipment",
+      "description": "Computers, displays, interactive boards and peripherals"
+    },
+    {
+      "name": "Steel storage furniture",
+      "description": "Almirahs, filing cabinets and racking"
     }
   ],
   "standards": [
@@ -476,6 +488,101 @@
       "source_organisation": "Bureau of Indian Standards",
       "retrieved_date": "2026-09-16",
       "last_checked_date": null,
+      "relationships": []
+    },
+    {
+      "key": "furn-bench",
+      "category": "Classroom and institutional furniture",
+      "standard_number": null,
+      "official_title": "School and institutional benches and desks (demonstration record)",
+      "scope_summary": "Benches, dual desks and writing surfaces for classrooms and institutional halls, covering dimensions, seat height, stability, load bearing and edge safety for student use.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": [
+        {
+          "target": "furniture-test",
+          "type": "tested_by"
+        }
+      ]
+    },
+    {
+      "key": "furn-table",
+      "category": "Classroom and institutional furniture",
+      "standard_number": null,
+      "official_title": "Tables and workstations for offices and classrooms (demonstration record)",
+      "scope_summary": "Office and classroom tables, desks and workstations, covering working height, surface finish, stability under load and resistance to wear.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": [
+        {
+          "target": "furniture-test",
+          "type": "tested_by"
+        }
+      ]
+    },
+    {
+      "key": "it-board",
+      "category": "Information technology equipment",
+      "standard_number": null,
+      "official_title": "Interactive display boards and classroom projection equipment (demonstration record)",
+      "scope_summary": "Interactive smart boards, digital display panels, whiteboards and projection screens for classrooms and meeting rooms, covering display surface, mounting, electrical safety and touch response.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": [
+        {
+          "target": "it-safety",
+          "type": "safety"
+        }
+      ]
+    },
+    {
+      "key": "it-computer",
+      "category": "Information technology equipment",
+      "standard_number": null,
+      "official_title": "Desktop computers, laptops and monitors for office use (demonstration record)",
+      "scope_summary": "Desktop computers, laptops, monitors and peripherals for government office use, covering electrical safety, energy efficiency and electromagnetic compatibility.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": [
+        {
+          "target": "it-safety",
+          "type": "safety"
+        }
+      ]
+    },
+    {
+      "key": "it-safety",
+      "category": "Information technology equipment",
+      "standard_number": null,
+      "official_title": "Information technology equipment — electrical safety requirements (demonstration record)",
+      "scope_summary": "Safety requirements for mains-powered information technology and audio-visual equipment, covering insulation, earthing, temperature rise and protection against electric shock.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": []
+    },
+    {
+      "key": "steel-almirah",
+      "category": "Steel storage furniture",
+      "standard_number": null,
+      "official_title": "Steel almirahs and storage cupboards (demonstration record)",
+      "scope_summary": "Steel almirahs, cupboards and record storage units, covering sheet thickness, shelf load, locking arrangement, welding and corrosion-resistant finish.",
+      "status": "uncertain",
+      "verification_status": "demo",
+      "relationships": [
+        {
+          "target": "steel-cabinet",
+          "type": "references"
+        }
+      ]
+    },
+    {
+      "key": "steel-cabinet",
+      "category": "Steel storage furniture",
+      "standard_number": null,
+      "official_title": "Steel filing cabinets and record racking (demonstration record)",
+      "scope_summary": "Steel filing cabinets, drawer units and record racking for offices and archives, covering drawer slide performance, load per shelf and stability when loaded.",
+      "status": "uncertain",
+      "verification_status": "demo",
       "relationships": []
     }
   ],

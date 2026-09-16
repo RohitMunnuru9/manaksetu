@@ -198,3 +198,11 @@ class NetworkResponse(BaseModel):
     linked_standards: int = 0
     official_source_verified: bool = False
     current_version_confirmed: bool = False
+
+
+class CategoryRead(BaseModel):
+    """A product area the catalogue covers, with how much is in it."""
+    name: str
+    description: str = ""
+    record_count: int = 0
+    verified_count: int = 0

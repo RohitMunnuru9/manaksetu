@@ -182,6 +182,11 @@ export type StandardNetwork = {
 /** Everything connected to one standard, drawn from the same edges retrieval uses. */
 export const getNetwork = (standardId: number) => getJson<StandardNetwork>(`/standards/${standardId}/network`);
 
+export type ApiCategory = { name: string; description: string; record_count: number; verified_count: number };
+
+/** What the catalogue covers. Shown when a search finds nothing. */
+export const getCategories = () => getJson<ApiCategory[]>("/categories");
+
 export const getStandards = (query = "") => getJson<ApiStandard[]>(`/standards${query ? `?q=${encodeURIComponent(query)}` : ""}`);
 export const getAuditHistory = () => getJson<AuditEntry[]>("/audit");
 export const getDashboardStats = () => getJson<DashboardStats>("/dashboard");
