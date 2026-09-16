@@ -13,6 +13,7 @@
              ... -SkipModel     start without the language model briefing
              ... -Fresh         rebuild the .next cache and reseed the database
              ... -SkipWeb       start only the API and model, leaving port 3000 free
+             ... -Public        also publish a public HTTPS URL via Cloudflare
 #>
 
 param(
@@ -20,13 +21,57 @@ param(
     [switch]$Fresh,
     # Leave port 3000 alone. Use this when the dashboard is already being served
     # by something else, so the two do not fight over the port.
-    [switch]$SkipWeb
+    [switch]$SkipWeb,
+    # Publish a public HTTPS URL through Cloudflare, so the dashboard can be
+    # opened from any device rather than only this machine.
+    [switch]$Public
 )
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $python = Join-Path $root "backend\.venv\Scripts\python.exe"
 $ollama = Join-Path $env:LOCALAPPDATA "Programs\Ollama\ollama.exe"
+
+function Resolve-Tool($name, $candidates) {
+    # A tool installed by winget lands on the system PATH, but a shell opened
+    # before the install keeps a stale copy of it -- so check the usual install
+    # locations too rather than telling the user to reopen their terminal.
+    $cmd = Get-Command $name -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    foreach ($c in $candidates) { if (Test-Path $c) { return $c } }
+    return $null
+}
+
+function Start-Tunnel($port, $label) {
+    $exe = Resolve-Tool "cloudflared" @(
+        "$env:ProgramFiles\cloudflared\cloudflared.exe",
+        "${env:ProgramFiles(x86)}\cloudflared\cloudflared.exe",
+        "$env:LOCALAPPDATA\Programs\cloudflared\cloudflared.exe"
+    )
+    if (-not $exe) {
+        Write-Warn "cloudflared not found. Install it with: winget install Cloudflare.cloudflared"
+        return $null
+    }
+    $log = Join-Path $env:TEMP "manaksetu-tunnel-$port.log"
+    Remove-Item $log -ErrorAction SilentlyContinue
+    Start-Process -FilePath $exe -ArgumentList "tunnel","--url","http://localhost:$port","--no-autoupdate" `
+        -RedirectStandardError $log -WindowStyle Hidden
+    $deadline = (Get-Date).AddSeconds(60)
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Seconds 2
+        if (Test-Path $log) {
+            $match = Select-String -Path $log -Pattern "https://[a-z0-9-]+\.trycloudflare\.com" -ErrorAction SilentlyContinue |
+                     Select-Object -First 1
+            if ($match) {
+                $url = $match.Matches[0].Value
+                Write-Ok "$label published at $url"
+                return $url
+            }
+        }
+    }
+    Write-Warn "$label tunnel did not report a URL within 60s"
+    return $null
+}
 
 function Write-Step($message) { Write-Host "`n==> $message" -ForegroundColor Cyan }
 function Write-Ok($message)   { Write-Host "    OK  $message" -ForegroundColor Green }
@@ -85,6 +130,31 @@ if ($Fresh) {
     Write-Ok "cleared .next cache and database"
 }
 
+# --- Public URLs ---------------------------------------------------------
+# Started first: the URLs have to be on disk before the services read them.
+# NEXT_PUBLIC_* in particular is baked in when the dashboard compiles.
+if ($Public) {
+    Write-Step "Publishing public URLs"
+    $apiUrl = Start-Tunnel 8000 "API"
+    $webUrl = if ($SkipWeb) { $null } else { Start-Tunnel 3000 "Dashboard" }
+
+    if ($apiUrl) {
+        Set-Content -Path (Join-Path $root ".env.local") -Encoding ascii -Value @(
+            "# Written by start-demo.ps1 -Public. Delete this file to return to",
+            "# the purely local setup (http://localhost:8000).",
+            "NEXT_PUBLIC_API_URL=$apiUrl/api/v1"
+        )
+        Write-Ok "dashboard will call $apiUrl/api/v1"
+    }
+    if ($webUrl) {
+        $envFile = Join-Path $root "backend\.env"
+        $kept = @(Get-Content $envFile | Where-Object { $_ -notmatch "^CORS_ORIGINS=" })
+        Set-Content -Path $envFile -Encoding ascii -Value ($kept + "CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,$webUrl")
+        Write-Ok "API will accept requests from $webUrl"
+    }
+    $script:PublicWeb = $webUrl
+}
+
 # --- Language model ------------------------------------------------------
 if (-not $SkipModel) {
     Write-Step "Language model"
@@ -127,6 +197,12 @@ if ($apiUp -and $webUp) {
     Write-Host ""
     Write-Host "  Officer     officer@manaksetu.gov.in / ManakSetu@2026" -ForegroundColor White
     Write-Host "  Supplier    supplier@example.in     / ManakSetu@2026   (restricted, for the access-control case)" -ForegroundColor White
+    Write-Host ""
+    if ($script:PublicWeb) {
+        Write-Host ""
+        Write-Host "  PUBLIC      $($script:PublicWeb)" -ForegroundColor Yellow
+        Write-Host "              Live only while this machine and the tunnels stay running." -ForegroundColor DarkGray
+    }
     Write-Host ""
     Write-Host "  Demonstration script: see README.md" -ForegroundColor DarkGray
 } else {
