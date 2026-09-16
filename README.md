@@ -2,7 +2,10 @@
 
 ManakSetu AI is an explainable, human-in-the-loop system for identifying applicable Indian Standards in public procurement. It retrieves candidates from controlled records, checks deterministic regulatory rules, exposes evidence status, and keeps the final decision with an authorised reviewer.
 
-> Seed records carry an explicit `demo` or `verified` status. Demo records have no IS number or official source and must never be cited in a tender.
+> Every record carries an explicit tier: **verified** (checked by a person against
+> the official BIS entry), **pending** (imported from an official BIS page, real
+> identifier shown, not yet confirmed), or **demo** (illustrative, carries no
+> identifier at all). Only a verified record should be cited in a tender.
 
 ## Demonstration script
 
@@ -19,6 +22,30 @@ Eight cases, in order. Sign in with the local judge credentials below, then use
 | 6 | Same as case 1 — look at the **supporting cards** | One card is flagged **Outdated record** (withdrawn, superseded by IS 2925:1984); another shows **Amended since publication** with both amendments listed. Currency is decided deterministically, never by the model. |
 | 7 | Upload a **scanned** PDF (an image-only page, no text layer) | Tesseract reads it locally and the tender is analysed normally. Without Tesseract installed the document is flagged `ocr_required` rather than silently returning empty text. |
 | 8 | Sign in as `supplier@example.in` | Review, export and audit controls disappear, and calling those endpoints directly returns **403**. Access control is enforced by the API, not by hiding buttons. |
+
+### Real BIS data in the catalogue
+
+Fifteen real Indian Standards were imported from official BIS pages on
+2026-09-16, across four categories. Try any of these and the top result is a real
+IS number:
+
+| Tender description | Top result |
+|---|---|
+| `Supply of 500 tonnes ordinary portland cement for structural concrete works.` | **IS 269** — Ordinary Portland Cement |
+| `Procurement of PVC insulated power cables for building wiring up to 1100 V.` | **IS 694** — PVC insulated cables for working voltages up to and including 1100V |
+| `Supply of packaged drinking water bottles for office consumption.` | **IS 14543:2016** — Packaged Drinking Water |
+| `Purchase of safety footwear with protective toecap for factory workers.` | **IS 15298 (Part 2)** — Personal Protective Equipment Safety Footwear |
+
+These are shown as **Imported · awaiting check** rather than verified. The number
+came off an official BIS page, so it is real and is displayed — but no officer has
+confirmed the title and year against the BIS catalogue entry, and the interface
+says so. Promoting one to verified means opening its source, checking it, setting
+`last_checked_date` in `backend/app/data/catalogue.json`, and re-seeding. The
+seeder refuses to promote a record without that date.
+
+Only **IS 2925:1984** is officer-verified, and it is the only record that raises a
+mandatory-certification finding, because the rule engine will not assert a legal
+obligation from an unconfirmed record.
 
 ### The strongest thing to show a reviewer
 
@@ -40,11 +67,17 @@ relationship, not because of tender wording.
 
 ### The claim to make to a reviewer
 
-Every IS number shown comes from a verified catalogue record with an official
-source URL, a content hash and a check date. Unverified records are rendered
-without any IS number at all and are score-capped so they can never present as
-high confidence. No language model generates standard identifiers anywhere in
-this system.
+Every IS number shown comes from a catalogue record with an official source URL,
+and the interface always says which tier that record is in. A demonstration record
+carries no identifier at all. An imported record shows its real identifier and
+states that no officer has confirmed it. Only an officer-verified record carries a
+content hash and a check date, and only such a record can raise a mandatory
+certification finding.
+
+Nothing below the verified tier can present as high confidence: the ranking caps
+it. And no language model generates a standard identifier anywhere in this system
+-- the briefing layer may only quote identifiers that retrieval already returned,
+and any output containing one it did not is discarded.
 
 ## Implemented MVP foundation
 
@@ -104,6 +137,26 @@ backend/tests/          Backend tests
 compose.yaml            Local PostgreSQL, API and frontend stack
 prompt.txt              Complete product source of truth
 ```
+
+## Run the demonstration
+
+One command, from the repository root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File start-demo.ps1
+```
+
+It clears anything holding ports 3000 and 8000, generates a signing secret if
+`backend/.env` is missing, starts Ollama if it is installed, then brings up the
+API and the dashboard and waits until each one actually answers before reporting
+success. Add `-Fresh` to rebuild the `.next` cache and reseed the database, or
+`-SkipModel` to run without the briefing layer.
+
+Every failure encountered while building this was operational rather than logical
+-- a killed dev server leaving a listener on port 3000 so Next quietly started on
+3001 and the browser kept showing a stale build, a production build run alongside
+the dev server corrupting `.next`, Ollama not running. The script exists to make
+those impossible before a demonstration.
 
 ## Run with Docker Compose
 
