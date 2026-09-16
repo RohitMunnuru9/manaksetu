@@ -72,6 +72,11 @@ function plainRole(type: string): string {
   return words[type] ?? type;
 }
 
+// Demonstration accounts. Seeded only where SEED_DEMO_USERS is true, and the
+// API refuses every request without a token regardless.
+const DEMO_OFFICER = { email: "officer@manaksetu.gov.in", password: "ManakSetu@2026" };
+const DEMO_SUPPLIER = { email: "supplier@example.in", password: "ManakSetu@2026" };
+
 const LANGUAGE_NAME: Record<string, string> = { en: "English", hi: "Hindi", te: "Telugu" };
 
 function confidenceWord(level: string): string {
@@ -459,7 +464,18 @@ export default function Home() {
   const can = (p: string) => Boolean(user?.permissions?.includes(p));
 
   useEffect(() => {
-    getCurrentUser().then(setUser).catch(() => setUser(null)).finally(() => setAuthLoading(false));
+    // Open straight into the workspace. Authentication is still enforced on
+    // every request -- this signs in with the demonstration officer rather than
+    // asking for credentials that are printed on the screen anyway. If those
+    // accounts are not seeded, the sign-in form appears as before.
+    getCurrentUser()
+      .then(setUser)
+      .catch(() =>
+        loginUser(DEMO_OFFICER.email, DEMO_OFFICER.password)
+          .then(setUser)
+          .catch(() => setUser(null)),
+      )
+      .finally(() => setAuthLoading(false));
   }, []);
 
   useEffect(() => {
@@ -653,8 +669,19 @@ export default function Home() {
               <small>{user.role.replaceAll("_", " ")}</small>
             </span>
           </button>
-          <button className="btn btn-sm mt-2 w-full text-white/60 hover:text-white" onClick={() => { logout(); setUser(null); }}>
-            <LogOut size={14} /> Sign out
+          <button
+            className="btn btn-sm mt-2 w-full text-white/60 hover:text-white"
+            onClick={async () => {
+              const next = user.role === "supplier" ? DEMO_OFFICER : DEMO_SUPPLIER;
+              logout();
+              try {
+                setUser(await loginUser(next.email, next.password));
+                startNewAnalysis();
+                notify(next === DEMO_SUPPLIER ? "Now signed in as a supplier — review and export are refused" : "Back to the procurement officer");
+              } catch { setUser(null); }
+            }}
+          >
+            <LogOut size={14} /> {user.role === "supplier" ? "Switch to officer" : "Switch to supplier"}
           </button>
         </div>
       </aside>
