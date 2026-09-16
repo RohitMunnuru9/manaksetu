@@ -10,7 +10,35 @@ from .embeddings import cosine_similarity, semantic_index, standard_document
 
 
 TOKEN_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9-]{2,}")
-STOP_WORDS = {"and", "the", "for", "with", "from", "that", "this", "units", "purchase", "supply"}
+# Ordinary English plus the boilerplate every tender repeats. A long document is
+# searched on the words it repeats most, and with only a handful of stop words
+# that list came back as "after, against, all, along, also, any, are" -- the
+# procurement equivalent of searching for nothing.
+STOP_WORDS = {
+    # articles, pronouns, prepositions, conjunctions
+    "a", "about", "above", "after", "again", "against", "all", "along", "also", "among", "and",
+    "any", "are", "as", "at", "be", "because", "been", "before", "being", "below", "between",
+    "both", "but", "by", "can", "does", "each", "either", "etc", "for", "from", "further",
+    "had", "has", "have", "he", "her", "here", "his", "how", "however", "if", "in", "into",
+    "is", "it", "its", "may", "more", "most", "must", "no", "nor", "not", "of", "off", "on",
+    "once", "only", "or", "other", "our", "out", "over", "own", "per", "same", "shall",
+    "she", "should", "so", "some", "such", "than", "that", "the", "their", "them", "then",
+    "there", "these", "they", "this", "those", "through", "to", "too", "under", "until",
+    "up", "very", "was", "were", "what", "when", "where", "which", "while", "who", "whom",
+    "why", "will", "with", "within", "would", "you", "your",
+    # tender and contract boilerplate: present in every document, so it
+    # distinguishes none of them
+    "accordance", "acceptance", "accepted", "annexure", "applicable", "approval", "approved",
+    "authority", "bid", "bidder", "bidders", "bids", "case", "clause", "company", "concerned",
+    "condition", "conditions", "contract", "date", "delivery", "department", "detail",
+    "details", "document", "documents", "due", "following", "given", "government", "included",
+    "including", "items", "made", "make", "notice", "number", "offer", "offered", "order",
+    "page", "part", "party", "payment", "period", "prescribed", "price", "provided",
+    "purchase", "purchaser", "quantity", "quoted", "rate", "rates", "received", "regarding",
+    "required", "requirement", "requirements", "respect", "said", "schedule", "section",
+    "shall", "specified", "sub", "subject", "submission", "submitted", "supplied", "supply",
+    "tender", "tenderer", "terms", "time", "total", "units", "value", "work", "works",
+}
 
 # A real 233-page tender yields several thousand distinct words. One SQL clause
 # per word overran SQLite's expression-tree limit and the upload failed outright,

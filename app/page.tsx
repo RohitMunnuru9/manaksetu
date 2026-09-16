@@ -3,7 +3,7 @@
 import {
   ArrowRight, BookOpenCheck, Check, CheckCircle2, ChevronRight, Clock3, FileCheck2,
   FileSearch, FileText, History, LayoutDashboard, Link2, LoaderCircle, LockKeyhole,
-  LogOut, Menu, Search, Share2, ShieldCheck, Sparkles, TriangleAlert, UploadCloud, X,
+  Globe2, LogOut, Menu, Search, Share2, ShieldCheck, Sparkles, TriangleAlert, UploadCloud, X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -71,6 +71,8 @@ function plainRole(type: string): string {
   };
   return words[type] ?? type;
 }
+
+const LANGUAGE_NAME: Record<string, string> = { en: "English", hi: "Hindi", te: "Telugu" };
 
 function confidenceWord(level: string): string {
   return { high: "Strong match", medium: "Likely match", low: "Weak match" }[level] ?? level;
@@ -792,6 +794,12 @@ export default function Home() {
                       <p className="eyebrow">Step 1 of 2</p>
                       <h3 className="section-head mt-2">Here is what we understood</h3>
                       <p className="section-sub">Check this before looking at the standards. If we have read your tender wrongly, the results will be wrong too.</p>
+
+                      <div className="read-as">
+                        <span><Globe2 size={14} /> Read as <strong>{LANGUAGE_NAME[analysis.tender.language] ?? analysis.tender.language.toUpperCase()}</strong></span>
+                        <span><FileText size={14} /> {analysis.tender.filename ? "Uploaded document" : "Typed description"}</span>
+                        {analysis.tender.source_text && <span><Search size={14} /> {analysis.tender.source_text.length.toLocaleString()} characters read</span>}
+                      </div>
 
                       <dl className="mt-5">
                         {details.map((d, i) => (
