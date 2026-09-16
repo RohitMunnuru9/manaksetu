@@ -191,6 +191,17 @@ def find_candidates(db: Session, text: str, limit: int = 5, augment: str = "") -
         if augment:
             semantic_query = f"{augment} {semantic_query}"
     query_vector = semantic_index.embed_one(semantic_query) if semantic_index.available else None
+    # Score the confirmed product on its own as well, and keep whichever reads
+    # higher. Blending it into the tender text dilutes it: a Telugu water tender
+    # reached the right standard at 0.50, just under the floor, because the
+    # model's Telugu is weaker than its Hindi and dragged the average down. The
+    # product here was matched literally, not guessed, so searching for it alone
+    # is not a loosening of the evidence.
+    augment_vector = (
+        semantic_index.embed_one(augment)
+        if augment and semantic_index.available
+        else None
+    )
 
     pool: dict[int, Standard] = {item.id: item for item in _lexical_candidates(db, terms)}
     if query_vector is not None:
@@ -204,6 +215,8 @@ def find_candidates(db: Session, text: str, limit: int = 5, augment: str = "") -
         matched = [term for term in terms if term in searchable]
         lexical = min(len(matched) / max(len(terms), 1), 1.0) if terms else 0.0
         semantic = cosine_similarity(query_vector, standard.embedding) if query_vector is not None else 0.0
+        if augment_vector is not None:
+            semantic = max(semantic, cosine_similarity(augment_vector, standard.embedding))
         score, breakdown = _score(standard, lexical, semantic)
         ranked.append(RankedStandard(
             standard=standard,
