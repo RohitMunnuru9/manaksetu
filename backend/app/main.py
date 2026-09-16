@@ -83,6 +83,7 @@ def dashboard(db: Session = Depends(get_db), _: User = Depends(get_current_user)
         total_tenders=db.scalar(select(func.count(Tender.id))) or 0,
         pending_reviews=db.scalar(select(func.count(Tender.id)).where(Tender.status == "review_required")) or 0,
         verified_standards=db.scalar(select(func.count(Standard.id)).where(Standard.verification_status == VerificationStatus.verified)) or 0,
+        total_standards=db.scalar(select(func.count(Standard.id))) or 0,
         completed_reviews=db.scalar(select(func.count(ReviewDecision.id)).where(ReviewDecision.decision == "approved")) or 0,
     )
 

@@ -101,6 +101,7 @@ def seed_demo_data(db: Session) -> None:
             existing = Standard(official_title=row["official_title"])
             db.add(existing)
         existing.standard_number = number
+        existing.catalogue_ref = f"MS-{row['key'].upper()}"
         existing.scope_summary = row.get("scope_summary", "")
         existing.publication_year = row.get("publication_year")
         existing.revision_number = row.get("revision_number")

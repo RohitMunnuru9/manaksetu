@@ -1,6 +1,7 @@
 export type ApiStandard = {
   id: number;
   standard_number: string | null;
+  catalogue_ref: string | null;
   official_title: string;
   scope_summary: string;
   publication_year: number | null;
@@ -54,7 +55,7 @@ export type AnalysisResult = {
 
 export type TenderSummary = AnalysisResult["tender"];
 export type AuditEntry = { id: number; action: string; entity_type: string; entity_id: string; details: Record<string, unknown>; created_at: string };
-export type DashboardStats = { total_tenders: number; pending_reviews: number; verified_standards: number; completed_reviews: number };
+export type DashboardStats = { total_tenders: number; pending_reviews: number; verified_standards: number; total_standards: number; completed_reviews: number };
 export type UserProfile = { id: number; email: string; full_name: string; role: string };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";

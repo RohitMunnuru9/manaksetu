@@ -46,6 +46,13 @@ def test_demo_records_never_carry_a_standard_number(seeded_db: Session) -> None:
     assert demo, "catalogue should contain demonstration records"
     for standard in demo:
         assert standard.standard_number is None, f"{standard.official_title} exposes an IS number while unverified"
+        # Each still needs a distinct internal handle, so the interface can name
+        # it without falling back to an identical "no IS number" for every record.
+        assert standard.catalogue_ref, f"{standard.official_title} has no catalogue reference"
+        assert not standard.catalogue_ref.upper().startswith("IS "), "internal reference must not look like an IS number"
+
+    refs = [item.catalogue_ref for item in seeded_db.scalars(select(Standard)).all()]
+    assert len(refs) == len(set(refs)), "catalogue references must be unique"
 
 
 @needs_model

@@ -12,6 +12,19 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from ..models import Recommendation, Tender
 
 
+def record_label(standard) -> str:
+    """How a record is named in an exported report.
+
+    A verified record is named by its IS number. An unverified one is named by
+    its internal catalogue reference and explicitly says it is not an Indian
+    Standard, so an exported file cannot be misread as citing one.
+    """
+    if standard.standard_number:
+        return standard.standard_number
+    reference = standard.catalogue_ref or "UNREFERENCED"
+    return f"{reference} (internal reference — not an Indian Standard)"
+
+
 def report_payload(tender: Tender, recommendations: list[Recommendation]) -> dict:
     return {
         "report_type": "ManakSetu recommendation review",
@@ -20,6 +33,8 @@ def report_payload(tender: Tender, recommendations: list[Recommendation]) -> dic
         "recommendations": [
             {
                 "standard_number": item.standard.standard_number,
+                "catalogue_ref": item.standard.catalogue_ref,
+                "is_an_indian_standard": item.standard.standard_number is not None,
                 "title": item.standard.official_title,
                 "verification_status": item.standard.verification_status.value,
                 "type": item.standard_type,
@@ -48,7 +63,7 @@ def build_pdf(tender: Tender, recommendations: list[Recommendation]) -> bytes:
     warning_table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), HexColor("#FFF3E3")), ("BOX", (0, 0), (-1, -1), 0.5, HexColor("#E8A353")), ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]))
     story += [warning_table, Spacer(1, 5 * mm)]
     for index, item in enumerate(recommendations, 1):
-        number = item.standard.standard_number or "Verification pending"
+        number = record_label(item.standard)
         story += [Paragraph(f"{index}. {number}", styles["Heading3"]), Paragraph(item.standard.official_title, styles["BodyText"]), Paragraph(f"Confidence: {round(item.confidence_score * 100)}% | Status: {item.standard.verification_status.value}", styles["BodyText"]), Paragraph(item.reason, styles["BodyText"]), Spacer(1, 3 * mm)]
     doc.build(story)
     return stream.getvalue()
@@ -63,7 +78,7 @@ def build_docx(tender: Tender, recommendations: list[Recommendation]) -> bytes:
     document.add_paragraph(f"Tender: {tender.title}")
     document.add_paragraph("HUMAN REVIEW REQUIRED — Demo or unverified records must not be cited in a tender.")
     for item in recommendations:
-        document.add_heading(item.standard.standard_number or "Verification pending", level=2)
+        document.add_heading(record_label(item.standard), level=2)
         document.add_paragraph(item.standard.official_title)
         document.add_paragraph(f"Confidence: {round(item.confidence_score * 100)}% · Verification: {item.standard.verification_status.value}")
         document.add_paragraph(item.reason)
@@ -82,9 +97,9 @@ def build_xlsx(tender: Tender, recommendations: list[Recommendation]) -> bytes:
     sheet.append([])
     sheet.append(["Standard number", "Title", "Type", "Confidence", "Verification", "Human review"])
     for item in recommendations:
-        sheet.append([item.standard.standard_number or "Verification pending", item.standard.official_title, item.standard_type, item.confidence_score, item.standard.verification_status.value, item.human_review_required])
+        sheet.append([record_label(item.standard), item.standard.official_title, item.standard_type, item.confidence_score, item.standard.verification_status.value, item.human_review_required])
     sheet.freeze_panes = "A6"
-    sheet.column_dimensions["A"].width = 24
+    sheet.column_dimensions["A"].width = 46
     sheet.column_dimensions["B"].width = 60
     sheet.column_dimensions["C"].width = 16
     sheet.column_dimensions["D"].width = 14

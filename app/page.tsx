@@ -78,6 +78,55 @@ const buildStages = (analysis: AnalysisResult | null) => {
   ];
 };
 
+/** How a record identifies itself, which depends entirely on whether it is verified. */
+function StandardIdentity({ standard, size = "regular" }: { standard: ApiStandard; size?: "regular" | "compact" }) {
+  const verified = standard.verification_status === "verified" && Boolean(standard.standard_number);
+  if (verified) {
+    return (
+      <div>
+        <div className="std-id verified">
+          <code>{standard.standard_number}</code>
+          <span className="id-tag"><ShieldCheck size={9} className="mr-0.5 inline" />Verified BIS record</span>
+        </div>
+        {size === "regular" && <p className="id-note">Published Indian Standard. Official source and check date recorded below.</p>}
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div className="std-id unverified">
+        <code>{standard.catalogue_ref ?? "UNREFERENCED"}</code>
+        <span className="id-tag">Not an Indian Standard</span>
+      </div>
+      <p className={`id-note unverified${size === "compact" ? " text-[10px]" : ""}`}>
+        Internal catalogue reference. This record has <strong>no IS number</strong> because none has been verified against an official BIS source yet — so none is shown. Do not cite it in a tender.
+      </p>
+    </div>
+  );
+}
+
+/** Explains the two-tier record system once, so the badges need no explaining. */
+function EvidenceLegend({ verifiedCount, totalCount }: { verifiedCount: number; totalCount: number }) {
+  return (
+    <div className="evidence-legend">
+      <h4>How to read these results</h4>
+      <ul>
+        <li>
+          <span className="legend-swatch verified">Verified BIS record</span>
+          <span>Metadata confirmed against an official BIS source. Shows a real <strong>IS number</strong>, a source link and the date it was last checked. Safe to cite once you have reviewed it.</span>
+        </li>
+        <li>
+          <span className="legend-swatch unverified">Not an Indian Standard</span>
+          <span>A demonstration record used to exercise retrieval. It deliberately carries <strong>no IS number</strong> — the system never invents one — only an internal reference such as <code>MS-PPE-MARKING</code>. Never cite these.</span>
+        </li>
+      </ul>
+      <p className="text-[10.5px] leading-[1.55] text-[#68766f]">
+        This catalogue currently holds <strong className="text-[#2a4338]">{verifiedCount} verified {verifiedCount === 1 ? "record" : "records"}</strong> out of {totalCount}. Importing official BIS metadata for the remaining categories is a data task, not a code change.
+      </p>
+    </div>
+  );
+}
+
 function NavItem({ icon: Icon, label, active, badge, onClick }: NavItemProps) {
   return (
     <button className={`nav-item ${active ? "active" : ""}`} onClick={onClick}>
@@ -147,6 +196,9 @@ export default function Home() {
   useEffect(() => {
     if (!user) return;
     getLatestAnalysis().then(result => result && setAnalysis(result)).catch(() => notify("Could not load the latest analysis"));
+    // Needed on load, not just when the overview panel opens: the evidence
+    // legend states how many catalogue records are actually verified.
+    getDashboardStats().then(setDashboardStats).catch(() => undefined);
   }, [user]);
 
   const handleLogin = async (event: React.FormEvent) => {
@@ -221,6 +273,8 @@ export default function Home() {
   const requirementCount = analysis?.extracted_requirements.length ?? 0;
   const gapCount = analysis?.missing_requirements.length ?? 0;
   const filteredStandards = standards.filter(item => typeFilter === "all" || item.verification_status === typeFilter);
+  const verifiedRecordCount = dashboardStats?.verified_standards ?? 0;
+  const catalogueSize = dashboardStats?.total_standards ?? 0;
   const overlayTitle: Record<Exclude<Overlay, null>, string> = {
     standards: "Standards library",
     audit: "Audit history",
@@ -408,13 +462,15 @@ export default function Home() {
                       <select className="filter-button" value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)} aria-label="Filter recommendation type"><option value="all">All types</option><option value="verified">Verified only</option><option value="demo">Demo only</option></select>
                     </div>
 
+                    {analysis && <EvidenceLegend verifiedCount={verifiedRecordCount} totalCount={catalogueSize} />}
+
                     {primary && <article className="recommendation-card featured">
                       <div className="flex flex-col gap-5 sm:flex-row">
                         <div className="confidence-ring"><div><strong>{Math.round(primary.confidence_score * 100)}</strong><span>%</span></div><small>Confidence</small></div>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2"><span className="type-chip primary">{primary.standard_type}</span><span className="type-chip current"><Check size={11} /> {primary.standard.status}</span><span className={`type-chip ${primary.standard.verification_status === "verified" ? "current" : "demo"}`}>{primary.standard.verification_status}</span></div>
                           <div className="mt-3 flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
-                            <div><p className="text-xs font-bold tracking-[.08em] text-pine">{primary.standard.standard_number ?? "NO IS NUMBER — UNVERIFIED RECORD"}</p><h4 className="mt-1 text-[17px] font-semibold tracking-[-.02em]">{primary.standard.official_title}</h4></div>
+                            <div className="min-w-0"><StandardIdentity standard={primary.standard} /><h4 className="mt-2 text-[17px] font-semibold tracking-[-.02em]">{primary.standard.official_title}</h4></div>
                             <button className="link-button" onClick={() => primary.standard.official_source_url ? window.open(primary.standard.official_source_url, "_blank", "noopener,noreferrer") : notify("No official evidence exists for this demo record")}><Link2 size={14} /> Evidence</button>
                           </div>
                           <p className="mt-3 text-[13px] leading-6 text-[#64726b]">{primary.reason_for_recommendation}</p>
@@ -435,7 +491,7 @@ export default function Home() {
                         return (
                           <article className="compact-rec" key={key}>
                             <div className="flex items-start justify-between"><span className="type-chip test">{item.standard_type}</span><span className={`score ${item.confidence_level === "high" ? "" : "medium"}`}>{Math.round(item.confidence_score * 100)}%</span></div>
-                            <p className="mt-4 text-xs font-bold tracking-[.08em] text-pine">{item.standard.standard_number ?? "NO IS NUMBER"}</p><h4 className="mt-1 text-sm font-semibold leading-5">{item.standard.official_title}</h4>
+                            <div className="mt-4"><StandardIdentity standard={item.standard} size="compact" /></div><h4 className="mt-2 text-sm font-semibold leading-5">{item.standard.official_title}</h4>
                             {item.relation_note && <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-[#eef3ef] px-2 py-1 text-[10px] font-semibold uppercase tracking-[.06em] text-pine"><Fingerprint size={11} /> graph link · {item.relation_note}</p>}
                             <p className="mt-3 text-xs leading-5 text-[#708078]">{item.standard.scope_summary}</p>
                             <button onClick={() => setDetailsOpen(detailsOpen === key ? null : key)}>View rationale <ArrowRight size={13} /></button>
@@ -532,7 +588,7 @@ export default function Home() {
                   <div className="workspace-list">
                     {filteredStandards.map(item => <article className="workspace-row" key={item.id}>
                       <div className="workspace-row-icon"><ShieldCheck size={17} /></div>
-                      <div><div className="flex flex-wrap items-center gap-2"><strong>{item.standard_number ?? "Verification pending"}</strong><span className={`record-status ${item.verification_status}`}>{item.verification_status}</span></div><h3>{item.official_title}</h3><p>{item.scope_summary}</p></div>
+                      <div className="min-w-0"><StandardIdentity standard={item} size="compact" /><h3 className="mt-2">{item.official_title}</h3><p>{item.scope_summary}</p></div>
                       {item.official_source_url ? <button className="row-action" onClick={() => window.open(item.official_source_url!, "_blank", "noopener,noreferrer")} aria-label={`Open official source for ${item.official_title}`}><Link2 size={16} /></button> : <span className="row-action muted"><TriangleAlert size={16} /></span>}
                     </article>)}
                     {!filteredStandards.length && <div className="workspace-empty"><FileSearch size={25} /><strong>No matching standards</strong><span>Try a broader term or change the verification filter.</span></div>}

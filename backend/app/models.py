@@ -52,6 +52,10 @@ class Standard(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     standard_number: Mapped[str | None] = mapped_column(String(80), unique=True, nullable=True, index=True)
+    # Internal handle for every record, verified or not. Unverified records have
+    # no IS number by design, so this gives each one a distinct, citable-in-house
+    # reference that can never be mistaken for a published Indian Standard.
+    catalogue_ref: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
     official_title: Mapped[str] = mapped_column(String(500), index=True)
     scope_summary: Mapped[str] = mapped_column(Text, default="")
     publication_year: Mapped[int | None] = mapped_column(Integer, nullable=True)

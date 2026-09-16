@@ -50,6 +50,7 @@ class StandardRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     standard_number: str | None
+    catalogue_ref: str | None
     official_title: str
     scope_summary: str
     publication_year: int | None
@@ -127,4 +128,5 @@ class DashboardStats(BaseModel):
     total_tenders: int
     pending_reviews: int
     verified_standards: int
+    total_standards: int
     completed_reviews: int
