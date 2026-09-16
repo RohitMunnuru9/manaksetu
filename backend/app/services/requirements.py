@@ -63,6 +63,10 @@ PRODUCT_GLOSSES = {
 # which is reported honestly rather than guessed at.
 MIN_PRODUCT_SIMILARITY = 0.45
 
+# Beyond this a document is long enough that one passing mention of a product
+# means little on its own.
+LONG_TEXT_CHARS = 4_000
+
 _gloss_vectors: dict[str, list[float]] | None = None
 
 
@@ -111,8 +115,13 @@ def extract_requirements(text: str) -> list[RequirementValue]:
     # "IS 1892" and "is  1892" survive as two entries that became identical once
     # uppercased, which then collided as duplicate keys in the interface.
     seen: dict[str, str] = {}
-    for raw in re.findall(r"\bIS\s*\d+(?:\s*\([^)]*\))?(?::\s*\d{4})?", compact, re.IGNORECASE):
-        normalised = re.sub(r"\s+", " ", raw).strip().upper()
+    # At least three digits: a bare "IS 10" is nearly always a fragment of
+    # running text rather than a citation, and a wrong citation shown to an
+    # officer is worse than a missed one.
+    for raw in re.findall(r"\bIS\s*\d{3,5}(?:\s*\([^)]*\))?(?::\s*\d{4})?", compact, re.IGNORECASE):
+        # "(PART-3)" and "(PART 3)" are the same citation written two ways: the
+        # separator varies between documents, the standard does not.
+        normalised = re.sub(r"[\s\-]+", " ", raw).strip().upper()
         seen.setdefault(normalised, raw)
     for normalised in sorted(seen):
         values.append(RequirementValue("existing_standard_reference", normalised, 0.97, _excerpt(compact, seen[normalised]), False))
@@ -127,10 +136,23 @@ def _identify_product(compact: str, lowered: str) -> RequirementValue | None:
     Telugu tender resolve without a translation model -- and is always flagged
     for officer confirmation, because it is an inference rather than a quotation.
     """
+    # Whichever product the document talks about most, not whichever happens to
+    # be listed first. Returning on the first match meant a 233-page concrete
+    # specification that mentions helmets twice and cement fifty-three times was
+    # read as a helmet tender, and that single wrong word then steered the whole
+    # search.
+    tally: list[tuple[int, str, str]] = []
     for product, terms in PRODUCT_TERMS.items():
-        matched = next((term for term in terms if term in lowered), None)
-        if matched:
-            return RequirementValue("product", product, 0.9, _excerpt(compact, matched), False)
+        mentions = sum(lowered.count(term) for term in terms)
+        if mentions:
+            first = next(term for term in terms if term in lowered)
+            tally.append((mentions, product, first))
+    if tally:
+        mentions, product, matched = max(tally, key=lambda row: row[0])
+        # A single passing mention in a long document is a weak signal, so it is
+        # offered for confirmation rather than asserted.
+        confident = mentions > 1 or len(lowered) < LONG_TEXT_CHARS
+        return RequirementValue("product", product, 0.9 if confident else 0.6, _excerpt(compact, matched), not confident)
 
     label, similarity = _classify_product(compact)
     if label is None:

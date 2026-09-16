@@ -268,6 +268,10 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
         # Graph traversal then re-labels anything linked to the primary and adds
         # normative references or test methods that retrieval missed.
         candidates = apply_graph_context(db, candidates)
+        # Graph-derived records are appended, so without this a 29% linked record
+        # sits below a 25% retrieval hit. The primary stays first; the rest read
+        # in the order their confidence suggests.
+        candidates = candidates[:1] + sorted(candidates[1:], key=lambda c: c.score, reverse=True)
 
     response_items: list[RecommendationRead] = []
     for candidate in candidates:
