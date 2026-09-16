@@ -54,6 +54,12 @@ def _content_hash(row: dict) -> str | None:
 
 
 def _effective_verification(row: dict) -> VerificationStatus:
+    """Three tiers, and a record can only ever be demoted here, never promoted.
+
+    verified  a human has checked the record against the official BIS entry
+    pending   imported from an official BIS source, identifier shown, unconfirmed
+    demo      illustrative only, carries no identifier at all
+    """
     claimed = row.get("verification_status", "demo")
     if claimed != "verified":
         return VerificationStatus(claimed)
@@ -112,7 +118,11 @@ def seed_demo_data(db: Session) -> None:
     by_key: dict[str, Standard] = {}
     for row in catalogue["standards"]:
         verification = _effective_verification(row)
-        number = row.get("standard_number") if verification == VerificationStatus.verified else None
+        # Only a demonstration record is stripped of its number. An imported
+        # record keeps the number it was imported with and is shown as pending,
+        # because hiding a real identifier would be as misleading as inventing
+        # one -- the officer needs to see it and know it is unconfirmed.
+        number = None if verification == VerificationStatus.demo else row.get("standard_number")
         existing = db.scalar(select(Standard).where(Standard.official_title == row["official_title"]))
         if existing is None:
             existing = Standard(official_title=row["official_title"])

@@ -181,3 +181,8 @@ button:disabled { cursor:not-allowed; }
 .citation-alert h4 { margin:0 0 6px; color:#9a3b38; font-size:11px; font-weight:750; }
 .citation-alert p { margin:0 0 5px; color:#a0504c; font-size:11px; line-height:1.6; }
 .citation-alert code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:10.5px; font-weight:700; }
+
+/* Imported-but-unconfirmed tier: a real identifier, not yet human-checked. */
+.std-id.pending code { color:#3a6b8c; }
+.std-id.pending .id-tag { color:#2f5f80; background:#e9f1f7; }
+.legend-swatch.pending { color:#2f5f80; background:#e9f1f7; }

@@ -59,6 +59,8 @@ Absolute rules:
   Do not complete, correct, guess or recall any IS number from memory.
 - Records marked UNVERIFIED have no standard number. Refer to them by their
   title or internal reference, and say they need verification before use.
+- Records marked IMPORTED have a real number but nobody has confirmed it. You may
+  quote the number, but say it still needs officer verification.
 - Do not state that certification is mandatory unless a record explicitly says
   CERTIFICATION: MANDATORY. If none does, say certification status is unconfirmed.
 - Do not invent test methods, dates, clauses or legal obligations.
@@ -107,11 +109,14 @@ def build_evidence_block(recommendations: list) -> tuple[str, list[str], bool]:
 
     for item in recommendations:
         standard = item.standard
-        verified = standard.verification_status == "verified" and bool(standard.standard_number)
-        if verified:
+        status = standard.verification_status
+        if standard.standard_number and status in {"verified", "pending"}:
+            # The number was retrieved, so quoting it is not invention. Whether a
+            # person has confirmed it is a separate fact, carried in the label.
             identifier = standard.standard_number
             allowed.append(identifier)
-            label = f"{identifier} [VERIFIED]"
+            tier = "VERIFIED" if status == "verified" else "IMPORTED - not yet confirmed by an officer"
+            label = f"{identifier} [{tier}]"
         else:
             label = f"{standard.catalogue_ref or 'internal record'} [UNVERIFIED - no standard number exists for this record]"
 

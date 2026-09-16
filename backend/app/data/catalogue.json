@@ -20,7 +20,14 @@
     "superseded_by names another record's key; set it together with a status of",
     "revised or withdrawn. amendments is a list of {amendment_number, issued_date,",
     "summary, official_source_url, verification_status}. An amendment may only be",
-    "marked verified when its own official source is recorded."
+    "marked verified when its own official source is recorded.",
+    "",
+    "TIERS: verified = a person has checked the record against the official BIS",
+    "entry. pending = imported from an official BIS page, identifier shown but not",
+    "yet confirmed by a person. demo = illustrative only, carries no identifier.",
+    "Records imported on 2026-09-16 from the BIS Scheme-I list and QCO pages are",
+    "'pending': confirm each title and year against lims.bis.gov.in, set",
+    "last_checked_date, then promote to 'verified'."
   ],
   "categories": [
     {
@@ -132,21 +139,6 @@
       "relationships": []
     },
     {
-      "key": "ppe-footwear-primary",
-      "category": "Personal protective equipment",
-      "standard_number": null,
-      "official_title": "Occupational safety footwear with protective toecap (demonstration record)",
-      "scope_summary": "Safety boots and shoes for industrial workers, covering toecap impact resistance, slip resistance, sole penetration and antistatic properties. Demonstration placeholder.",
-      "status": "uncertain",
-      "verification_status": "demo",
-      "relationships": [
-        {
-          "target": "ppe-footwear-test",
-          "type": "tested_by"
-        }
-      ]
-    },
-    {
       "key": "ppe-footwear-test",
       "category": "Personal protective equipment",
       "standard_number": null,
@@ -155,25 +147,6 @@
       "status": "uncertain",
       "verification_status": "demo",
       "relationships": []
-    },
-    {
-      "key": "elec-cable-primary",
-      "category": "Electrical equipment and cables",
-      "standard_number": null,
-      "official_title": "PVC insulated power cables for working voltages up to 1100 V (demonstration record)",
-      "scope_summary": "Construction, dimensions and electrical requirements for polyvinyl chloride insulated copper and aluminium power cables used in building and industrial wiring. Demonstration placeholder.",
-      "status": "uncertain",
-      "verification_status": "demo",
-      "relationships": [
-        {
-          "target": "elec-cable-test",
-          "type": "tested_by"
-        },
-        {
-          "target": "elec-install",
-          "type": "installation"
-        }
-      ]
     },
     {
       "key": "elec-cable-test",
@@ -196,21 +169,6 @@
       "relationships": []
     },
     {
-      "key": "water-primary",
-      "category": "Packaged drinking water",
-      "standard_number": null,
-      "official_title": "Packaged drinking water other than natural mineral water — specification (demonstration record)",
-      "scope_summary": "Quality requirements for packaged drinking water including physical, chemical, microbiological and pesticide residue limits, packaging and labelling. Demonstration placeholder.",
-      "status": "uncertain",
-      "verification_status": "demo",
-      "relationships": [
-        {
-          "target": "water-test",
-          "type": "tested_by"
-        }
-      ]
-    },
-    {
       "key": "water-test",
       "category": "Packaged drinking water",
       "standard_number": null,
@@ -219,21 +177,6 @@
       "status": "uncertain",
       "verification_status": "demo",
       "relationships": []
-    },
-    {
-      "key": "cement-primary",
-      "category": "Construction materials",
-      "standard_number": null,
-      "official_title": "Ordinary Portland cement — specification (demonstration record)",
-      "scope_summary": "Chemical composition, fineness, setting time and compressive strength requirements for ordinary Portland cement used in structural concrete. Demonstration placeholder.",
-      "status": "uncertain",
-      "verification_status": "demo",
-      "relationships": [
-        {
-          "target": "cement-test",
-          "type": "tested_by"
-        }
-      ]
     },
     {
       "key": "cement-test",
@@ -268,6 +211,271 @@
       "scope_summary": "Static load, impact, fatigue and stability test procedures for seating and storage furniture. Demonstration placeholder.",
       "status": "uncertain",
       "verification_status": "demo",
+      "relationships": []
+    },
+    {
+      "key": "cement-opc",
+      "category": "Construction materials",
+      "standard_number": "IS 269",
+      "official_title": "Ordinary Portland Cement",
+      "scope_summary": "Ordinary Portland cement for general structural concrete and mortar work. Listed by BIS under the Cement (Quality Control) Order, 2003.",
+      "publication_year": null,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-i-mark-scheme/?lang=en",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
+      "relationships": [
+        {
+          "target": "cement-slag",
+          "type": "references"
+        },
+        {
+          "target": "cement-test",
+          "type": "tested_by"
+        }
+      ]
+    },
+    {
+      "key": "cement-slag",
+      "category": "Construction materials",
+      "standard_number": "IS 455",
+      "official_title": "Portland Slag Cement",
+      "scope_summary": "Portland slag cement for structural concrete, incorporating granulated blast furnace slag. Listed under the Cement (Quality Control) Order, 2003.",
+      "publication_year": null,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-i-mark-scheme/?lang=en",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
+      "relationships": []
+    },
+    {
+      "key": "cement-ppc",
+      "category": "Construction materials",
+      "standard_number": "IS 1489 (Part 1)",
+      "official_title": "Portland Pozzolana Cement-Part1 Fly-ash based",
+      "scope_summary": "Fly-ash based Portland pozzolana cement for general construction. Listed under the Cement (Quality Control) Order, 2003.",
+      "publication_year": null,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-i-mark-scheme/?lang=en",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
+      "relationships": []
+    },
+    {
+      "key": "cement-masonry",
+      "category": "Construction materials",
+      "standard_number": "IS 3466",
+      "official_title": "Masonry Cement",
+      "scope_summary": "Masonry cement for mortar and plaster in brick and block work. Listed under the Cement (Quality Control) Order, 2003.",
+      "publication_year": null,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-i-mark-scheme/?lang=en",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
+      "relationships": []
+    },
+    {
+      "key": "cement-rapid",
+      "category": "Construction materials",
+      "standard_number": "IS 8041",
+      "official_title": "Rapid hardening Portland cement",
+      "scope_summary": "Rapid hardening Portland cement for works requiring early strength gain. Listed under the Cement (Quality Control) Order, 2003.",
+      "publication_year": null,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-i-mark-scheme/?lang=en",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
+      "relationships": []
+    },
+    {
+      "key": "cement-white",
+      "category": "Construction materials",
+      "standard_number": "IS 8042",
+      "official_title": "White Portland Cement",
+      "scope_summary": "White Portland cement for architectural and decorative concrete finishes. Listed under the Cement (Quality Control) Order, 2003.",
+      "publication_year": null,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-i-mark-scheme/?lang=en",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
+      "relationships": []
+    },
+    {
+      "key": "cement-srpc",
+      "category": "Construction materials",
+      "standard_number": "IS 12330",
+      "official_title": "Sulphate Resisting Portland Cement",
+      "scope_summary": "Sulphate resisting Portland cement for concrete exposed to sulphate-bearing soils and groundwater. Listed under the Cement (Quality Control) Order, 2003.",
+      "publication_year": null,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-i-mark-scheme/?lang=en",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
+      "relationships": []
+    },
+    {
+      "key": "cement-composite",
+      "category": "Construction materials",
+      "standard_number": "IS 16415:2015",
+      "official_title": "Composite Cement- Specification",
+      "scope_summary": "Composite cement combining clinker, slag and fly ash for general construction. Listed under the Cement (Quality Control) Order, 2003.",
+      "publication_year": 2015,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-i-mark-scheme/?lang=en",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
+      "relationships": []
+    },
+    {
+      "key": "elec-pvc-1100",
+      "category": "Electrical equipment and cables",
+      "standard_number": "IS 694",
+      "official_title": "PVC insulated cables for working voltages up to and including 1100V",
+      "scope_summary": "Polyvinyl chloride insulated cables for building wiring and industrial installations at working voltages up to and including 1100 V. Listed under the Electrical Wires, Cables, Appliances and Protection Devices and Accessories (Quality Control) Order, 2003.",
+      "publication_year": null,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-i-mark-scheme/?lang=en",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
+      "relationships": [
+        {
+          "target": "elec-elastomer",
+          "type": "references"
+        },
+        {
+          "target": "elec-cable-test",
+          "type": "tested_by"
+        },
+        {
+          "target": "elec-install",
+          "type": "installation"
+        }
+      ]
+    },
+    {
+      "key": "elec-elastomer",
+      "category": "Electrical equipment and cables",
+      "standard_number": "IS 9968 (Part 1)",
+      "official_title": "Elastomer insulated cables (Part.1): For working voltages up to and including1100 V",
+      "scope_summary": "Elastomer insulated cables for working voltages up to and including 1100 V. Listed under the Electrical Wires, Cables, Appliances and Protection Devices and Accessories (Quality Control) Order, 2003.",
+      "publication_year": null,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-i-mark-scheme/?lang=en",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
+      "relationships": []
+    },
+    {
+      "key": "ppe-footwear-safety",
+      "category": "Personal protective equipment",
+      "standard_number": "IS 15298 (Part 2)",
+      "official_title": "Personal Protective Equipment Part 2 Safety Footwear",
+      "scope_summary": "Safety footwear with protective toecap for occupational use, aligned with ISO 20345. Covered by the Personal Protective Equipment - Footwear (Quality Control) Order, 2020.",
+      "publication_year": null,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.bis.gov.in/whats_new/personal-protective-equipment-footwear-quality-control-order-2020nbsp/",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
+      "relationships": [
+        {
+          "target": "ppe-footwear-protective",
+          "type": "references"
+        },
+        {
+          "target": "ppe-footwear-test",
+          "type": "tested_by"
+        }
+      ]
+    },
+    {
+      "key": "ppe-footwear-protective",
+      "category": "Personal protective equipment",
+      "standard_number": "IS 15298 (Part 3)",
+      "official_title": "Protective Footwear",
+      "scope_summary": "Protective footwear for occupational use. Covered by the Personal Protective Equipment - Footwear (Quality Control) Order, 2020.",
+      "publication_year": null,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.bis.gov.in/whats_new/personal-protective-equipment-footwear-quality-control-order-2020nbsp/",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
+      "relationships": []
+    },
+    {
+      "key": "ppe-footwear-occupational",
+      "category": "Personal protective equipment",
+      "standard_number": "IS 15298 (Part 4)",
+      "official_title": "Occupational Footwear",
+      "scope_summary": "Occupational footwear for workplace use. Covered by the Personal Protective Equipment - Footwear (Quality Control) Order, 2020.",
+      "publication_year": null,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.bis.gov.in/whats_new/personal-protective-equipment-footwear-quality-control-order-2020nbsp/",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
+      "relationships": []
+    },
+    {
+      "key": "water-pdw",
+      "category": "Packaged drinking water",
+      "standard_number": "IS 14543:2016",
+      "official_title": "Specification for Packaged Drinking Water (other than Packaged Natural Mineral Water)",
+      "scope_summary": "Packaged drinking water in bottles and jars, specifying physical parameters such as total dissolved solids and turbidity, microbiological limits including E. coli, yeast and mould, and chemical limits including pH, pesticide and radioactive residues. Under compulsory BIS certification.",
+      "publication_year": 2016,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.services.bis.gov.in/php/BIS_2.0/BISBlog/compulsory-bis-certification-of-packaged-drinking-water-other-than-natural-mineral-water-as-per-is-145432016-packaged-natural-mineral-water-as-per-is-134282005/",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
+      "relationships": [
+        {
+          "target": "water-pnmw",
+          "type": "references"
+        },
+        {
+          "target": "water-test",
+          "type": "tested_by"
+        }
+      ]
+    },
+    {
+      "key": "water-pnmw",
+      "category": "Packaged drinking water",
+      "standard_number": "IS 13428:2005",
+      "official_title": "Specification for Packaged Natural Mineral Water",
+      "scope_summary": "Packaged natural mineral water. Under compulsory BIS certification per the Food Safety and Standards (Prohibition and Restriction on Sales) Regulation, 2011.",
+      "publication_year": 2005,
+      "status": "current",
+      "verification_status": "pending",
+      "official_source_url": "https://www.services.bis.gov.in/php/BIS_2.0/BISBlog/compulsory-bis-certification-of-packaged-drinking-water-other-than-natural-mineral-water-as-per-is-145432016-packaged-natural-mineral-water-as-per-is-134282005/",
+      "source_organisation": "Bureau of Indian Standards",
+      "retrieved_date": "2026-09-16",
+      "last_checked_date": null,
       "relationships": []
     }
   ],

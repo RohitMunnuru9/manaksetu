@@ -78,10 +78,10 @@ const buildStages = (analysis: AnalysisResult | null) => {
   ];
 };
 
-/** How a record identifies itself, which depends entirely on whether it is verified. */
+/** How a record identifies itself, which depends on which evidence tier it sits in. */
 function StandardIdentity({ standard, size = "regular" }: { standard: ApiStandard; size?: "regular" | "compact" }) {
-  const verified = standard.verification_status === "verified" && Boolean(standard.standard_number);
-  if (verified) {
+  const status = standard.verification_status;
+  if (status === "verified" && standard.standard_number) {
     return (
       <div>
         <div className="std-id verified">
@@ -89,6 +89,19 @@ function StandardIdentity({ standard, size = "regular" }: { standard: ApiStandar
           <span className="id-tag"><ShieldCheck size={9} className="mr-0.5 inline" />Verified BIS record</span>
         </div>
         {size === "regular" && <p className="id-note">Published Indian Standard. Official source and check date recorded below.</p>}
+      </div>
+    );
+  }
+  if (status === "pending" && standard.standard_number) {
+    return (
+      <div>
+        <div className="std-id pending">
+          <code>{standard.standard_number}</code>
+          <span className="id-tag"><Clock3 size={9} className="mr-0.5 inline" />Imported · awaiting check</span>
+        </div>
+        <p className={`id-note${size === "compact" ? " text-[10px]" : ""}`}>
+          Imported from an official BIS page, so the number is real — but <strong>no officer has confirmed it yet</strong>. Open the source and verify the title and year before citing it.
+        </p>
       </div>
     );
   }
@@ -116,12 +129,16 @@ function EvidenceLegend({ verifiedCount, totalCount }: { verifiedCount: number; 
           <span>Metadata confirmed against an official BIS source. Shows a real <strong>IS number</strong>, a source link and the date it was last checked. Safe to cite once you have reviewed it.</span>
         </li>
         <li>
+          <span className="legend-swatch pending">Imported · awaiting check</span>
+          <span>Taken from an official BIS page, so the <strong>IS number is real</strong>, but no officer has confirmed the title and year against the BIS catalogue yet. Verify via the source link before citing.</span>
+        </li>
+        <li>
           <span className="legend-swatch unverified">Not an Indian Standard</span>
           <span>A demonstration record used to exercise retrieval. It deliberately carries <strong>no IS number</strong> — the system never invents one — only an internal reference such as <code>MS-PPE-MARKING</code>. Never cite these.</span>
         </li>
       </ul>
       <p className="text-[10.5px] leading-[1.55] text-[#68766f]">
-        This catalogue currently holds <strong className="text-[#2a4338]">{verifiedCount} verified {verifiedCount === 1 ? "record" : "records"}</strong> out of {totalCount}. Importing official BIS metadata for the remaining categories is a data task, not a code change.
+        This catalogue holds <strong className="text-[#2a4338]">{verifiedCount} officer-verified {verifiedCount === 1 ? "record" : "records"}</strong> out of {totalCount}. The rest are either imported from official BIS pages and awaiting a check, or demonstration records carrying no identifier at all.
       </p>
     </div>
   );

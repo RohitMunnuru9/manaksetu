@@ -39,13 +39,42 @@ def test_catalogue_seeds_relationships_and_embeddings(seeded_db: Session) -> Non
 
 
 def test_demo_records_never_carry_a_standard_number(seeded_db: Session) -> None:
-    """The core anti-hallucination invariant, enforced at the data layer."""
+    """The core anti-hallucination invariant, enforced at the data layer.
+
+    A demonstration record is invented content, so it may never carry an
+    identifier. An imported record is real content awaiting confirmation, so it
+    keeps its identifier and is marked pending instead.
+    """
     demo = seeded_db.scalars(
-        select(Standard).where(Standard.verification_status != VerificationStatus.verified)
+        select(Standard).where(Standard.verification_status == VerificationStatus.demo)
     ).all()
     assert demo, "catalogue should contain demonstration records"
     for standard in demo:
         assert standard.standard_number is None, f"{standard.official_title} exposes an IS number while unverified"
+
+
+def test_imported_records_keep_their_number_and_cite_a_source(seeded_db: Session) -> None:
+    """A pending record shows a real identifier, so it must say where it came from."""
+    imported = seeded_db.scalars(
+        select(Standard).where(Standard.verification_status == VerificationStatus.pending)
+    ).all()
+    assert imported, "catalogue should contain records imported from official BIS pages"
+    for standard in imported:
+        assert standard.standard_number, f"{standard.official_title} is pending but has no identifier"
+        assert standard.official_source_url, f"{standard.standard_number} shows a number without a source"
+        assert standard.official_source_url.startswith("https://"), standard.official_source_url
+        # Not yet checked by a person: that is exactly what pending means.
+        assert standard.last_checked_date is None
+
+
+def test_only_officer_checked_records_are_verified(seeded_db: Session) -> None:
+    verified = seeded_db.scalars(
+        select(Standard).where(Standard.verification_status == VerificationStatus.verified)
+    ).all()
+    for standard in verified:
+        assert standard.standard_number and standard.official_source_url
+        assert standard.last_checked_date is not None, "a verified record must record when it was checked"
+        assert len(standard.content_hash or "") == 64
         # Each still needs a distinct internal handle, so the interface can name
         # it without falling back to an identical "no IS number" for every record.
         assert standard.catalogue_ref, f"{standard.official_title} has no catalogue reference"

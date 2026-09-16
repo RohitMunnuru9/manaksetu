@@ -105,6 +105,16 @@ def list_tenders(db: Session = Depends(get_db), _: User = Depends(require_permis
     return list(db.scalars(select(Tender).order_by(Tender.created_at.desc()).limit(100)).all())
 
 
+def _tier_warning(standard: Standard) -> str:
+    """What the officer must know before citing a record that is not verified."""
+    if standard.verification_status == VerificationStatus.pending and standard.standard_number:
+        return (
+            "Imported from an official BIS page but not yet confirmed by an officer. "
+            "Check the title and year against the official source before citing it."
+        )
+    return "Demonstration record with no standard number. Do not cite in a tender."
+
+
 def _currency_fields(standard: Standard) -> dict:
     """Version facts shaped for RecommendationRead."""
     currency = describe_currency(standard)
@@ -143,7 +153,7 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
         standard = candidate.standard
         qco = evaluate_qco(db, tender.source_text, standard)
         verified = standard.verification_status == VerificationStatus.verified and bool(standard.standard_number and standard.official_source_url)
-        warning = None if verified else "Demonstration or unverified record. Do not cite in a tender."
+        warning = None if verified else _tier_warning(standard)
         score = candidate.score if verified else min(candidate.score, 0.69)
         recommendation = Recommendation(
             tender_id=tender.id,
@@ -216,7 +226,7 @@ def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
             qco_enforcement_date=qco["qco"].enforcement_date if qco["qco"] else None,
             qco_source_url=qco["qco"].official_source_url if qco["qco"] else None,
             human_review_required=item.human_review_required,
-            warning=None if verified else "Demonstration or unverified record. Do not cite in a tender.",
+            warning=None if verified else _tier_warning(item.standard),
             relation_note=item.relation_note,
             score_breakdown=item.score_breakdown or {},
             **_currency_fields(item.standard),
