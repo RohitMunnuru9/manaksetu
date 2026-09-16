@@ -118,9 +118,19 @@ def find_candidates(db: Session, text: str, limit: int = 5) -> list[RankedStanda
             breakdown=breakdown,
         ))
 
-    ranked.sort(key=lambda item: item.score, reverse=True)
+    # Order by evidence tier first, then by score. An illustrative record must
+    # never outrank a real standard however well its wording happens to match --
+    # an officer reading the list top-down should meet real identifiers first.
+    ranked.sort(key=lambda item: (_tier_rank(item.standard), item.score), reverse=True)
     ranked = [item for item in ranked if _is_relevant(item, text, query_vector is not None)]
     return ranked[:limit]
+
+
+def _tier_rank(standard: Standard) -> int:
+    """2 = officer-verified, 1 = real identifier awaiting a check, 0 = illustrative."""
+    if standard.verification_status == VerificationStatus.verified and standard.standard_number:
+        return 2
+    return 1 if standard.standard_number else 0
 
 
 def _is_relevant(item: RankedStandard, query: str, semantic_ran: bool) -> bool:

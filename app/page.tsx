@@ -1,300 +1,283 @@
 "use client";
 
 import {
-  ArrowRight,
-  Bell,
-  BookOpenCheck,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  CircleHelp,
-  Clock3,
-  FileCheck2,
-  FileSearch,
-  FileText,
-  Fingerprint,
-  Flag,
-  Globe2,
-  History,
-  LayoutDashboard,
-  Link2,
-  LockKeyhole,
-  LoaderCircle,
-  LogOut,
-  Menu,
-  MessageSquareText,
-  MoreHorizontal,
-  Plus,
-  Search,
-  Settings,
-  ShieldCheck,
-  Sparkles,
-  TriangleAlert,
-  UploadCloud,
-  UserRound,
-  X,
+  ArrowRight, BookOpenCheck, Check, CheckCircle2, ChevronRight, Clock3, FileCheck2,
+  FileSearch, FileText, History, LayoutDashboard, Link2, LoaderCircle, LockKeyhole,
+  LogOut, Menu, Search, ShieldCheck, Sparkles, TriangleAlert, UploadCloud, X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { PERMISSIONS, analyseFile, analyseTender, downloadReport, getAuditHistory, getBriefing, getCurrentUser, getDashboardStats, getLatestAnalysis, getStandards, login as loginUser, logout, saveReview, type AnalysisResult, type ApiRecommendation, type ApiStandard, type AuditEntry, type DashboardStats, type UserProfile } from "@/lib/api";
+import {
+  PERMISSIONS, analyseFile, analyseTender, downloadReport, getAuditHistory, getBriefing,
+  getCurrentUser, getDashboardStats, getLatestAnalysis, getStandards, login as loginUser,
+  logout, saveReview,
+  type AnalysisResult, type ApiRecommendation, type ApiStandard, type AuditEntry,
+  type DashboardStats, type UserProfile,
+} from "@/lib/api";
 
-type NavItemProps = {
-  icon: React.ElementType;
-  label: string;
-  active?: boolean;
-  badge?: string;
-  onClick?: () => void;
+type View = "overview" | "analyse" | "standards" | "reports" | "audit";
+
+/* ---------------------------------------------------------------------
+   Plain-language helpers.
+   Everything an officer reads is written here, once, in ordinary words.
+   The API's internal vocabulary never reaches the screen.
+   --------------------------------------------------------------------- */
+
+type Tier = "verified" | "checking" | "example";
+
+function tierOf(standard: ApiStandard): Tier {
+  if (standard.verification_status === "verified" && standard.standard_number) return "verified";
+  if (standard.standard_number) return "checking";
+  return "example";
+}
+
+const TIER_LABEL: Record<Tier, string> = {
+  verified: "Verified",
+  checking: "Needs checking",
+  example: "Example only",
 };
 
-type Overlay = "standards" | "audit" | "reports" | "overview" | "team" | "settings" | "notifications" | "search" | "profile" | "about" | null;
+const TIER_CLASS: Record<Tier, string> = { verified: "green", checking: "amber", example: "grey" };
 
-const buildStages = (analysis: AnalysisResult | null) => {
-  if (!analysis) {
-    return [
-      { name: "Document read", detail: "Awaiting a submission", status: "pending" },
-      { name: "Requirements extracted", detail: "Awaiting a submission", status: "pending" },
-      { name: "Verified records searched", detail: "Awaiting a submission", status: "pending" },
-      { name: "Expert review", detail: "Awaiting a submission", status: "pending" },
-    ];
-  }
-  const requirementCount = analysis.extracted_requirements.length;
-  const candidateCount = analysis.recommendations.length;
-  return [
-    {
-      name: "Document read",
-      detail: `${analysis.tender.filename ? "Uploaded file" : "Text submission"} · language ${analysis.tender.language.toUpperCase()}`,
-      status: "done",
-    },
-    {
-      name: "Requirements extracted",
-      detail: requirementCount ? `${requirementCount} structured attribute${requirementCount === 1 ? "" : "s"}` : "No attributes matched",
-      status: requirementCount ? "done" : "current",
-    },
-    {
-      name: "Verified records searched",
-      detail: candidateCount ? `${candidateCount} candidate${candidateCount === 1 ? "" : "s"} from the controlled catalogue` : "No candidate matched",
-      status: candidateCount ? "done" : "current",
-    },
-    { name: "Expert review", detail: "Awaiting your decision", status: "current" },
+const TIER_MEANING: Record<Tier, string> = {
+  verified: "Someone has checked this against the official BIS record. You can use it, once you are happy with it.",
+  checking: "The number is real and came from an official BIS page, but nobody has checked the title and year yet. Open the source link and confirm before you use it.",
+  example: "A stand-in used to show how the system works. It has no standard number, so never put it in a tender.",
+};
+
+/** "tested_by of IS 2925:1984" -> "Test method for IS 2925:1984" */
+function plainRelation(note: string | null): string | null {
+  if (!note) return null;
+  const [kind, , target] = [note.split(" of ")[0], "", note.split(" of ")[1]];
+  const word: Record<string, string> = {
+    tested_by: "Test method for",
+    safety: "Safety rules for",
+    terminology: "Definitions used by",
+    references: "Referred to by",
+    installation: "Installation rules for",
+  };
+  return `${word[kind] ?? "Linked to"} ${target}`;
+}
+
+/** The role of a result, in words rather than a code. */
+function plainRole(type: string): string {
+  const words: Record<string, string> = {
+    primary: "Main standard",
+    allied: "Related",
+    test: "Test method",
+    safety: "Safety",
+    terminology: "Definitions",
+    installation: "Installation",
+    "normative reference": "Referenced",
+  };
+  return words[type] ?? type;
+}
+
+function confidenceWord(level: string): string {
+  return { high: "Strong match", medium: "Likely match", low: "Weak match" }[level] ?? level;
+}
+
+/* ---------------------------------------------------------------------
+   Small presentational pieces
+   --------------------------------------------------------------------- */
+
+function Identifier({ standard }: { standard: ApiStandard }) {
+  const tier = tierOf(standard);
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <span className={`ident ${tier === "example" ? "internal" : "real"}`}>
+        {standard.standard_number ?? standard.catalogue_ref ?? "No reference"}
+      </span>
+      <span className={`tag ${TIER_CLASS[tier]}`}>{TIER_LABEL[tier]}</span>
+    </span>
+  );
+}
+
+function Stat({ value, caption, note, tone }: { value: string; caption: string; note?: string; tone?: "rust" | "green" }) {
+  return (
+    <div className="stat">
+      <div className={`num ${tone ?? ""}`}>{value}</div>
+      <div className="cap">{caption}</div>
+      {note && <p className="note">{note}</p>}
+    </div>
+  );
+}
+
+function Stepper({ analysis, running }: { analysis: AnalysisResult | null; running: boolean }) {
+  const done = Boolean(analysis);
+  const steps = [
+    { label: "Tender read", done, active: running },
+    { label: "Details pulled out", done: done && analysis!.extracted_requirements.length > 0, active: running },
+    { label: "Standards searched", done: done && analysis!.recommendations.length > 0, active: running },
+    { label: "Your decision", done: false, active: done },
   ];
-};
-
-/** How a record identifies itself, which depends on which evidence tier it sits in. */
-function StandardIdentity({ standard, size = "regular" }: { standard: ApiStandard; size?: "regular" | "compact" }) {
-  const status = standard.verification_status;
-  if (status === "verified" && standard.standard_number) {
-    return (
-      <div>
-        <div className="std-id verified">
-          <code>{standard.standard_number}</code>
-          <span className="id-tag"><ShieldCheck size={9} className="mr-0.5 inline" />Verified BIS record</span>
-        </div>
-        {size === "regular" && <p className="id-note">Published Indian Standard. Official source and check date recorded below.</p>}
-      </div>
-    );
-  }
-  if (status === "pending" && standard.standard_number) {
-    return (
-      <div>
-        <div className="std-id pending">
-          <code>{standard.standard_number}</code>
-          <span className="id-tag"><Clock3 size={9} className="mr-0.5 inline" />Imported · awaiting check</span>
-        </div>
-        <p className={`id-note${size === "compact" ? " text-[10px]" : ""}`}>
-          Imported from an official BIS page, so the number is real — but <strong>no officer has confirmed it yet</strong>. Open the source and verify the title and year before citing it.
-        </p>
-      </div>
-    );
-  }
   return (
-    <div>
-      <div className="std-id unverified">
-        <code>{standard.catalogue_ref ?? "UNREFERENCED"}</code>
-        <span className="id-tag">Not an Indian Standard</span>
-      </div>
-      <p className={`id-note unverified${size === "compact" ? " text-[10px]" : ""}`}>
-        Internal catalogue reference. This record has <strong>no IS number</strong> because none has been verified against an official BIS source yet — so none is shown. Do not cite it in a tender.
-      </p>
-    </div>
-  );
-}
-
-/** Explains the two-tier record system once, so the badges need no explaining. */
-function EvidenceLegend({ verifiedCount, totalCount }: { verifiedCount: number; totalCount: number }) {
-  return (
-    <div className="evidence-legend">
-      <h4>How to read these results</h4>
-      <ul>
-        <li>
-          <span className="legend-swatch verified">Verified BIS record</span>
-          <span>Metadata confirmed against an official BIS source. Shows a real <strong>IS number</strong>, a source link and the date it was last checked. Safe to cite once you have reviewed it.</span>
-        </li>
-        <li>
-          <span className="legend-swatch pending">Imported · awaiting check</span>
-          <span>Taken from an official BIS page, so the <strong>IS number is real</strong>, but no officer has confirmed the title and year against the BIS catalogue yet. Verify via the source link before citing.</span>
-        </li>
-        <li>
-          <span className="legend-swatch unverified">Not an Indian Standard</span>
-          <span>A demonstration record used to exercise retrieval. It deliberately carries <strong>no IS number</strong> — the system never invents one — only an internal reference such as <code>MS-PPE-MARKING</code>. Never cite these.</span>
-        </li>
-      </ul>
-      <p className="text-[10.5px] leading-[1.55] text-[#68766f]">
-        This catalogue holds <strong className="text-[#2a4338]">{verifiedCount} officer-verified {verifiedCount === 1 ? "record" : "records"}</strong> out of {totalCount}. The rest are either imported from official BIS pages and awaiting a check, or demonstration records carrying no identifier at all.
-      </p>
-    </div>
-  );
-}
-
-/** Prose from the local model, plus an honest account of when it was thrown away. */
-function OfficerBriefing({ analysis }: { analysis: AnalysisResult }) {
-  const { officer_summary: summary, officer_summary_status: status, officer_summary_model: model } = analysis;
-
-  if (summary) {
-    return (
-      <div className="llm-brief">
-        <div className="llm-brief-head">
-          <Sparkles size={13} className="text-pine" />
-          <strong>Officer briefing</strong>
-          {model && <span className="llm-model">{model}</span>}
+    <div className="stepper">
+      {steps.map((s, i) => (
+        <div key={s.label} className={`step ${s.done ? "done" : s.active ? "active" : ""}`}>
+          <span className="step-dot">{s.done ? <Check size={13} /> : i + 1}</span>
+          <span className="step-label">{s.label}</span>
+          {i < steps.length - 1 && <span className="step-line" />}
         </div>
-        <p>{summary}</p>
-        <footer>
-          Written by a local language model from the evidence above. It cannot add, remove or reorder a recommendation, and any explanation
-          referencing a standard that was not retrieved is discarded before it reaches this screen. Treat the records above as authoritative.
-        </footer>
-      </div>
-    );
-  }
-
-  if (status === "pending") {
-    return (
-      <div className="llm-brief">
-        <div className="llm-brief-head">
-          <LoaderCircle size={13} className="animate-spin text-pine" />
-          <strong>Officer briefing</strong>
-        </div>
-        <p className="text-[#8a978f]">
-          A local language model is writing a plain-English summary of the evidence above. The recommendations are already final and do not depend on it.
-        </p>
-      </div>
-    );
-  }
-
-  if (status === "rejected_invented_identifier" || status === "rejected_unsupported_claim") {
-    return (
-      <div className="llm-rejected">
-        <strong><TriangleAlert size={12} className="mr-1 inline" />A model explanation was discarded</strong>
-        <p>
-          {status === "rejected_invented_identifier"
-            ? "The local model referenced a standard number that was not among the retrieved records, so the whole explanation was rejected rather than shown to you."
-            : "The local model asserted a certification requirement that the deterministic rule engine did not confirm, so the explanation was rejected."}
-          {" "}The evidence above is unaffected — it never passes through the model.
-        </p>
-      </div>
-    );
-  }
-
-  return null;
-}
-
-/** Currency of a single record: superseded, or carrying amendments. */
-function CurrencyNotice({ item }: { item: ApiRecommendation }) {
-  if (!item.currency_warning) return null;
-  return (
-    <div className={`currency-warn${item.is_outdated ? " severe" : ""}`}>
-      <TriangleAlert size={13} className="mt-0.5 shrink-0" />
-      <div>
-        <strong>{item.is_outdated ? "Outdated record" : "Amended since publication"}</strong> — {item.currency_warning}
-        {item.amendments.length > 0 && (
-          <ul className="amendment-list">
-            {item.amendments.map(a => (
-              <li key={a.amendment_number}>
-                <strong>{a.amendment_number}</strong>{a.issued_date ? ` (${a.issued_date})` : ""}{a.summary ? ` — ${a.summary}` : ""}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** Standards the tender text itself cites that the catalogue knows are outdated. */
-function OutdatedCitations({ citations }: { citations: AnalysisResult["outdated_citations"] }) {
-  if (!citations.length) return null;
-  return (
-    <div className="citation-alert">
-      <h4><TriangleAlert size={12} className="mr-1 inline" />This tender cites an outdated standard</h4>
-      {citations.map(c => (
-        <p key={c.cited_standard}>
-          <code>{c.cited_standard}</code> — {c.message ?? `status: ${c.status}`}
-        </p>
       ))}
-      <p className="text-[10.5px] opacity-80">Detected by comparing the numbers written in the tender against the catalogue. Confirm against the official BIS record before amending the clause.</p>
     </div>
   );
 }
 
-function NavItem({ icon: Icon, label, active, badge, onClick }: NavItemProps) {
+/** One result, collapsed. Everything else lives in the detail panel. */
+function ResultRow({ item, onOpen }: { item: ApiRecommendation; onOpen: () => void }) {
+  const pct = Math.round(item.confidence_score * 100);
+  const ringClass = item.confidence_level === "high" ? "hi" : item.confidence_level === "medium" ? "mid" : "lo";
+  const relation = plainRelation(item.relation_note);
   return (
-    <button className={`nav-item ${active ? "active" : ""}`} onClick={onClick}>
-      <Icon size={18} strokeWidth={active ? 2.3 : 1.8} />
-      <span>{label}</span>
-      {badge && <span className="nav-badge">{badge}</span>}
+    <button className={`result ${item.standard_type === "primary" ? "primary" : ""}`} onClick={onOpen}>
+      <span className={`ring ${ringClass}`}>{pct}%</span>
+      <span className="min-w-0">
+        <span className="flex flex-wrap items-center gap-2">
+          <Identifier standard={item.standard} />
+          <span className="tag rust">{plainRole(item.standard_type)}</span>
+          {item.certification_required && <span className="tag red">BIS mark required</span>}
+          {item.is_outdated && <span className="tag red">Out of date</span>}
+        </span>
+        <h4>{item.standard.official_title}</h4>
+        <p className="sub">{relation ?? confidenceWord(item.confidence_level)} · Tap to see why</p>
+      </span>
+      <ChevronRight size={18} className="text-[var(--faint)]" />
     </button>
   );
 }
 
-function Logo() {
+/** The drill-down. Everything about one result, in one place. */
+function DetailPanel({ item, onClose }: { item: ApiRecommendation; onClose: () => void }) {
+  const tier = tierOf(item.standard);
+  const relation = plainRelation(item.relation_note);
   return (
-    <div className="flex items-center gap-3">
-      <div className="logo-mark" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-      </div>
-      <div>
-        <div className="text-[17px] font-bold tracking-[-0.03em] text-white">ManakSetu <span className="text-saffron">AI</span></div>
-        <div className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-white/45">Standards intelligence</div>
-      </div>
-    </div>
+    <>
+      <div className="scrim" onClick={onClose} />
+      <aside className="panel" role="dialog" aria-modal="true" aria-label="Standard details">
+        <header className="panel-head">
+          <div className="min-w-0">
+            <Identifier standard={item.standard} />
+            <h2 className="mt-2 text-[19px] leading-snug">{item.standard.official_title}</h2>
+          </div>
+          <button className="icon-btn" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </header>
+
+        <div className="panel-body">
+          <div className={`notice ${tier === "verified" ? "green" : tier === "checking" ? "amber" : "plain"}`}>
+            {tier === "verified" ? <ShieldCheck size={16} className="mt-0.5 shrink-0" /> : <TriangleAlert size={16} className="mt-0.5 shrink-0" />}
+            <span><strong>{TIER_LABEL[tier]}.</strong> {TIER_MEANING[tier]}</span>
+          </div>
+
+          {item.is_outdated && (
+            <div className="notice red mt-3">
+              <TriangleAlert size={16} className="mt-0.5 shrink-0" />
+              <span><strong>This one is out of date.</strong> {item.currency_warning}</span>
+            </div>
+          )}
+
+          <dl className="mt-2">
+            <div className="field">
+              <dt>How well it matches</dt>
+              <dd>{Math.round(item.confidence_score * 100)}% — {confidenceWord(item.confidence_level)}</dd>
+            </div>
+            <div className="field">
+              <dt>Why it came up</dt>
+              <dd>{relation ? `${relation}. It was included because the main standard depends on it, not because of how the tender is worded.` : item.reason_for_recommendation}</dd>
+            </div>
+            {item.matched_requirements.length > 0 && (
+              <div className="field">
+                <dt>Words it matched in your tender</dt>
+                <dd className="flex flex-wrap gap-1.5">
+                  {item.matched_requirements.map(w => <span className="tag grey" key={w}>{w}</span>)}
+                </dd>
+              </div>
+            )}
+            <div className="field">
+              <dt>Is a BIS mark required?</dt>
+              <dd>
+                {item.certification_required
+                  ? <><strong>Yes.</strong> Required under {item.qco_title}{item.qco_enforcement_date ? `, in force since ${item.qco_enforcement_date}` : ""}.</>
+                  : "Not confirmed. We only say yes when an officially checked order says so."}
+              </dd>
+            </div>
+            {item.amendments.length > 0 && (
+              <div className="field">
+                <dt>Changes since it was published</dt>
+                <dd>
+                  <ul className="m-0 list-disc pl-4">
+                    {item.amendments.map(a => (
+                      <li key={a.amendment_number} className="mb-1">
+                        <strong>{a.amendment_number}</strong>{a.issued_date ? ` (${a.issued_date})` : ""}{a.summary ? ` — ${a.summary}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            )}
+            <div className="field">
+              <dt>What it covers</dt>
+              <dd>{item.standard.scope_summary || "No summary recorded."}</dd>
+            </div>
+            <div className="field">
+              <dt>Last checked by a person</dt>
+              <dd>{item.standard.last_checked_date ?? "Not yet checked"}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <footer className="panel-foot flex gap-9">
+          {item.standard.official_source_url ? (
+            <a className="btn btn-primary flex-1" href={item.standard.official_source_url} target="_blank" rel="noopener noreferrer">
+              <Link2 size={15} /> Open the official page
+            </a>
+          ) : (
+            <span className="notice plain flex-1">No official page — this is an example record.</span>
+          )}
+          <button className="btn btn-ghost" onClick={onClose}>Close</button>
+        </footer>
+      </aside>
+    </>
   );
 }
 
+/* ---------------------------------------------------------------------
+   Page
+   --------------------------------------------------------------------- */
+
 export default function Home() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [tab, setTab] = useState("recommendations");
-  const [toast, setToast] = useState("");
-  const [approved, setApproved] = useState(false);
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [analysisOpen, setAnalysisOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState("");
-  const [inputMode, setInputMode] = useState<"text" | "file">("text");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [reviewNote, setReviewNote] = useState("");
-  const [overlay, setOverlay] = useState<Overlay>(null);
-  const [standards, setStandards] = useState<ApiStandard[]>([]);
-  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
-  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [loadingOverlay, setLoadingOverlay] = useState(false);
-  const [typeFilter, setTypeFilter] = useState<"all" | "verified" | "demo">("all");
-  const [detailsOpen, setDetailsOpen] = useState<string | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [credentials, setCredentials] = useState({ email: "officer@manaksetu.gov.in", password: "ManakSetu@2026" });
+
+  const [view, setView] = useState<View>("overview");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [toast, setToast] = useState("");
+
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [openResult, setOpenResult] = useState<ApiRecommendation | null>(null);
+  const [tab, setTab] = useState<"results" | "details" | "gaps">("results");
+
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [mode, setMode] = useState<"text" | "file">("text");
+  const [file, setFile] = useState<File | null>(null);
   const [form, setForm] = useState({
     title: "Construction safety helmets",
-    description: "Purchase 1,000 industrial safety helmets for construction workers with impact testing and permanent marking.",
+    description: "Purchase 1,000 industrial safety helmet units for construction workers with impact testing and permanent marking.",
     language: "en",
   });
 
-  const notify = (message: string) => {
-    setToast(message);
-    window.setTimeout(() => setToast(""), 2600);
-  };
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [standards, setStandards] = useState<ApiStandard[]>([]);
+  const [standardsQuery, setStandardsQuery] = useState("");
+  const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [reviewNote, setReviewNote] = useState("");
+  const [approved, setApproved] = useState(false);
+
+  const notify = (m: string) => { setToast(m); window.setTimeout(() => setToast(""), 3000); };
+  const can = (p: string) => Boolean(user?.permissions?.includes(p));
 
   useEffect(() => {
     getCurrentUser().then(setUser).catch(() => setUser(null)).finally(() => setAuthLoading(false));
@@ -302,497 +285,468 @@ export default function Home() {
 
   useEffect(() => {
     if (!user) return;
-    getLatestAnalysis().then(result => result && setAnalysis(result)).catch(() => notify("Could not load the latest analysis"));
-    // Needed on load, not just when the overview panel opens: the evidence
-    // legend states how many catalogue records are actually verified.
-    getDashboardStats().then(setDashboardStats).catch(() => undefined);
+    getLatestAnalysis().then(r => r && setAnalysis(r)).catch(() => undefined);
+    getDashboardStats().then(setStats).catch(() => undefined);
   }, [user]);
 
-  const handleLogin = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setSigningIn(true);
-    setLoginError("");
-    try {
-      setUser(await loginUser(credentials.email, credentials.password));
-    } catch (error) {
-      setLoginError(error instanceof Error ? error.message : "Sign in failed");
-    } finally {
-      setSigningIn(false);
-    }
-  };
-
-  const handleLogout = () => {
-    logout();
-    setUser(null);
-    setAnalysis(null);
-    setOverlay(null);
-    setApproved(false);
-  };
-
-  const openWorkspace = async (next: Overlay) => {
-    setOverlay(next);
-    setSidebarOpen(false);
-    setLoadingOverlay(true);
-    try {
-      if (next === "standards" || next === "search") setStandards(await getStandards(searchQuery));
-      if (next === "audit") setAuditEntries(await getAuditHistory());
-      if (next === "overview") setDashboardStats(await getDashboardStats());
-    } catch (error) {
-      notify(error instanceof Error ? error.message : "Could not load workspace data");
-    } finally {
-      setLoadingOverlay(false);
-    }
-  };
-
-  const searchStandards = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setLoadingOverlay(true);
-    try { setStandards(await getStandards(searchQuery)); } finally { setLoadingOverlay(false); }
-  };
-
-  const submitAnalysis = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setSubmitting(true);
-    setFormError("");
-    try {
-      const result = inputMode === "file" && selectedFile ? await analyseFile(selectedFile) : await analyseTender(form);
-      setAnalysis(result);
-      setAnalysisOpen(false);
-      setApproved(false);
-      setTab("recommendations");
-      notify(`Analysis ${result.tender.reference} is ready for review`);
-    } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Analysis failed. Please retry.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // The briefing is generated separately so that slow local inference never
-  // delays the evidence. Fetch it once results are already rendered.
+  // The written summary is slow, so it is fetched after results are on screen.
   const tenderId = analysis?.tender.id;
   const briefingPending = analysis?.officer_summary_status === "pending";
   useEffect(() => {
     if (!tenderId || !briefingPending) return;
     let cancelled = false;
     getBriefing(tenderId)
-      .then(briefing => {
-        if (cancelled) return;
-        setAnalysis(current => (current && current.tender.id === tenderId ? { ...current, ...briefing } : current));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setAnalysis(current => (current && current.tender.id === tenderId ? { ...current, officer_summary_status: "unavailable" } : current));
-      });
+      .then(b => { if (!cancelled) setAnalysis(c => (c && c.tender.id === tenderId ? { ...c, ...b } : c)); })
+      .catch(() => { if (!cancelled) setAnalysis(c => (c && c.tender.id === tenderId ? { ...c, officer_summary_status: "unavailable" } : c)); });
     return () => { cancelled = true; };
   }, [tenderId, briefingPending]);
 
-  const stages = buildStages(analysis);
-  const visibleRecommendations = (analysis?.recommendations ?? []).filter(
-    item => typeFilter === "all" || item.standard.verification_status === typeFilter,
-  );
-  const primary = visibleRecommendations[0];
-  const supporting = visibleRecommendations.slice(1);
-  const displayedRequirements = (analysis?.extracted_requirements ?? []).map(item => [item.requirement_type.replaceAll("_", " "), item.value]);
-  const productRequirement = analysis?.extracted_requirements.find(item => item.requirement_type === "product");
-  const recommendationCount = analysis?.recommendations.length ?? 0;
-  const requirementCount = analysis?.extracted_requirements.length ?? 0;
-  const gapCount = analysis?.missing_requirements.length ?? 0;
-  const filteredStandards = standards.filter(item => typeFilter === "all" || item.verification_status === typeFilter);
-  // Presentation only -- the API enforces every one of these independently.
-  const can = (permission: string) => Boolean(user?.permissions?.includes(permission));
-  const verifiedRecordCount = dashboardStats?.verified_standards ?? 0;
-  const catalogueSize = dashboardStats?.total_standards ?? 0;
-  const overlayTitle: Record<Exclude<Overlay, null>, string> = {
-    standards: "Standards library",
-    audit: "Audit history",
-    reports: "Export centre",
-    overview: "Workspace overview",
-    team: "Team members",
-    settings: "Workspace settings",
-    notifications: "Notifications",
-    search: "Search standards",
-    profile: "Your profile",
-    about: "About this prototype",
-  };
-  const exportReport = async () => {
-    if (!analysis) {
-      notify("Run an analysis first to generate a real report");
-      return;
-    }
-    try { await downloadReport(analysis.tender.id, "pdf"); } catch (error) { notify(error instanceof Error ? error.message : "Report could not be generated"); }
+  useEffect(() => {
+    if (!user) return;
+    if (view === "standards") getStandards(standardsQuery).then(setStandards).catch(() => notify("Could not load the standards list"));
+    if (view === "audit" && can(PERMISSIONS.auditRead)) getAuditHistory().then(setAudit).catch(() => notify("Could not load the history"));
+    if (view === "overview") getDashboardStats().then(setStats).catch(() => undefined);
+  }, [view, user, standardsQuery]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSigningIn(true); setLoginError("");
+    try { setUser(await loginUser(credentials.email, credentials.password)); }
+    catch (err) { setLoginError(err instanceof Error ? err.message : "Could not sign in"); }
+    finally { setSigningIn(false); }
   };
 
-  const approveReview = async () => {
-    if (!analysis) {
-      notify("Run an analysis before recording a decision");
-      return;
-    }
+  const runAnalysis = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true); setFormError("");
     try {
-      await saveReview(analysis.tender.id, "approved", reviewNote);
-      setApproved(true);
-    } catch (error) {
-      notify(error instanceof Error ? error.message : "Review could not be saved");
-    }
+      const result = mode === "file" && file ? await analyseFile(file) : await analyseTender(form);
+      setAnalysis(result); setApproved(false); setTab("results"); setView("analyse");
+      notify(result.recommendations.length ? `Found ${result.recommendations.length} possible standards` : "No matching standards found");
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Could not analyse that. Please try again.");
+    } finally { setSubmitting(false); }
   };
 
-  const requestExpertReview = async () => {
-    if (!analysis) {
-      notify("Run an analysis before requesting expert review");
-      return;
-    }
-    try {
-      await saveReview(analysis.tender.id, "expert_review", reviewNote || "Expert review requested from dashboard");
-      notify("Expert review request saved to the audit trail");
-    } catch (error) {
-      notify(error instanceof Error ? error.message : "Expert review could not be requested");
-    }
+  const approve = async () => {
+    if (!analysis) return;
+    try { await saveReview(analysis.tender.id, "approved", reviewNote); setApproved(true); notify("Decision recorded"); }
+    catch { notify("Could not save your decision"); }
   };
 
-  const prepareGapCorrection = (title: string) => {
-    setReviewNote(`Correction required: ${title}. `);
-    document.querySelector(".review-note")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    window.setTimeout(() => document.querySelector<HTMLTextAreaElement>(".review-note")?.focus(), 450);
+  const exportReport = async (fmt: "pdf" | "docx" | "xlsx" | "json") => {
+    if (!analysis) { notify("Run an analysis first"); return; }
+    try { await downloadReport(analysis.tender.id, fmt); notify(`${fmt.toUpperCase()} downloaded`); }
+    catch { notify("Could not create the file"); }
   };
 
-  if (authLoading) return <main className="login-loading"><div className="logo-mark"><span /><span /><span /></div><LoaderCircle className="animate-spin" size={22} /><p>Securing your workspace…</p></main>;
+  if (authLoading) {
+    return (
+      <main className="grid min-h-screen place-items-center">
+        <div className="grid justify-items-center gap-3 text-[var(--muted)]">
+          <LoaderCircle className="spin" size={22} />
+          <p className="text-xs">Opening your workspace…</p>
+        </div>
+      </main>
+    );
+  }
 
-  if (!user) return (
-    <main className="login-shell">
-      <section className="login-story">
-        <Logo />
-        <div className="login-story-copy"><p className="login-kicker"><ShieldCheck size={14} /> Government procurement intelligence</p><h1>Standards evidence your team can defend.</h1><p>Turn tender language into traceable Indian Standards recommendations, deterministic compliance checks, and review-ready evidence.</p></div>
-        <div className="login-proof"><span><Check size={14} /> Official-source traceability</span><span><Check size={14} /> Human approval required</span><span><Check size={14} /> Auditable decisions</span></div>
-      </section>
-      <section className="login-panel">
-        <form className="login-card" onSubmit={handleLogin}>
-          <div className="login-icon"><LockKeyhole size={22} /></div>
-          <p className="eyebrow">Secure officer access</p><h2>Welcome back</h2><p className="login-subtitle">Sign in to continue to the ManakSetu review workspace.</p>
-          <label>Official email<input type="email" value={credentials.email} onChange={event => setCredentials({...credentials,email:event.target.value})} autoComplete="username" required /></label>
-          <label>Password<input type="password" value={credentials.password} onChange={event => setCredentials({...credentials,password:event.target.value})} autoComplete="current-password" required /></label>
-          {loginError && <p className="form-error"><TriangleAlert size={14} /> {loginError}</p>}
-          <button className="login-button" type="submit" disabled={signingIn}>{signingIn ? <LoaderCircle className="animate-spin" size={17} /> : <LockKeyhole size={17} />}{signingIn ? "Signing in…" : "Sign in securely"}</button>
-          <div className="demo-credentials"><Sparkles size={15} /><div><strong>Judge demo access</strong><span>Credentials are prefilled for this local prototype.</span></div></div>
-        </form>
-      </section>
-    </main>
-  );
+  if (!user) {
+    return (
+      <main className="login">
+        <section className="login-art">
+          <div>
+            <p className="eyebrow" style={{ color: "#e3a882" }}>ManakSetu</p>
+            <h2 className="mt-4">The right standards,<br />backed by evidence.</h2>
+            <p>Describe what you are buying. We find the Indian Standards that apply, show you where each one came from, and leave the final call to you.</p>
+          </div>
+          <p className="text-[10px] uppercase tracking-[.16em] text-white/30">Right specifications. A stronger India.</p>
+        </section>
+        <section className="login-form">
+          <div className="login-inner">
+            <div className="mb-6 grid h-12 w-12 place-items-center rounded-xl bg-[var(--navy)] text-white"><LockKeyhole size={20} /></div>
+            <h3>Sign in</h3>
+            <p className="mb-6 text-[13px] text-[var(--muted)]">Use your official email address.</p>
+            <form onSubmit={handleLogin}>
+              <label className="label" htmlFor="email">Email</label>
+              <input id="email" className="input" type="email" value={credentials.email} onChange={e => setCredentials({ ...credentials, email: e.target.value })} required />
+              <div className="h-4" />
+              <label className="label" htmlFor="pw">Password</label>
+              <input id="pw" className="input" type="password" value={credentials.password} onChange={e => setCredentials({ ...credentials, password: e.target.value })} required />
+              {loginError && <p className="mt-3 text-[12px] text-[var(--red)]">{loginError}</p>}
+              <button className="btn btn-primary mt-5 w-full" type="submit" disabled={signingIn}>
+                {signingIn ? <><LoaderCircle className="spin" size={15} /> Signing in…</> : <><LockKeyhole size={15} /> Sign in</>}
+              </button>
+            </form>
+            <div className="notice plain mt-5">
+              <Sparkles size={15} className="mt-0.5 shrink-0" />
+              <span>Demonstration login is already filled in. A second account, <strong>supplier@example.in</strong>, shows what a supplier can and cannot do.</span>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  const recs = analysis?.recommendations ?? [];
+  const gaps = analysis?.missing_requirements ?? [];
+  const details = analysis?.extracted_requirements ?? [];
+  const product = details.find(d => d.requirement_type === "product");
+  const verifiedCount = stats?.verified_standards ?? 0;
+  const totalCount = stats?.total_standards ?? 0;
+
+  const nav: Array<{ id: View; label: string; icon: React.ElementType; show: boolean; count?: number }> = [
+    { id: "overview", label: "Overview", icon: LayoutDashboard, show: true },
+    { id: "analyse", label: "Analyse a tender", icon: FileSearch, show: true, count: recs.length || undefined },
+    { id: "standards", label: "Standards list", icon: BookOpenCheck, show: true },
+    { id: "reports", label: "Download report", icon: FileCheck2, show: can(PERMISSIONS.reportExport) },
+    { id: "audit", label: "History", icon: History, show: can(PERMISSIONS.auditRead) },
+  ];
 
   return (
-    <main className="min-h-screen bg-mist text-ink">
-      <div className="noise" />
+    <div className="shell">
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
-        <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between px-6 pb-8 pt-6">
-            <Logo />
-            <button className="lg:hidden text-white/60" onClick={() => setSidebarOpen(false)} aria-label="Close navigation"><X size={20} /></button>
-          </div>
-
-          <nav className="space-y-1 px-3">
-            <NavItem icon={LayoutDashboard} label="Overview" onClick={() => openWorkspace("overview")} />
-            <NavItem icon={FileSearch} label="Tender analysis" active onClick={() => { setOverlay(null); setSidebarOpen(false); window.scrollTo({top:0,behavior:"smooth"}); }} />
-            <NavItem icon={BookOpenCheck} label="Standards library" onClick={() => openWorkspace("standards")} />
-            {can(PERMISSIONS.reportExport) && <NavItem icon={FileCheck2} label="Reports" onClick={() => openWorkspace("reports")} />}
-            {can(PERMISSIONS.auditRead) && <NavItem icon={History} label="Audit history" onClick={() => openWorkspace("audit")} />}
-          </nav>
-
-          <div className="mx-6 my-6 h-px bg-white/[.08]" />
-          <p className="px-6 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Workspace</p>
-          <nav className="space-y-1 px-3">
-            <NavItem icon={MessageSquareText} label="Review queue" badge={String(gapCount)} onClick={() => { setSidebarOpen(false); document.querySelector(".review-note")?.scrollIntoView({behavior:"smooth",block:"center"}); }} />
-            <NavItem icon={UserRound} label="Team members" onClick={() => openWorkspace("team")} />
-            <NavItem icon={Settings} label="Settings" onClick={() => openWorkspace("settings")} />
-          </nav>
-
-          <div className="mt-auto p-4">
-            <div className="support-card">
-              <div className="flex items-center gap-2 text-white"><CircleHelp size={16} /><span className="text-xs font-semibold">Need an expert?</span></div>
-              <p className="mt-2 text-[11px] leading-relaxed text-white/50">Flag uncertain results for standards-team review.</p>
-              <button onClick={requestExpertReview}>Request review <ArrowRight size={12} /></button>
-            </div>
-            <button className="mt-4 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-white/5" onClick={() => openWorkspace("profile")}>
-              <span className="grid h-9 w-9 place-items-center rounded-full bg-saffron text-xs font-bold text-pine">{user.full_name.split(" ").map(part => part[0]).join("").slice(0,2)}</span>
-              <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold text-white">{user.full_name}</span><span className="block text-[10px] capitalize text-white/40">{user.role.replaceAll("_", " ")}</span></span>
-              <MoreHorizontal className="text-white/30" size={17} />
+        <div className="brand">
+          <h1>ManakSetu</h1>
+          <span>Verified standards intelligence</span>
+        </div>
+        <nav className="nav">
+          {nav.filter(n => n.show).map(n => (
+            <button key={n.id} className={view === n.id ? "active" : ""} onClick={() => { setView(n.id); setSidebarOpen(false); }}>
+              <n.icon size={17} />
+              <span>{n.label}</span>
+              {n.count ? <span className="nav-count">{n.count}</span> : null}
             </button>
-          </div>
+          ))}
+        </nav>
+        <div className="sidebar-foot">
+          <p className="tagline">Standards<br />for a safer<br />tomorrow</p>
+          <button className="who" onClick={() => notify(`Signed in as ${user.full_name}`)}>
+            <span className="avatar">{user.full_name.split(" ").map(p => p[0]).join("").slice(0, 2)}</span>
+            <span className="min-w-0 flex-1">
+              <strong className="truncate">{user.full_name}</strong>
+              <small>{user.role.replaceAll("_", " ")}</small>
+            </span>
+          </button>
+          <button className="btn btn-sm mt-2 w-full text-white/60 hover:text-white" onClick={() => { logout(); setUser(null); }}>
+            <LogOut size={14} /> Sign out
+          </button>
         </div>
       </aside>
 
-      {sidebarOpen && <button className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close overlay" />}
+      {sidebarOpen && <button className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close menu" />}
 
-      <section className="lg:pl-[252px]">
+      <div className="main">
         <header className="topbar">
-          <button className="lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open navigation"><Menu size={21} /></button>
-          <div className="hidden items-center gap-2 text-xs text-[#6f7d76] sm:flex"><span>Procurement workspace</span><span>/</span><span className="font-semibold text-ink">Tender analysis</span></div>
-          <div className="ml-auto flex items-center gap-2">
-            <button className="icon-button" aria-label="Search" onClick={() => openWorkspace("search")}><Search size={18} /></button>
-            <button className="icon-button relative" aria-label="Notifications" onClick={() => openWorkspace("notifications")}><Bell size={18} /><span className="notification-dot" /></button>
-            <div className="mx-1 h-5 w-px bg-[#d9dfda]" />
-            <button className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-xs font-semibold hover:bg-black/[.03]" onClick={() => notify("Language selection is available in New analysis")}><Globe2 size={16} /> EN <ChevronDown size={13} /></button>
+          <button className="icon-btn lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open menu"><Menu size={19} /></button>
+          <div className="searchbox">
+            <Search size={15} />
+            <input
+              placeholder="Search standards by name…"
+              value={standardsQuery}
+              onChange={e => { setStandardsQuery(e.target.value); if (view !== "standards") setView("standards"); }}
+            />
           </div>
+          <span className="ml-auto hidden text-[11px] text-[var(--faint)] sm:block">
+            {verifiedCount} verified · {totalCount} records
+          </span>
         </header>
 
-        <div className="mx-auto max-w-[1480px] px-4 pb-16 pt-6 sm:px-7 lg:px-9">
-          <div className="mb-6 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-            <div className="animate-fade-up">
-              <div className="eyebrow"><span className="h-1.5 w-1.5 rounded-full bg-saffron" /> Analysis workspace</div>
-              <h1 className="mt-2 text-[28px] font-bold tracking-[-0.04em] text-ink sm:text-[34px]">Standards recommendation review</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#68766f]">Validate evidence-backed standards, resolve tender gaps, and record a human decision before export.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {can(PERMISSIONS.reportExport) && <button className="button-secondary" onClick={exportReport}><FileText size={16} /> Export report</button>}
-              {can(PERMISSIONS.tenderCreate) && <button className="button-primary" onClick={() => setAnalysisOpen(true)}><Plus size={16} /> New analysis</button>}
-            </div>
-          </div>
+        <div className="page page-wide">
+          {/* ---------------- Overview ---------------- */}
+          {view === "overview" && (
+            <>
+              <p className="eyebrow">Overview</p>
+              <h1 className="display mt-3">Procurement decisions,<br />grounded in evidence.</h1>
+              <p className="lede">Turn a tender into a list of Indian Standards you can defend — each one traced back to an official source.</p>
 
-          <div className="demo-banner">
-            <div className="flex items-center gap-2.5"><Sparkles size={15} /><span><strong>Prototype workspace</strong> — check each result’s verification badge and official evidence before use.</span></div>
-            <button onClick={() => openWorkspace("about")}>About demo data</button>
-          </div>
+              <div className="mt-7 flex flex-wrap gap-9">
+                {can(PERMISSIONS.tenderCreate) && (
+                  <button className="btn btn-primary" onClick={() => setView("analyse")}><FileSearch size={16} /> Analyse a tender</button>
+                )}
+                <button className="btn btn-ghost" onClick={() => setView("standards")}><BookOpenCheck size={16} /> Browse standards</button>
+              </div>
 
-          <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.62fr)_minmax(320px,.72fr)]">
-            <div className="min-w-0 space-y-5">
-              <section className="hero-card animate-fade-up [animation-delay:80ms]">
-                <div className="relative z-10 flex flex-col gap-6 p-5 sm:p-7">
-                  <div className="flex items-start justify-between gap-3 sm:gap-5">
-                    <div className="flex min-w-0 gap-4">
-                      <div className="file-emblem"><FileText size={22} /></div>
-                      <div className="min-w-0">
-                        <div className="mb-2 flex flex-wrap items-center gap-2">{analysis ? <span className="status-pill"><CheckCircle2 size={12} /> Analysis complete</span> : <span className="status-pill"><Clock3 size={12} /> No analysis yet</span>}<span className="text-[11px] text-white/40">{analysis?.tender.reference ?? "—"}</span></div>
-                        <h2 className="truncate text-lg font-semibold tracking-[-0.025em] text-white sm:text-xl">{analysis?.tender.title ?? "Run an analysis to begin"}</h2>
-                        <p className="mt-1 text-xs text-white/45">{analysis ? `${analysis.tender.filename ?? "Text submission"} · ${new Date(analysis.tender.created_at).toLocaleString()}` : "Submit a tender description or upload a document"}</p>
-                      </div>
+              <div className="grid-3 mt-8">
+                <Stat value={String(totalCount)} caption="Standards in the catalogue" note={`${verifiedCount} checked by a person; the rest show their source and say they still need checking.`} />
+                <Stat value="Zero" caption="Invented standard numbers" tone="green" note="Numbers only ever come from the catalogue. The AI is not allowed to write one." />
+                <Stat value={String(stats?.total_tenders ?? 0)} caption="Tenders analysed" tone="rust" note="Every analysis is recorded in the history, with who did what and when." />
+              </div>
+
+              <div className="card card-pad mt-6">
+                <h3 className="section-head">How this works</h3>
+                <p className="section-sub">Four steps, and you decide at the end.</p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {[
+                    ["1. You describe the purchase", "Type a few lines, or upload the tender document. Scanned pages are read automatically."],
+                    ["2. We work out what you need", "The product, where it will be used, quantities, testing and safety requirements."],
+                    ["3. We search by meaning", "Not just keywords — 'head protection' finds helmet standards even without the word 'helmet'."],
+                    ["4. You check and approve", "Every result shows where it came from. Nothing is final until you say so."],
+                  ].map(([h, p]) => (
+                    <div key={h} className="rounded-xl border border-[var(--line)] bg-[#fdfcfa] p-4">
+                      <strong className="serif text-[14px]">{h}</strong>
+                      <p className="mt-1.5 text-[12.5px] leading-relaxed text-[var(--muted)]">{p}</p>
                     </div>
-                    <button className="shrink-0 rounded-xl border border-white/10 p-2 text-white/60 transition hover:bg-white/10 hover:text-white" aria-label="More actions" onClick={() => openWorkspace("reports")}><MoreHorizontal size={20} /></button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-5 sm:grid-cols-4 sm:gap-3">
-                    <div><p className="hero-label">Product identified</p><p className="hero-value">{productRequirement?.value ?? "Not determined"}{productRequirement?.needs_confirmation && <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-[.06em] text-[#ffc075]">inferred · confirm</span>}</p></div>
-                    <div><p className="hero-label">Recommendations</p><p className="hero-value">{recommendationCount} candidate{recommendationCount === 1 ? "" : "s"}</p></div>
-                    <div><p className="hero-label">Tender gaps</p><p className="hero-value text-[#ffc075]">{gapCount} require action</p></div>
-                    <div><p className="hero-label">Review status</p><p className="hero-value">{approved ? "Approved" : analysis ? "Pending review" : "—"}</p></div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="panel overflow-hidden animate-fade-up [animation-delay:140ms]">
-                <div className="tabs" role="tablist">
-                  {[["recommendations", "Recommendations", String(recommendationCount)], ["requirements", "Requirements", String(requirementCount)], ["gaps", "Tender gaps", String(gapCount)]].map(([id, label, count]) => (
-                    <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)} role="tab">{label}<span>{count}</span></button>
                   ))}
                 </div>
+              </div>
 
-                {tab === "recommendations" && (
-                  <div className="p-4 sm:p-6">
-                    <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                      <div><h3 className="section-title">Verified recommendation set</h3><p className="section-subtitle">{analysis ? (analysis.retrieval_mode === "hybrid" ? `Hybrid retrieval — keyword + local semantic embeddings (${analysis.embedding_model?.split("/").pop()}), then graph traversal and deterministic rules.` : "Keyword retrieval only — the local embedding model is not loaded on this machine.") : "Ranked using keyword overlap, semantic similarity, graph links and deterministic rules."}</p></div>
-                      <select className="filter-button" value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)} aria-label="Filter recommendation type"><option value="all">All types</option><option value="verified">Verified only</option><option value="demo">Demo only</option></select>
+              {analysis && (
+                <div className="card mt-6">
+                  <div className="card-head flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="eyebrow">Most recent</p>
+                      <h3 className="section-head mt-1 truncate">{analysis.tender.title}</h3>
                     </div>
-
-                    {analysis && <OutdatedCitations citations={analysis.outdated_citations} />}
-                    {analysis && <EvidenceLegend verifiedCount={verifiedRecordCount} totalCount={catalogueSize} />}
-                    {analysis && <OfficerBriefing analysis={analysis} />}
-
-                    {primary && <article className="recommendation-card featured">
-                      <div className="flex flex-col gap-5 sm:flex-row">
-                        <div className="confidence-ring"><div><strong>{Math.round(primary.confidence_score * 100)}</strong><span>%</span></div><small>Confidence</small></div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2"><span className="type-chip primary">{primary.standard_type}</span><span className="type-chip current"><Check size={11} /> {primary.standard.status}</span><span className={`type-chip ${primary.standard.verification_status === "verified" ? "current" : "demo"}`}>{primary.standard.verification_status}</span></div>
-                          <div className="mt-3 flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
-                            <div className="min-w-0"><StandardIdentity standard={primary.standard} /><h4 className="mt-2 text-[17px] font-semibold tracking-[-.02em]">{primary.standard.official_title}</h4></div>
-                            <button className="link-button" onClick={() => primary.standard.official_source_url ? window.open(primary.standard.official_source_url, "_blank", "noopener,noreferrer") : notify("No official evidence exists for this demo record")}><Link2 size={14} /> Evidence</button>
-                          </div>
-                          <p className="mt-3 text-[13px] leading-6 text-[#64726b]">{primary.reason_for_recommendation}</p>
-                          {primary.warning && <p className="mt-3 rounded-lg border border-[#e8a353] bg-[#fff3e3] px-3 py-2 text-[12px] leading-5 text-[#8a5a12]"><TriangleAlert size={13} className="mr-1 inline" />{primary.warning}</p>}
-                          <CurrencyNotice item={primary} />
-                          <div className="mt-4 flex flex-wrap gap-2">{primary.matched_requirements.map(item => <span className="match-chip" key={item}>{item}</span>)}</div>
-                          <div className="mt-5 grid gap-4 border-t border-[#e8ece8] pt-4 sm:grid-cols-3">
-                            <div><p className="meta-label">Source status</p><p className="meta-value"><ShieldCheck size={13} /> {primary.standard.verification_status === "verified" ? "BIS source verified" : "Verification required"}</p></div>
-                            <div><p className="meta-label">Last checked</p><p className="meta-value"><Clock3 size={13} /> {primary.standard.last_checked_date ?? "Never checked"}</p></div>
-                            <div><p className="meta-label">Certification</p><p className="meta-value text-[#9b651c]"><UserRound size={13} /> {primary.certification_required ? `Mandatory — ${primary.qco_title ?? "QCO"}` : "No verified QCO applies"}</p></div>
-                          </div>
-                        </div>
-                      </div>
-                    </article>}
-
-                    {supporting.length > 0 && <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      {supporting.map(item => {
-                        const key = String(item.standard.id);
-                        return (
-                          <article className="compact-rec" key={key}>
-                            <div className="flex items-start justify-between"><span className="type-chip test">{item.standard_type}</span><span className={`score ${item.confidence_level === "high" ? "" : "medium"}`}>{Math.round(item.confidence_score * 100)}%</span></div>
-                            <div className="mt-4"><StandardIdentity standard={item.standard} size="compact" /></div><h4 className="mt-2 text-sm font-semibold leading-5">{item.standard.official_title}</h4>
-                            {item.relation_note && <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-[#eef3ef] px-2 py-1 text-[10px] font-semibold uppercase tracking-[.06em] text-pine"><Fingerprint size={11} /> graph link · {item.relation_note}</p>}
-                            <p className="mt-3 text-xs leading-5 text-[#708078]">{item.standard.scope_summary}</p>
-                            <CurrencyNotice item={item} />
-                            <button onClick={() => setDetailsOpen(detailsOpen === key ? null : key)}>View rationale <ArrowRight size={13} /></button>
-                            {detailsOpen === key && <div className="rationale-detail">{item.reason_for_recommendation}{item.warning ? ` — ${item.warning}` : ""}</div>}
-                          </article>
-                        );
-                      })}
-                    </div>}
-
-                    {analysis?.guardrail_message && <div className="mt-3 rounded-xl border border-[#e8a353] bg-[#fff3e3] px-4 py-3 text-[13px] leading-6 text-[#8a5a12]"><TriangleAlert size={15} className="mr-2 inline" />{analysis.guardrail_message}</div>}
-
-                    {visibleRecommendations.length === 0 && <div className="workspace-empty mt-3"><FileSearch size={25} /><strong>{analysis ? "No recommendations match this filter" : "No analysis yet"}</strong><span>{analysis ? "Choose another verification state to see candidates." : "Start a new analysis to generate evidence-backed candidates."}</span></div>}
-
-                    <button className="show-more" onClick={() => openWorkspace("standards")}>Browse all standards <ArrowRight size={14} /></button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setView("analyse")}>Open <ArrowRight size={14} /></button>
                   </div>
-                )}
-
-                {tab === "requirements" && (
-                  <div className="p-5 sm:p-7">
-                    <h3 className="section-title">Extracted tender requirements</h3><p className="section-subtitle">Structured by the local extraction pipeline for officer confirmation.</p>
-                    <div className="mt-6 grid gap-3 sm:grid-cols-2">{displayedRequirements.map(([key, value]) => <div className="requirement-row" key={`${key}-${value}`}><span className="capitalize">{key}</span><strong>{value}</strong><CheckCircle2 size={16} /></div>)}</div>
-                    {!analysis && <div className="mt-4 rounded-2xl border border-dashed border-[#cbd5ce] bg-[#f8faf7] p-5 text-center text-sm text-[#65736c]">Run an analysis to replace these illustrative attributes with extracted requirements.</div>}
+                  <div className="card-pad grid gap-4 sm:grid-cols-3">
+                    <div><p className="cap text-[10px] font-bold uppercase tracking-wider text-[var(--faint)]">Product</p><p className="mt-1 font-semibold">{product?.value ?? "Not identified"}</p></div>
+                    <div><p className="cap text-[10px] font-bold uppercase tracking-wider text-[var(--faint)]">Standards found</p><p className="mt-1 font-semibold">{recs.length}</p></div>
+                    <div><p className="cap text-[10px] font-bold uppercase tracking-wider text-[var(--faint)]">Things to fix</p><p className="mt-1 font-semibold">{gaps.length}</p></div>
                   </div>
-                )}
-
-                {tab === "gaps" && (
-                  <div className="p-5 sm:p-7">
-                    <h3 className="section-title">Tender quality gaps</h3><p className="section-subtitle">Resolve these items before approving the recommendation set.</p>
-                    <div className="mt-5 space-y-3">
-                      {(analysis?.missing_requirements.map(item => ["Missing", item, "Add a measurable, reviewable requirement before approval."]) ?? [['Missing', 'Impact-test acceptance criteria', 'Add measurable thresholds and the applicable verified test method.'], ['Ambiguous', 'Service-temperature range', 'Specify the minimum and maximum operating temperatures.'], ['Review', 'Certification clause', 'Confirm applicability through the deterministic QCO rule check.']]).map(([tag, title, desc], i) => <div className="gap-row" key={title}><span className={`gap-icon g${i}`}><TriangleAlert size={17} /></span><div><div className="flex items-center gap-2"><h4>{title}</h4><span>{tag}</span></div><p>{desc}</p></div><button onClick={() => prepareGapCorrection(title)} aria-label={`Add correction note for ${title}`}><ArrowRight size={16} /></button></div>)}
-                    </div>
-                  </div>
-                )}
-              </section>
-            </div>
-
-            <aside className="space-y-5">
-              <section className="panel p-5 animate-fade-up [animation-delay:180ms] sm:p-6">
-                <div className="flex items-center justify-between"><div><p className="eyebrow">Analysis trail</p><h3 className="mt-1 text-base font-semibold">Traceable by design</h3></div><Fingerprint className="text-pine/30" size={29} /></div>
-                <div className="mt-6 space-y-0">
-                  {stages.map((stage, index) => <div className="timeline" key={stage.name}><div className="timeline-track"><span className={stage.status}>{stage.status === 'done' ? <Check size={12} /> : index + 1}</span>{index < stages.length - 1 && <i />}</div><div className="pb-6"><p>{stage.name}</p><small>{stage.detail}</small></div></div>)}
                 </div>
-                <button className="audit-link" onClick={() => openWorkspace("audit")}>View full audit trail <ArrowRight size={14} /></button>
-              </section>
+              )}
+            </>
+          )}
 
-              <section className="panel overflow-hidden animate-fade-up [animation-delay:240ms]">
-                <div className="border-b border-[#e8ece8] p-5 sm:p-6"><div className="flex items-center gap-2"><ShieldCheck size={18} className="text-pine" /><h3 className="text-base font-semibold">Human decision</h3></div><p className="mt-2 text-xs leading-5 text-[#728078]">An authorised officer must review evidence before this result can be used.</p></div>
-                <div className="p-5 sm:p-6">
-                  <div className="review-summary"><div><span>{recommendationCount}</span><small>Candidates</small></div><div><span>{gapCount}</span><small>Open gaps</small></div><div><span>0</span><small>Resolved</small></div></div>
-                  {approved ? (
-                    <div className="mt-5 rounded-2xl bg-[#eaf6ee] p-5 text-center"><CheckCircle2 className="mx-auto text-[#287d4d]" size={30} /><p className="mt-2 text-sm font-semibold text-[#1f613d]">Review decision recorded</p><p className="mt-1 text-[11px] text-[#4d7a61]">Saved to the prototype audit trail.</p></div>
-                  ) : (
-                    <>
-                      <label className="mt-5 block text-[11px] font-semibold uppercase tracking-[.12em] text-[#6d7a73]">Reviewer note</label>
-                      <textarea className="review-note" placeholder="Add context for your decision…" value={reviewNote} onChange={event => setReviewNote(event.target.value)} />
-                      {can(PERMISSIONS.reviewSubmit) && <button className="approve-button" onClick={approveReview}><CheckCircle2 size={17} /> Approve for report</button>}
-                      <button className="flag-button" onClick={requestExpertReview}><Flag size={15} /> Flag for expert review</button>
-                    </>
+          {/* ---------------- Analyse ---------------- */}
+          {view === "analyse" && (
+            <>
+              <p className="eyebrow">Analyse a tender</p>
+              <h1 className="display mt-3">{analysis ? analysis.tender.title : "What are you buying?"}</h1>
+              {analysis && <p className="lede">Reference {analysis.tender.reference} · {new Date(analysis.tender.created_at).toLocaleString()}</p>}
+
+              <div className="card card-pad mt-6"><Stepper analysis={analysis} running={submitting} /></div>
+
+              <div className="grid-2 mt-5">
+                <div className="min-w-0">
+                  {can(PERMISSIONS.tenderCreate) && (
+                    <div className="card card-pad mb-5">
+                      <h3 className="section-head">Describe the purchase</h3>
+                      <p className="section-sub">A sentence or two is enough. Or upload the tender document.</p>
+
+                      <div className="mt-4 flex gap-9">
+                        <button className={`btn btn-sm ${mode === "text" ? "btn-dark" : "btn-ghost"}`} onClick={() => setMode("text")}>Type it</button>
+                        <button className={`btn btn-sm ${mode === "file" ? "btn-dark" : "btn-ghost"}`} onClick={() => setMode("file")}>Upload a file</button>
+                      </div>
+
+                      <form className="mt-4" onSubmit={runAnalysis}>
+                        {mode === "text" ? (
+                          <>
+                            <label className="label" htmlFor="t">Short title</label>
+                            <input id="t" className="input" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required minLength={3} />
+                            <div className="h-4" />
+                            <label className="label" htmlFor="d">What are you buying?</label>
+                            <textarea id="d" className="textarea" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} required minLength={10} />
+                          </>
+                        ) : (
+                          <label className="dropzone block cursor-pointer">
+                            <UploadCloud size={26} className="text-[var(--rust)]" />
+                            <strong className="serif text-[14px]">{file ? file.name : "Choose a file"}</strong>
+                            <span className="text-[12px]">PDF, Word, Excel, or a photo of a printed page. Scanned pages are read for you.</span>
+                            <input type="file" className="hidden" accept=".pdf,.docx,.xlsx,.txt,.png,.jpg,.jpeg" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+                          </label>
+                        )}
+                        {formError && <p className="mt-3 text-[12px] text-[var(--red)]">{formError}</p>}
+                        <button className="btn btn-primary mt-4 w-full" type="submit" disabled={submitting || (mode === "file" && !file)}>
+                          {submitting ? <><LoaderCircle className="spin" size={15} /> Working…</> : <>Find the standards <ArrowRight size={15} /></>}
+                        </button>
+                      </form>
+                    </div>
+                  )}
+
+                  {analysis && (
+                    <div className="card">
+                      <div className="tabs">
+                        <button className={tab === "results" ? "active" : ""} onClick={() => setTab("results")}>Standards found<span className="pill">{recs.length}</span></button>
+                        <button className={tab === "details" ? "active" : ""} onClick={() => setTab("details")}>What we read<span className="pill">{details.length}</span></button>
+                        <button className={tab === "gaps" ? "active" : ""} onClick={() => setTab("gaps")}>Things to fix<span className="pill">{gaps.length}</span></button>
+                      </div>
+
+                      <div className="card-pad">
+                        {tab === "results" && (
+                          <>
+                            <p className="section-sub mb-4">Tap any result to see why it came up and where it came from.</p>
+                            {recs.map(item => <ResultRow key={item.standard.id} item={item} onOpen={() => setOpenResult(item)} />)}
+                            {!recs.length && (
+                              <div className="empty">
+                                <FileSearch size={26} />
+                                <strong>Nothing matched</strong>
+                                <span>{analysis.guardrail_message ?? "We could not find a standard for this. An expert needs to look at it."}</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+
+                        {tab === "details" && (
+                          <>
+                            <p className="section-sub mb-4">This is what we understood from your tender. Correct anything that looks wrong before you approve.</p>
+                            {details.map(d => (
+                              <div className="rowcard" key={`${d.requirement_type}-${d.value}`}>
+                                <span className="ico"><CheckCircle2 size={17} /></span>
+                                <div className="min-w-0 flex-1">
+                                  <dt>{d.requirement_type.replaceAll("_", " ")}</dt>
+                                  <dd>{d.value}</dd>
+                                </div>
+                                {d.needs_confirmation && <span className="tag amber">Please confirm</span>}
+                              </div>
+                            ))}
+                            {!details.length && <div className="empty"><strong>Nothing picked up</strong><span>Try describing the purchase in a little more detail.</span></div>}
+                          </>
+                        )}
+
+                        {tab === "gaps" && (
+                          <>
+                            <p className="section-sub mb-4">Your tender does not mention these. Adding them makes it harder to dispute later.</p>
+                            {gaps.map(g => (
+                              <div className="rowcard" key={g}>
+                                <span className="ico warn"><TriangleAlert size={17} /></span>
+                                <div className="min-w-0 flex-1"><dd className="font-semibold">{g}</dd></div>
+                              </div>
+                            ))}
+                            {!gaps.length && <div className="empty"><strong>Nothing missing</strong><span>Your tender already covers the usual points.</span></div>}
+                          </>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
-              </section>
 
-              <section className="trust-card animate-fade-up [animation-delay:300ms]">
-                <div className="trust-icon"><ShieldCheck size={21} /></div>
-                <div><p>Zero-invention guardrail</p><span>Only verified database records can become factual recommendations. The AI explains—it does not invent.</span></div>
-              </section>
-            </aside>
-          </div>
-        </div>
-      </section>
+                {/* Right column */}
+                <div className="min-w-0 space-y-5">
+                  {analysis && analysis.outdated_citations.length > 0 && (
+                    <div className="card card-pad">
+                      <h3 className="section-head">Your tender names an old standard</h3>
+                      {analysis.outdated_citations.map(c => (
+                        <div className="notice red mt-3" key={c.cited_standard}>
+                          <TriangleAlert size={16} className="mt-0.5 shrink-0" />
+                          <span><strong>{c.cited_standard}</strong> — {c.message}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-      {overlay && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setOverlay(null)}>
-          <section className="workspace-modal" role="dialog" aria-modal="true" aria-labelledby="workspace-title" onMouseDown={event => event.stopPropagation()}>
-            <div className="modal-head">
-              <div className="modal-icon">{overlay === "standards" || overlay === "search" ? <BookOpenCheck size={21} /> : overlay === "audit" ? <History size={21} /> : overlay === "reports" ? <FileCheck2 size={21} /> : <LayoutDashboard size={21} />}</div>
-              <div><p className="eyebrow">ManakSetu workspace</p><h2 id="workspace-title">{overlayTitle[overlay]}</h2></div>
-              <button onClick={() => setOverlay(null)} aria-label="Close workspace panel"><X size={19} /></button>
-            </div>
-            <div className="workspace-body">
-              {loadingOverlay && <div className="workspace-loading"><LoaderCircle className="animate-spin" size={22} /> Loading live workspace data…</div>}
+                  {analysis && (
+                    <div className="card card-pad">
+                      <h3 className="section-head">Plain-English summary</h3>
+                      <p className="section-sub">Written for you from the results on the left.</p>
+                      {analysis.officer_summary ? (
+                        <>
+                          <p className="mt-4 text-[13px] leading-[1.7] text-[var(--muted)]">{analysis.officer_summary}</p>
+                          <div className="notice plain mt-4">
+                            <ShieldCheck size={15} className="mt-0.5 shrink-0" />
+                            <span>Written by an AI running on this computer. It can only talk about the results above — if it mentions a standard that was not found, the whole summary is thrown away.</span>
+                          </div>
+                        </>
+                      ) : analysis.officer_summary_status === "pending" ? (
+                        <p className="mt-4 flex items-center gap-2 text-[13px] text-[var(--faint)]"><LoaderCircle className="spin" size={14} /> Writing…</p>
+                      ) : analysis.officer_summary_status.startsWith("rejected") ? (
+                        <div className="notice amber mt-4">
+                          <TriangleAlert size={16} className="mt-0.5 shrink-0" />
+                          <span><strong>A summary was thrown away.</strong> The AI mentioned a standard that was not in the results, so we did not show you any of it. The results themselves are unaffected.</span>
+                        </div>
+                      ) : (
+                        <p className="mt-4 text-[13px] text-[var(--faint)]">Not available right now. The results above do not depend on it.</p>
+                      )}
+                    </div>
+                  )}
 
-              {!loadingOverlay && (overlay === "standards" || overlay === "search") && (
-                <>
-                  <form className="workspace-search" onSubmit={searchStandards}>
-                    <Search size={17} />
-                    <input value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Search by standard number, title, or scope" autoFocus={overlay === "search"} />
-                    <button type="submit">Search</button>
-                  </form>
-                  <div className="workspace-toolbar">
-                    <span>{filteredStandards.length} records</span>
-                    <select value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)}><option value="all">All records</option><option value="verified">Verified only</option><option value="demo">Demo only</option></select>
+                  {analysis && can(PERMISSIONS.reviewSubmit) && (
+                    <div className="card card-pad">
+                      <h3 className="section-head">Your decision</h3>
+                      <p className="section-sub">Nothing is final until you approve it.</p>
+                      <textarea className="textarea mt-4" style={{ minHeight: 84 }} placeholder="Add a note (optional)" value={reviewNote} onChange={e => setReviewNote(e.target.value)} />
+                      {approved ? (
+                        <div className="notice green mt-3"><CheckCircle2 size={16} className="mt-0.5 shrink-0" /><span>Approved and recorded in the history.</span></div>
+                      ) : (
+                        <button className="btn btn-primary mt-3 w-full" onClick={approve}><CheckCircle2 size={16} /> Approve</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ---------------- Standards list ---------------- */}
+          {view === "standards" && (
+            <>
+              <p className="eyebrow">Standards list</p>
+              <h1 className="display mt-3">Everything in the catalogue</h1>
+              <p className="lede">{totalCount} records. {verifiedCount} has been checked by a person; the others show where they came from and say they still need checking.</p>
+              <div className="card card-pad mt-6">
+                {standards.map(s => (
+                  <div className="result" key={s.id} style={{ cursor: "default" }}>
+                    <span className={`ring ${tierOf(s) === "verified" ? "hi" : tierOf(s) === "checking" ? "mid" : "lo"}`}>
+                      {tierOf(s) === "verified" ? <ShieldCheck size={18} /> : tierOf(s) === "checking" ? <Clock3 size={18} /> : <FileText size={18} />}
+                    </span>
+                    <span className="min-w-0">
+                      <Identifier standard={s} />
+                      <h4>{s.official_title}</h4>
+                      <p className="sub">{s.scope_summary.slice(0, 130)}{s.scope_summary.length > 130 ? "…" : ""}</p>
+                    </span>
+                    {s.official_source_url
+                      ? <a className="icon-btn" href={s.official_source_url} target="_blank" rel="noopener noreferrer" aria-label="Open official page"><Link2 size={16} /></a>
+                      : <span className="icon-btn opacity-30"><Link2 size={16} /></span>}
                   </div>
-                  <div className="workspace-list">
-                    {filteredStandards.map(item => <article className="workspace-row" key={item.id}>
-                      <div className="workspace-row-icon"><ShieldCheck size={17} /></div>
-                      <div className="min-w-0"><StandardIdentity standard={item} size="compact" /><h3 className="mt-2">{item.official_title}</h3><p>{item.scope_summary}</p></div>
-                      {item.official_source_url ? <button className="row-action" onClick={() => window.open(item.official_source_url!, "_blank", "noopener,noreferrer")} aria-label={`Open official source for ${item.official_title}`}><Link2 size={16} /></button> : <span className="row-action muted"><TriangleAlert size={16} /></span>}
-                    </article>)}
-                    {!filteredStandards.length && <div className="workspace-empty"><FileSearch size={25} /><strong>No matching standards</strong><span>Try a broader term or change the verification filter.</span></div>}
+                ))}
+                {!standards.length && <div className="empty"><strong>Nothing found</strong><span>Try a different word, or clear the search box above.</span></div>}
+              </div>
+            </>
+          )}
+
+          {/* ---------------- Reports ---------------- */}
+          {view === "reports" && (
+            <>
+              <p className="eyebrow">Download report</p>
+              <h1 className="display mt-3">Take it away</h1>
+              <p className="lede">A record of this analysis, ready to attach to your file or share with a colleague.</p>
+              {analysis ? (
+                <div className="card card-pad mt-6">
+                  <h3 className="section-head">{analysis.tender.title}</h3>
+                  <p className="section-sub">Reference {analysis.tender.reference}</p>
+                  <div className="mt-5 grid gap-9 sm:grid-cols-2 lg:grid-cols-4">
+                    {([["pdf", "PDF"], ["docx", "Word"], ["xlsx", "Excel"], ["json", "Data file"]] as const).map(([fmt, label]) => (
+                      <button key={fmt} className="btn btn-ghost" onClick={() => exportReport(fmt)}><FileText size={15} /> {label}</button>
+                    ))}
                   </div>
-                </>
+                  <div className="notice amber mt-5">
+                    <TriangleAlert size={16} className="mt-0.5 shrink-0" />
+                    <span>Records marked <strong>Needs checking</strong> or <strong>Example only</strong> are labelled as such in the file, so nobody mistakes them for confirmed standards.</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="card mt-6"><div className="empty"><FileCheck2 size={26} /><strong>Nothing to download yet</strong><span>Analyse a tender first, then come back here.</span></div></div>
               )}
+            </>
+          )}
 
-              {!loadingOverlay && overlay === "audit" && <div className="workspace-list">
-                {auditEntries.map(entry => <article className="audit-entry" key={entry.id}><span><Check size={13} /></span><div><strong>{entry.action.replaceAll("_", " ")}</strong><p>{entry.entity_type} · {entry.entity_id}</p><time>{new Date(entry.created_at).toLocaleString()}</time></div></article>)}
-                {!auditEntries.length && <div className="workspace-empty"><History size={25} /><strong>No audit events yet</strong><span>Analyse a tender or record a review decision to create one.</span></div>}
-              </div>}
-
-              {!loadingOverlay && overlay === "reports" && <>
-                <p className="workspace-intro">Download the current analysis in the format your review team needs. Every export is generated by the local API.</p>
-                <div className="report-grid">
-                  {([['pdf','PDF review pack','Presentation-ready report'],['docx','Editable DOCX','Continue drafting in Word'],['xlsx','Evidence workbook','Inspect structured evidence'],['json','JSON record','Use with another system']] as const).map(([format,title,description]) => <button key={format} onClick={async () => { if (!analysis) return notify("Run an analysis before exporting"); try { await downloadReport(analysis.tender.id, format); } catch (error) { notify(error instanceof Error ? error.message : "Report could not be generated"); } }}><FileText size={21} /><span><strong>{title}</strong><small>{description}</small></span><ArrowRight size={16} /></button>)}
-                </div>
-                {!analysis && <p className="workspace-callout"><TriangleAlert size={15} /> No analysis is loaded. Close this panel and choose New analysis first.</p>}
-              </>}
-
-              {!loadingOverlay && overlay === "overview" && <>
-                <div className="stat-grid">
-                  <div><span>Total tenders</span><strong>{dashboardStats?.total_tenders ?? 0}</strong></div><div><span>Pending reviews</span><strong>{dashboardStats?.pending_reviews ?? 0}</strong></div><div><span>Verified standards</span><strong>{dashboardStats?.verified_standards ?? 0}</strong></div><div><span>Completed reviews</span><strong>{dashboardStats?.completed_reviews ?? 0}</strong></div>
-                </div>
-                <p className="workspace-intro">This overview is calculated from the local application database and updates after analyses and review decisions.</p>
-              </>}
-
-              {!loadingOverlay && overlay === "team" && <div className="workspace-list">
-                {[['AR','Ananya Rao','Procurement officer'],['VS','Vikram Shah','Standards reviewer'],['MK','Meera Kapoor','Compliance lead']].map(([initials,name,role]) => <article className="member-row" key={name}><span>{initials}</span><div><strong>{name}</strong><p>{role}</p></div><i>Active</i></article>)}
-              </div>}
-
-              {!loadingOverlay && overlay === "settings" && <div className="settings-list">
-                <label><span><strong>Require human approval</strong><small>Block final reports until an officer records a decision.</small></span><input type="checkbox" defaultChecked /></label>
-                <label><span><strong>Official evidence only</strong><small>Prefer verified catalogue records over demonstration records.</small></span><input type="checkbox" defaultChecked /></label>
-                <label><span><strong>Audit notifications</strong><small>Show an alert when a review state changes.</small></span><input type="checkbox" defaultChecked /></label>
-              </div>}
-
-              {!loadingOverlay && overlay === "notifications" && <div className="workspace-list">
-                <article className="notice-row"><span><TriangleAlert size={16} /></span><div><strong>{gapCount} tender gaps need review</strong><p>Open the Tender gaps tab to prepare correction notes.</p></div></article>
-                <article className="notice-row success"><span><CheckCircle2 size={16} /></span><div><strong>Analysis service is ready</strong><p>Document extraction and standards matching are available locally.</p></div></article>
-              </div>}
-
-              {!loadingOverlay && overlay === "profile" && <div className="profile-card"><span>{user.full_name.split(" ").map(part => part[0]).join("").slice(0,2)}</span><h3>{user.full_name}</h3><p>{user.email} · {user.role.replaceAll("_", " ")}</p><div><ShieldCheck size={16} /> Authorised reviewer</div><button className="logout-button" onClick={handleLogout}><LogOut size={15} /> Sign out</button></div>}
-
-              {!loadingOverlay && overlay === "about" && <div className="about-copy"><ShieldCheck size={32} /><h3>Evidence before confidence</h3><p>ManakSetu separates verified official records from demonstration data. A high matching score never turns an unverified identifier into a fact.</p><p>Look for the <strong>verified</strong> badge and follow the source link before using a recommendation in procurement.</p></div>}
-            </div>
-          </section>
+          {/* ---------------- History ---------------- */}
+          {view === "audit" && (
+            <>
+              <p className="eyebrow">History</p>
+              <h1 className="display mt-3">Who did what, and when</h1>
+              <p className="lede">Every sign-in, analysis, decision and download is recorded here.</p>
+              <div className="card card-pad mt-6">
+                {audit.map(a => (
+                  <div className="rowcard" key={a.id}>
+                    <span className="ico"><History size={16} /></span>
+                    <div className="min-w-0 flex-1">
+                      <dd className="font-semibold">{a.action.replaceAll(".", " ").replaceAll("_", " ")}</dd>
+                      <dt className="mt-1 normal-case tracking-normal">{new Date(a.created_at).toLocaleString()}</dt>
+                    </div>
+                  </div>
+                ))}
+                {!audit.length && <div className="empty"><strong>Nothing recorded yet</strong><span>Activity will appear here as you use the system.</span></div>}
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
 
-      {analysisOpen && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => !submitting && setAnalysisOpen(false)}>
-          <section className="analysis-modal" role="dialog" aria-modal="true" aria-labelledby="analysis-title" onMouseDown={event => event.stopPropagation()}>
-            <div className="modal-head">
-              <div className="modal-icon"><FileSearch size={21} /></div>
-              <div><p className="eyebrow">Local analysis pipeline</p><h2 id="analysis-title">Analyse a procurement request</h2></div>
-              <button onClick={() => setAnalysisOpen(false)} aria-label="Close analysis" disabled={submitting}><X size={19} /></button>
-            </div>
-            <form onSubmit={submitAnalysis} className="analysis-form">
-              <div className="input-switch"><button type="button" className={inputMode === "text" ? "active" : ""} onClick={() => setInputMode("text")}><MessageSquareText size={14} /> Text description</button><button type="button" className={inputMode === "file" ? "active" : ""} onClick={() => setInputMode("file")}><UploadCloud size={14} /> Upload document</button></div>
-              {inputMode === "text" ? <>
-                <label>Tender title<input value={form.title} onChange={event => setForm({...form, title:event.target.value})} minLength={3} required /></label>
-                <label>Product description or technical requirement<textarea value={form.description} onChange={event => setForm({...form, description:event.target.value})} minLength={10} required /></label>
-              </> : <label className="file-drop"><input type="file" accept=".pdf,.docx,.xlsx,.txt,.png,.jpg,.jpeg" onChange={event => setSelectedFile(event.target.files?.[0] ?? null)} required /><UploadCloud size={27} /><strong>{selectedFile?.name ?? "Choose a tender document"}</strong><span>PDF, DOCX, XLSX, TXT or image · maximum 20 MB</span></label>}
-              <div className="form-meta"><span><ShieldCheck size={15} /> Processed locally. Human review remains mandatory.</span><select value={form.language} onChange={event => setForm({...form, language:event.target.value})} aria-label="Input language"><option value="en">English</option><option value="hi">हिन्दी</option><option value="te">తెలుగు</option></select></div>
-              {formError && <p className="form-error"><TriangleAlert size={14} /> {formError}</p>}
-              <div className="modal-actions"><button type="button" className="button-secondary" onClick={() => setAnalysisOpen(false)} disabled={submitting}>Cancel</button><button type="submit" className="button-primary" disabled={submitting || (inputMode === "file" && !selectedFile)}>{submitting ? <LoaderCircle className="animate-spin" size={16} /> : <Sparkles size={16} />}{submitting ? "Analysing…" : "Run verified search"}</button></div>
-            </form>
-          </section>
-        </div>
-      )}
-      {toast && <div className="toast"><CheckCircle2 size={17} /> {toast}</div>}
-    </main>
+      {openResult && <DetailPanel item={openResult} onClose={() => setOpenResult(null)} />}
+      {toast && <div className="toast"><CheckCircle2 size={15} /> {toast}</div>}
+    </div>
   );
 }

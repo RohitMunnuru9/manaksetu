@@ -5,10 +5,10 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#14231D",
-        pine: "#173F32",
-        saffron: "#F59E42",
-        mist: "#F1F4ED",
+        ink: "#1a2438",
+        navy: "#16223a",
+        rust: "#b4522e",
+        cream: "#faf8f4",
       },
       boxShadow: {
         panel: "0 18px 55px rgba(23, 63, 50, 0.10)",

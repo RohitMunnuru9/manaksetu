@@ -12,11 +12,15 @@
     Usage:   powershell -ExecutionPolicy Bypass -File start-demo.ps1
              ... -SkipModel     start without the language model briefing
              ... -Fresh         rebuild the .next cache and reseed the database
+             ... -SkipWeb       start only the API and model, leaving port 3000 free
 #>
 
 param(
     [switch]$SkipModel,
-    [switch]$Fresh
+    [switch]$Fresh,
+    # Leave port 3000 alone. Use this when the dashboard is already being served
+    # by something else, so the two do not fight over the port.
+    [switch]$SkipWeb
 )
 
 $ErrorActionPreference = "Stop"
@@ -70,9 +74,9 @@ Write-Ok "signing secret present"
 
 # --- Clean slate ---------------------------------------------------------
 Write-Step "Releasing ports"
-Stop-Port 3000
+if (-not $SkipWeb) { Stop-Port 3000 }
 Stop-Port 8000
-Write-Ok "ports 3000 and 8000 free"
+Write-Ok $(if ($SkipWeb) { "port 8000 free (left 3000 alone)" } else { "ports 3000 and 8000 free" })
 
 if ($Fresh) {
     Write-Step "Fresh start requested"
@@ -105,9 +109,14 @@ Start-Process -FilePath $python `
     -WorkingDirectory (Join-Path $root "backend") -WindowStyle Minimized
 $apiUp = Wait-For "http://localhost:8000/api/v1/health" "API" 180
 
-Write-Step "Starting the dashboard on port 3000"
-Start-Process -FilePath "npm.cmd" -ArgumentList "run", "dev" -WorkingDirectory $root -WindowStyle Minimized
-$webUp = Wait-For "http://localhost:3000" "Dashboard" 180
+if ($SkipWeb) {
+    Write-Warn "not starting the dashboard (--SkipWeb)"
+    $webUp = $true
+} else {
+    Write-Step "Starting the dashboard on port 3000"
+    Start-Process -FilePath "npm.cmd" -ArgumentList "run", "dev" -WorkingDirectory $root -WindowStyle Minimized
+    $webUp = Wait-For "http://localhost:3000" "Dashboard" 180
+}
 
 # --- Summary -------------------------------------------------------------
 Write-Step "Ready"
