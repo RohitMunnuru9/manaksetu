@@ -41,6 +41,15 @@ class Settings(BaseSettings):
     # shared deployment.
     seed_demo_users: bool = True
 
+    # Local language model, used only to phrase retrieval evidence for a reader.
+    # Off by default so a machine without Ollama behaves identically; turning it
+    # on cannot change which standards are recommended.
+    enable_llm_explanations: bool = False
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen2.5:3b"
+    # Short enough that a stalled model cannot hold up an analysis.
+    ollama_timeout_seconds: float = 45.0
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property

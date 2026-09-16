@@ -19,6 +19,7 @@ from .security import Permission, create_access_token, get_current_user, permiss
 from .seed import seed_demo_data
 from .services.recommendation import apply_graph_context, confidence_level, evaluate_qco, find_candidates, missing_requirements, retrieval_mode
 from .services.embeddings import semantic_index
+from .services.explanation import explain_analysis
 from .services.documents import extract_document
 from .services.reports import build_docx, build_json, build_pdf, build_xlsx
 from .services.requirements import detect_language, extract_requirements
@@ -161,14 +162,21 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
     db.add(AuditLog(actor_id=actor_id, action="tender.analysis.completed", entity_type="tender", entity_id=str(tender.id), details={"candidate_count": len(response_items), "retrieval_mode": retrieval_mode()}))
     db.commit()
     guardrail = None if response_items else "No verified recommendation found. Expert review is required."
+    gaps = missing_requirements(tender.source_text)
+    # Prose layer runs last, over evidence that is already final. It cannot add,
+    # remove or reorder a recommendation.
+    summary = explain_analysis(tender.source_text, response_items, gaps)
     return AnalysisResponse(
         tender=TenderRead.model_validate(tender),
         recommendations=response_items,
         extracted_requirements=extracted,
-        missing_requirements=missing_requirements(tender.source_text),
+        missing_requirements=gaps,
         guardrail_message=guardrail,
         retrieval_mode=retrieval_mode(),
         embedding_model=semantic_index.model_name,
+        officer_summary=summary.text,
+        officer_summary_status=summary.status,
+        officer_summary_model=summary.model,
     )
 
 

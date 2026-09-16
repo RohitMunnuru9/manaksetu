@@ -101,6 +101,11 @@ class AnalysisResponse(BaseModel):
     # never claims semantic retrieval that did not actually run.
     retrieval_mode: str = "lexical"
     embedding_model: str | None = None
+    # Optional prose briefing from the local model. Never a source of fact: it
+    # is discarded entirely if it mentions an identifier that was not retrieved.
+    officer_summary: str | None = None
+    officer_summary_status: str = "disabled"
+    officer_summary_model: str | None = None
 
 
 class ReviewCreate(BaseModel):

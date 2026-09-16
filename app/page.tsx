@@ -127,6 +127,44 @@ function EvidenceLegend({ verifiedCount, totalCount }: { verifiedCount: number; 
   );
 }
 
+/** Prose from the local model, plus an honest account of when it was thrown away. */
+function OfficerBriefing({ analysis }: { analysis: AnalysisResult }) {
+  const { officer_summary: summary, officer_summary_status: status, officer_summary_model: model } = analysis;
+
+  if (summary) {
+    return (
+      <div className="llm-brief">
+        <div className="llm-brief-head">
+          <Sparkles size={13} className="text-pine" />
+          <strong>Officer briefing</strong>
+          {model && <span className="llm-model">{model}</span>}
+        </div>
+        <p>{summary}</p>
+        <footer>
+          Written by a local language model from the evidence above. It cannot add, remove or reorder a recommendation, and any explanation
+          referencing a standard that was not retrieved is discarded before it reaches this screen. Treat the records above as authoritative.
+        </footer>
+      </div>
+    );
+  }
+
+  if (status === "rejected_invented_identifier" || status === "rejected_unsupported_claim") {
+    return (
+      <div className="llm-rejected">
+        <strong><TriangleAlert size={12} className="mr-1 inline" />A model explanation was discarded</strong>
+        <p>
+          {status === "rejected_invented_identifier"
+            ? "The local model referenced a standard number that was not among the retrieved records, so the whole explanation was rejected rather than shown to you."
+            : "The local model asserted a certification requirement that the deterministic rule engine did not confirm, so the explanation was rejected."}
+          {" "}The evidence above is unaffected — it never passes through the model.
+        </p>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function NavItem({ icon: Icon, label, active, badge, onClick }: NavItemProps) {
   return (
     <button className={`nav-item ${active ? "active" : ""}`} onClick={onClick}>
@@ -465,6 +503,7 @@ export default function Home() {
                     </div>
 
                     {analysis && <EvidenceLegend verifiedCount={verifiedRecordCount} totalCount={catalogueSize} />}
+                    {analysis && <OfficerBriefing analysis={analysis} />}
 
                     {primary && <article className="recommendation-card featured">
                       <div className="flex flex-col gap-5 sm:flex-row">

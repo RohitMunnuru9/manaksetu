@@ -51,6 +51,9 @@ export type AnalysisResult = {
   guardrail_message: string | null;
   retrieval_mode: "hybrid" | "lexical";
   embedding_model: string | null;
+  officer_summary: string | null;
+  officer_summary_status: string;
+  officer_summary_model: string | null;
 };
 
 export type TenderSummary = AnalysisResult["tender"];

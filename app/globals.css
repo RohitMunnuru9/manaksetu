@@ -157,3 +157,17 @@ button:disabled { cursor:not-allowed; }
 .legend-swatch.verified { color:#1d6544; background:#e4f2e9; }
 .legend-swatch.unverified { color:#8d5e23; background:#fff1df; }
 @media (max-width:639px) { .evidence-legend li { grid-template-columns:1fr; } }
+
+/* ---- Local model briefing ---------------------------------------------- */
+/* Visually separated from evidence, because it is prose about the evidence
+   rather than evidence itself. */
+.llm-brief { margin-top:14px; border:1px solid #dfe7e6; border-radius:13px; padding:14px 15px; background:linear-gradient(180deg,#f7fbfa,#fbfcfa); }
+.llm-brief-head { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:8px; }
+.llm-brief-head strong { color:#2a4338; font-size:11px; font-weight:750; }
+.llm-brief-head .llm-model { border-radius:5px; padding:3px 6px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:8px; font-weight:700; color:#3a6b8c; background:#e9f1f7; }
+.llm-brief p { margin:0; color:#54635c; font-size:12px; line-height:1.68; }
+.llm-brief footer { margin-top:9px; border-top:1px solid #e8eeec; padding-top:8px; font-size:10px; line-height:1.5; color:#8a978f; }
+.llm-rejected { margin-top:14px; border:1px solid #e8a353; border-radius:13px; padding:13px 15px; background:#fff8ef; }
+.llm-rejected strong { display:block; margin-bottom:5px; color:#8a5a12; font-size:11px; font-weight:750; }
+.llm-rejected p { margin:0; color:#95692a; font-size:11px; line-height:1.6; }
+.llm-rejected code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:10px; }

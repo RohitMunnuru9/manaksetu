@@ -63,6 +63,10 @@ this system.
 - Scanned-document detection with a safe `ocr_required` handoff
 - Human review decisions and queryable audit history
 - Downloadable JSON, PDF, DOCX and XLSX recommendation reports
+- Optional local Qwen briefing layer via Ollama, constrained to retrieved
+  evidence and validated afterwards: output citing a standard that was not
+  retrieved, or asserting a certification the rule engine did not confirm, is
+  discarded rather than shown
 - Alembic migration foundation
 - Optional Docker Compose profiles for Neo4j Community and Ollama
 - Pytest guardrail tests
@@ -123,6 +127,30 @@ shared deployment.
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
+### Optional: local language-model briefing
+
+A local Qwen model can write a plain-English briefing over the retrieved
+evidence. It is **off by default** and the system is fully functional without it.
+
+```bash
+ollama serve                       # or: docker compose --profile ai up -d ollama
+ollama pull qwen2.5:3b             # ~2 GB; use qwen2.5:7b on a 16 GB machine
+ENABLE_LLM_EXPLANATIONS=true backend/.venv/Scripts/python.exe -m uvicorn app.main:app --app-dir backend
+```
+
+The model never decides anything. It receives only records retrieval already
+produced, and its output is parsed afterwards: **any standard identifier that was
+not in that evidence causes the entire explanation to be discarded**, and so does
+a certification claim the deterministic rule engine did not make. The dashboard
+says so out loud when it happens, rather than silently hiding it.
+
+That ordering is the point. A prompt telling a model not to invent an IS number
+is a request. Discarding output that contains one is a guarantee — and it is what
+`backend/tests/test_explanation.py` asserts, without needing Ollama to run.
+
+If Ollama is missing, slow or broken, the analysis completes exactly as before,
+without prose.
+
 Optional local services remain off by default to keep laptop requirements manageable:
 
 ```bash
@@ -167,9 +195,11 @@ The local language model will be added only as an explanation and structured-ext
 - Semantic retrieval runs on fastembed rather than BGE-M3, and the knowledge
   graph runs on PostgreSQL relationship edges rather than Neo4j. Both are the
   laptop-scale options the specification permits; neither is simulated.
-- PaddleOCR and the Ollama/Qwen explanation layer are **not implemented**. The
-  reason text shown for each recommendation is generated deterministically from
-  retrieval evidence, not by a language model.
+- PaddleOCR is **not implemented**; Tesseract is used where the executable exists.
+- The Ollama/Qwen layer writes prose only, and only when explicitly enabled. The
+  per-recommendation reason text remains deterministic and is never produced by a
+  language model. No language model generates a standard identifier anywhere in
+  this system, and output that contains an unretrieved one is discarded.
 - Version, amendment and withdrawal checking is **not implemented**; the schema
   carries status fields but there is no revision-history table yet.
 - Ranking weights in `services/recommendation.py` are untuned starting values.
