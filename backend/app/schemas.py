@@ -105,6 +105,12 @@ class RecommendationRead(BaseModel):
     currency_warning: str | None = None
 
 
+class NearestRecord(BaseModel):
+    """Shown only when nothing matched. Explicitly not a recommendation."""
+    standard: StandardRead
+    similarity: float
+
+
 class ExtractedRequirement(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     requirement_type: str
@@ -122,6 +128,9 @@ class AnalysisResponse(BaseModel):
     # Outdated standards the tender text already cites.
     outdated_citations: list[OutdatedCitation] = Field(default_factory=list)
     guardrail_message: str | None = None
+    # Populated only when recommendations is empty. Kept in its own field so
+    # nothing can mistake these for results.
+    nearest_records: list[NearestRecord] = Field(default_factory=list)
     # "hybrid" when the local embedding model is loaded, "lexical" when the
     # system is running on keyword matching alone. Surfaced so the interface
     # never claims semantic retrieval that did not actually run.

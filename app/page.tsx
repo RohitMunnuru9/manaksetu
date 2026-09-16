@@ -829,7 +829,32 @@ export default function Home() {
                               <button className="btn btn-ghost btn-sm" onClick={() => setStage("review")}>What we understood</button>
                             </div>
                             {recs.map(item => <ResultRow key={item.standard.id} item={item} onOpen={() => setOpenResult(item)} />)}
-                            {!recs.length && (
+                            {!recs.length && analysis.nearest_records.length > 0 && (
+                              <div className="nearest">
+                                <div className="nearest-head">
+                                  <TriangleAlert size={17} />
+                                  <div>
+                                    <strong>No standard in the catalogue covers this purchase.</strong>
+                                    <p>Nothing below is a recommendation. These are simply the closest records we hold, shown so you can see how far off they are. Do not put any of them in a tender.</p>
+                                  </div>
+                                </div>
+                                {analysis.nearest_records.map(n => (
+                                  <div className="nearest-row" key={n.standard.id}>
+                                    <span className="nearest-pct">{Math.round(n.similarity * 100)}%</span>
+                                    <span className="min-w-0">
+                                      <Identifier standard={n.standard} />
+                                      <h4>{n.standard.official_title}</h4>
+                                    </span>
+                                    <span className="tag grey">Not a match</span>
+                                  </div>
+                                ))}
+                                <p className="nearest-foot">
+                                  An expert should review this tender. Adding a new area means importing its BIS records — a data task, not a change to the software.
+                                </p>
+                              </div>
+                            )}
+
+                            {!recs.length && analysis.nearest_records.length === 0 && (
                               <div className="empty">
                                 <FileSearch size={26} />
                                 <strong>Nothing in the catalogue matches this</strong>

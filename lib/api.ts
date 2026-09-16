@@ -55,6 +55,7 @@ export type AnalysisResult = {
   missing_requirements: string[];
   outdated_citations: Array<{ cited_standard: string; status: string; superseded_by: string | null; amendment_count: number; message: string | null }>;
   guardrail_message: string | null;
+  nearest_records: Array<{ standard: ApiStandard; similarity: number }>;
   retrieval_mode: "hybrid" | "lexical";
   embedding_model: string | null;
   officer_summary: string | null;

@@ -195,6 +195,34 @@ def find_candidates(db: Session, text: str, limit: int = 5, augment: str = "") -
     return ranked[:limit]
 
 
+def nearest_records(db: Session, text: str, limit: int = 3) -> list[RankedStandard]:
+    """The closest records when nothing clears the relevance floor.
+
+    Deliberately separate from find_candidates. These are not recommendations
+    and must never be presented as any: they exist so an officer sees what the
+    catalogue does hold rather than an empty screen, and can judge for themselves
+    how far off it is. Nothing downstream -- reports, certification, the model
+    briefing -- is allowed to read them.
+    """
+    if not semantic_index.available:
+        return []
+    query_vector = semantic_index.embed_one(text)
+    if query_vector is None:
+        return []
+    scored: list[RankedStandard] = []
+    for standard in db.scalars(select(Standard).where(Standard.embedding.isnot(None))).all():
+        similarity = cosine_similarity(query_vector, standard.embedding)
+        scored.append(RankedStandard(
+            standard=standard,
+            score=round(similarity, 2),
+            matched_terms=[],
+            semantic_score=round(similarity, 3),
+            reason="Nearest record in the catalogue. Not a recommendation for this tender.",
+        ))
+    scored.sort(key=lambda item: item.semantic_score, reverse=True)
+    return scored[:limit]
+
+
 def _tier_rank(standard: Standard) -> int:
     """1 = a real identifier, 0 = illustrative.
 

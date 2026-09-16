@@ -15,10 +15,10 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .database import Base, SessionLocal, engine, get_db
 from .models import AuditLog, ProductCategory, QualityControlOrder, Recommendation, ReviewDecision, Standard, StandardRelationship, StandardStatus, Tender, TenderRequirement, User, VerificationStatus
-from .schemas import AmendmentRead, AnalysisResponse, CategoryRead, AuditRead, BriefingResponse, NetworkEdge, NetworkNode, NetworkResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
+from .schemas import AmendmentRead, AnalysisResponse, CategoryRead, NearestRecord, AuditRead, BriefingResponse, NetworkEdge, NetworkNode, NetworkResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
 from .security import Permission, create_access_token, get_current_user, permissions_for, require_permission, verify_password
 from .seed import seed_demo_data
-from .services.recommendation import apply_graph_context, confidence_level, evaluate_qco, find_candidates, missing_requirements, retrieval_mode
+from .services.recommendation import apply_graph_context, confidence_level, evaluate_qco, find_candidates, missing_requirements, nearest_records, retrieval_mode
 from .services.embeddings import semantic_index
 from .services.explanation import explain_analysis, warm_model
 from .services.versions import describe_currency, outdated_citations
@@ -310,6 +310,12 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
     db.add(AuditLog(actor_id=actor_id, action="tender.analysis.completed", entity_type="tender", entity_id=str(tender.id), details={"candidate_count": len(response_items), "retrieval_mode": retrieval_mode()}))
     db.commit()
     guardrail = None if response_items else "No verified recommendation found. Expert review is required."
+    # Only when nothing matched: show what the catalogue is nearest to, so the
+    # officer sees its scope rather than a blank screen. Never recommendations.
+    nearest = [] if response_items else [
+        NearestRecord(standard=StandardRead.model_validate(item.standard), similarity=item.semantic_score)
+        for item in nearest_records(db, tender.source_text)
+    ]
     gaps = missing_requirements(tender.source_text)
     # The prose briefing is deliberately NOT generated here. Local generation
     # takes tens of seconds, and an officer should see evidence immediately
@@ -322,6 +328,7 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
         missing_requirements=gaps,
         outdated_citations=[OutdatedCitation(**item) for item in outdated_citations(db, tender.source_text)],
         guardrail_message=guardrail,
+        nearest_records=nearest,
         retrieval_mode=retrieval_mode(),
         embedding_model=semantic_index.model_name,
         officer_summary_status="pending" if settings.enable_llm_explanations else "disabled",

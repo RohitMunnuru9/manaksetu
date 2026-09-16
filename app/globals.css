@@ -288,3 +288,14 @@ a { color: var(--rust); }
 .covers span { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; background: #fff; font-size: 11.5px; color: var(--ink); }
 .covers em { font-style: normal; font-size: 10px; font-weight: 700; color: var(--faint); }
 .covers small { display: block; margin-top: 11px; font-size: 11px; line-height: 1.55; color: var(--faint); }
+
+/* Nearest records — shown when nothing matched. Visually distinct from results
+   so they can never be mistaken for recommendations. */
+.nearest { border: 1px solid #e8a353; border-radius: 13px; padding: 16px; background: #fffaf3; }
+.nearest-head { display: flex; gap: 11px; align-items: flex-start; color: #8a5f1a; }
+.nearest-head strong { font-size: 13.5px; }
+.nearest-head p { margin: 5px 0 0; font-size: 12px; line-height: 1.6; color: #95692a; }
+.nearest-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; margin-top: 11px; border: 1px solid #f0e2cd; border-radius: 10px; padding: 11px 13px; background: #fff; opacity: .85; }
+.nearest-row h4 { margin: 4px 0 0; font-family: var(--serif); font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.nearest-pct { font-family: var(--serif); font-size: 15px; font-weight: 700; color: #b08a30; }
+.nearest-foot { margin: 13px 0 0; font-size: 11.5px; line-height: 1.6; color: #95692a; }
