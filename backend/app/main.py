@@ -248,9 +248,17 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
             source_excerpt=item.source_excerpt,
             needs_confirmation=item.needs_confirmation,
         ))
-    # Feed the extracted product back into the search. For an Indic tender this
-    # is the only English the retriever will see.
-    augment = " ".join(item.value for item in extracted if item.requirement_type in {"product", "intended_use"})
+    # Feed the extracted product back into the search, but only where the term was
+    # actually found in the tender rather than inferred from meaning. An inferred
+    # product is already a guess; using it to widen the search compounds the
+    # guess -- "water pumps for irrigation" was inferred as "drinking water" and
+    # that inference then pulled up the packaged-water standard. A literal match
+    # carries no such doubt, which is what makes an Indic tender work: the Telugu
+    # term for helmet is in the term list and matches outright.
+    augment = " ".join(
+        item.value for item in extracted
+        if item.requirement_type in {"product", "intended_use"} and not item.needs_confirmation
+    )
     candidates = find_candidates(db, tender.source_text, augment=augment)
     if candidates:
         # Highest-ranked retrieval hit is the primary; the rest matched on text

@@ -14,6 +14,18 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
+# Table extraction is the expensive part of reading a PDF. On a real 233-page
+# tender, pdfplumber took 47 seconds while PyMuPDF read every page of text in
+# under one -- long enough that the browser gave up and the upload appeared to
+# fail. Specifications put their tables near the front, so scanning the opening
+# pages captures them at a fraction of the cost. Text from every page is still
+# read in full.
+MAX_TABLE_PAGES = 25
+
+# Retrieval only needs enough text to establish what is being bought, and the
+# embedding model truncates far below this in any case.
+MAX_TEXT_CHARS = 120_000
+
 # Windows installers add Tesseract to the system PATH, but a process started
 # before the install keeps a stale copy of it. Checking the usual install
 # locations as well means OCR works without anyone restarting their shell.
@@ -79,7 +91,7 @@ def _extract_pdf(path: Path) -> ExtractionResult:
     text = "\n\n".join(page.strip() for page in pages if page.strip())
     tables: list[str] = []
     with pdfplumber.open(path) as pdf:
-        for page in pdf.pages:
+        for page in pdf.pages[:MAX_TABLE_PAGES]:
             for table in page.extract_tables():
                 for row in table:
                     values = [str(cell).strip() for cell in row if cell is not None and str(cell).strip()]
@@ -87,6 +99,9 @@ def _extract_pdf(path: Path) -> ExtractionResult:
                         tables.append(" | ".join(values))
     if tables:
         text = f"{text}\n\nExtracted tables:\n" + "\n".join(tables)
+    if len(text) > MAX_TEXT_CHARS:
+        logger.info("Document text truncated from %d to %d characters.", len(text), MAX_TEXT_CHARS)
+        text = text[:MAX_TEXT_CHARS]
     requires_ocr = len(text.strip()) < max(40, len(document) * 15)
     if requires_ocr and ocr_available():
         ocr_pages = []

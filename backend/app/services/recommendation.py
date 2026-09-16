@@ -12,6 +12,20 @@ from .embeddings import cosine_similarity, semantic_index, standard_document
 TOKEN_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9-]{2,}")
 STOP_WORDS = {"and", "the", "for", "with", "from", "that", "this", "units", "purchase", "supply"}
 
+# A real 233-page tender yields several thousand distinct words. One SQL clause
+# per word overran SQLite's expression-tree limit and the upload failed outright,
+# and a lexical score divided by thousands of terms is meaningless anyway. The
+# words a document repeats are the ones that characterise it, so the most
+# frequent are kept and the long tail dropped.
+MAX_QUERY_TERMS = 80
+
+# Above this length a document is summarised by its repeated words rather than
+# read from the top. The embedding model only sees its first few hundred tokens,
+# which on a 233-page tender is the cover page and proprietary notice -- that
+# scored 0.45 against the catalogue and returned nothing, while the same
+# document's frequent terms scored 0.59 and reached the right category.
+LONG_DOCUMENT_CHARS = 4_000
+
 # Prototype weights. These are starting values, not validated coefficients --
 # they must be tuned against an expert-labelled dataset before any claim is made
 # about ranking quality.
@@ -30,7 +44,22 @@ UNVERIFIED_SCORE_CEILING = 0.69
 # "working") drags unrelated records into a result set; their embedding
 # similarity stays far below this, so it is the more reliable filter. Applied
 # only when the embedding model actually loaded.
-MIN_SEMANTIC_RELEVANCE = 0.40
+#
+# Measured against this catalogue rather than guessed. Tenders whose product is
+# genuinely present score 0.56 to 0.90; tenders for products that are absent
+# peak at 0.50 -- solar panels reaching PVC cables at 0.41, water pumps reaching
+# packaged drinking water at 0.48. The floor sits in the gap between those two
+# ranges, because a confidently wrong standard in a tender is far worse than
+# being told the catalogue does not cover the purchase.
+#
+# Re-measure this if the catalogue grows substantially: a denser catalogue
+# raises the similarity of near-misses, and the gap will move.
+MIN_SEMANTIC_RELEVANCE = 0.52
+
+# A graph-linked record scores this fraction of the primary it hangs off. It is
+# included because of a modelled relationship, so it inherits the primary's
+# relevance rather than asserting one of its own.
+GRAPH_RELATIVE_SCORE = 0.85
 
 # How a graph edge maps onto the standard_type shown to the officer.
 RELATIONSHIP_TYPES = {
@@ -56,7 +85,17 @@ class RankedStandard:
 
 
 def extract_terms(text: str) -> list[str]:
-    return sorted({match.group(0).lower() for match in TOKEN_RE.finditer(text) if match.group(0).lower() not in STOP_WORDS})
+    """The words worth searching on, most frequent first, capped."""
+    counts: dict[str, int] = {}
+    for match in TOKEN_RE.finditer(text):
+        word = match.group(0).lower()
+        if word not in STOP_WORDS:
+            counts[word] = counts.get(word, 0) + 1
+    if len(counts) <= MAX_QUERY_TERMS:
+        return sorted(counts)
+    # Frequency first, then alphabetically so the result is stable run to run.
+    ranked = sorted(counts, key=lambda w: (-counts[w], w))[:MAX_QUERY_TERMS]
+    return sorted(ranked)
 
 
 def retrieval_mode() -> str:
@@ -116,7 +155,14 @@ def find_candidates(db: Session, text: str, limit: int = 5, augment: str = "") -
     """
     query = f"{text} {augment}".strip() if augment else text
     terms = extract_terms(query)
-    query_vector = semantic_index.embed_one(query) if semantic_index.available else None
+    # Short text is its own best summary. A long document is not: embed what it
+    # repeats, plus anything the extractor recognised, instead of its opening page.
+    semantic_query = query
+    if len(query) > LONG_DOCUMENT_CHARS:
+        semantic_query = " ".join(terms)
+        if augment:
+            semantic_query = f"{augment} {semantic_query}"
+    query_vector = semantic_index.embed_one(semantic_query) if semantic_index.available else None
 
     pool: dict[int, Standard] = {item.id: item for item in _lexical_candidates(db, terms)}
     if query_vector is not None:
@@ -228,7 +274,13 @@ def apply_graph_context(db: Session, candidates: list[RankedStandard], limit: in
         if added >= limit:
             continue
         verified = target.verification_status == VerificationStatus.verified
-        score = 0.72 if verified else min(0.62, UNVERIFIED_SCORE_CEILING)
+        # Scale against the primary rather than using a fixed figure. A linked
+        # record is only as relevant as the record it hangs off, so a weak
+        # primary must not carry confident-looking dependants: a 32% match to a
+        # cable standard was showing its linked standard at 62%.
+        score = round(min(candidates[0].score * GRAPH_RELATIVE_SCORE, 0.99), 2)
+        if not verified:
+            score = min(score, UNVERIFIED_SCORE_CEILING)
         candidates.append(RankedStandard(
             standard=target,
             score=score,
