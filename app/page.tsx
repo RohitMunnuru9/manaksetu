@@ -35,7 +35,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { analyseFile, analyseTender, downloadReport, getAuditHistory, getCurrentUser, getDashboardStats, getLatestAnalysis, getStandards, login as loginUser, logout, saveReview, type AnalysisResult, type ApiStandard, type AuditEntry, type DashboardStats, type UserProfile } from "@/lib/api";
+import { PERMISSIONS, analyseFile, analyseTender, downloadReport, getAuditHistory, getCurrentUser, getDashboardStats, getLatestAnalysis, getStandards, login as loginUser, logout, saveReview, type AnalysisResult, type ApiStandard, type AuditEntry, type DashboardStats, type UserProfile } from "@/lib/api";
 
 type NavItemProps = {
   icon: React.ElementType;
@@ -273,6 +273,8 @@ export default function Home() {
   const requirementCount = analysis?.extracted_requirements.length ?? 0;
   const gapCount = analysis?.missing_requirements.length ?? 0;
   const filteredStandards = standards.filter(item => typeFilter === "all" || item.verification_status === typeFilter);
+  // Presentation only -- the API enforces every one of these independently.
+  const can = (permission: string) => Boolean(user?.permissions?.includes(permission));
   const verifiedRecordCount = dashboardStats?.verified_standards ?? 0;
   const catalogueSize = dashboardStats?.total_standards ?? 0;
   const overlayTitle: Record<Exclude<Overlay, null>, string> = {
@@ -364,8 +366,8 @@ export default function Home() {
             <NavItem icon={LayoutDashboard} label="Overview" onClick={() => openWorkspace("overview")} />
             <NavItem icon={FileSearch} label="Tender analysis" active onClick={() => { setOverlay(null); setSidebarOpen(false); window.scrollTo({top:0,behavior:"smooth"}); }} />
             <NavItem icon={BookOpenCheck} label="Standards library" onClick={() => openWorkspace("standards")} />
-            <NavItem icon={FileCheck2} label="Reports" onClick={() => openWorkspace("reports")} />
-            <NavItem icon={History} label="Audit history" onClick={() => openWorkspace("audit")} />
+            {can(PERMISSIONS.reportExport) && <NavItem icon={FileCheck2} label="Reports" onClick={() => openWorkspace("reports")} />}
+            {can(PERMISSIONS.auditRead) && <NavItem icon={History} label="Audit history" onClick={() => openWorkspace("audit")} />}
           </nav>
 
           <div className="mx-6 my-6 h-px bg-white/[.08]" />
@@ -413,8 +415,8 @@ export default function Home() {
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#68766f]">Validate evidence-backed standards, resolve tender gaps, and record a human decision before export.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button className="button-secondary" onClick={exportReport}><FileText size={16} /> Export report</button>
-              <button className="button-primary" onClick={() => setAnalysisOpen(true)}><Plus size={16} /> New analysis</button>
+              {can(PERMISSIONS.reportExport) && <button className="button-secondary" onClick={exportReport}><FileText size={16} /> Export report</button>}
+              {can(PERMISSIONS.tenderCreate) && <button className="button-primary" onClick={() => setAnalysisOpen(true)}><Plus size={16} /> New analysis</button>}
             </div>
           </div>
 
@@ -547,7 +549,7 @@ export default function Home() {
                     <>
                       <label className="mt-5 block text-[11px] font-semibold uppercase tracking-[.12em] text-[#6d7a73]">Reviewer note</label>
                       <textarea className="review-note" placeholder="Add context for your decision…" value={reviewNote} onChange={event => setReviewNote(event.target.value)} />
-                      <button className="approve-button" onClick={approveReview}><CheckCircle2 size={17} /> Approve for report</button>
+                      {can(PERMISSIONS.reviewSubmit) && <button className="approve-button" onClick={approveReview}><CheckCircle2 size={17} /> Approve for report</button>}
                       <button className="flag-button" onClick={requestExpertReview}><Flag size={15} /> Flag for expert review</button>
                     </>
                   )}

@@ -15,7 +15,7 @@ from .config import get_settings
 from .database import Base, SessionLocal, engine, get_db
 from .models import AuditLog, Recommendation, ReviewDecision, Standard, Tender, TenderRequirement, User, VerificationStatus
 from .schemas import AnalysisResponse, AuditRead, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
-from .security import create_access_token, get_current_user, require_reviewer, verify_password
+from .security import Permission, create_access_token, get_current_user, permissions_for, require_permission, verify_password
 from .seed import seed_demo_data
 from .services.recommendation import apply_graph_context, confidence_level, evaluate_qco, find_candidates, missing_requirements, retrieval_mode
 from .services.embeddings import semantic_index
@@ -65,12 +65,18 @@ def oauth2_token(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depe
 
 
 @app.get("/api/v1/auth/me", response_model=UserRead, tags=["auth"])
-def current_user_profile(user: User = Depends(get_current_user)) -> User:
-    return user
+def current_user_profile(user: User = Depends(get_current_user)) -> UserRead:
+    return UserRead(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role,
+        permissions=sorted(permissions_for(user.role)),
+    )
 
 
 @app.get("/api/v1/standards", response_model=list[StandardRead], tags=["standards"])
-def list_standards(q: str | None = None, db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> list:
+def list_standards(q: str | None = None, db: Session = Depends(get_db), _: User = Depends(require_permission(Permission.TENDER_READ))) -> list:
     query = select(Standard)
     if q:
         query = query.where(Standard.official_title.ilike(f"%{q}%"))
@@ -89,7 +95,7 @@ def dashboard(db: Session = Depends(get_db), _: User = Depends(get_current_user)
 
 
 @app.get("/api/v1/tenders", response_model=list[TenderRead], tags=["tenders"])
-def list_tenders(db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> list[Tender]:
+def list_tenders(db: Session = Depends(get_db), _: User = Depends(require_permission(Permission.TENDER_READ))) -> list[Tender]:
     return list(db.scalars(select(Tender).order_by(Tender.created_at.desc()).limit(100)).all())
 
 
@@ -203,7 +209,7 @@ def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
 
 
 @app.post("/api/v1/tenders/analyse", response_model=AnalysisResponse, tags=["tenders"])
-def analyse_text(payload: TenderCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> AnalysisResponse:
+def analyse_text(payload: TenderCreate, db: Session = Depends(get_db), user: User = Depends(require_permission(Permission.TENDER_CREATE))) -> AnalysisResponse:
     tender = Tender(reference=f"MS-{datetime.now(timezone.utc):%Y}-{uuid4().hex[:6].upper()}", title=payload.title, source_text=payload.description, language=payload.language, created_by_id=user.id)
     db.add(tender)
     db.flush()
@@ -211,7 +217,7 @@ def analyse_text(payload: TenderCreate, db: Session = Depends(get_db), user: Use
 
 
 @app.get("/api/v1/tenders/{tender_id}", response_model=AnalysisResponse, tags=["tenders"])
-def get_tender_analysis(tender_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> AnalysisResponse:
+def get_tender_analysis(tender_id: int, db: Session = Depends(get_db), _: User = Depends(require_permission(Permission.TENDER_READ))) -> AnalysisResponse:
     tender = db.get(Tender, tender_id)
     if not tender:
         raise HTTPException(status_code=404, detail="Tender not found")
@@ -242,7 +248,7 @@ async def save_upload(file: UploadFile) -> tuple[Path, str]:
 
 
 @app.post("/api/v1/tenders/upload", response_model=TenderRead, tags=["tenders"])
-async def upload_tender(file: UploadFile = File(...), db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> Tender:
+async def upload_tender(file: UploadFile = File(...), db: Session = Depends(get_db), user: User = Depends(require_permission(Permission.TENDER_CREATE))) -> Tender:
     destination, _ = await save_upload(file)
     tender = Tender(reference=f"MS-{datetime.now(timezone.utc):%Y}-{uuid4().hex[:6].upper()}", title=Path(file.filename or "Untitled tender").stem, filename=destination.name, status="uploaded", created_by_id=user.id)
     db.add(tender)
@@ -252,7 +258,7 @@ async def upload_tender(file: UploadFile = File(...), db: Session = Depends(get_
 
 
 @app.post("/api/v1/tenders/upload/analyse", response_model=AnalysisResponse, tags=["tenders"])
-async def upload_and_analyse(file: UploadFile = File(...), db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> AnalysisResponse:
+async def upload_and_analyse(file: UploadFile = File(...), db: Session = Depends(get_db), user: User = Depends(require_permission(Permission.TENDER_CREATE))) -> AnalysisResponse:
     destination, content_type = await save_upload(file)
     try:
         extraction = extract_document(destination, content_type)
@@ -277,7 +283,7 @@ async def upload_and_analyse(file: UploadFile = File(...), db: Session = Depends
 
 
 @app.post("/api/v1/tenders/{tender_id}/review", response_model=ReviewRead, tags=["reviews"])
-def review_tender(tender_id: int, payload: ReviewCreate, db: Session = Depends(get_db), user: User = Depends(require_reviewer)) -> ReviewDecision:
+def review_tender(tender_id: int, payload: ReviewCreate, db: Session = Depends(get_db), user: User = Depends(require_permission(Permission.REVIEW_SUBMIT))) -> ReviewDecision:
     tender = db.get(Tender, tender_id)
     if not tender:
         raise HTTPException(status_code=404, detail="Tender not found")
@@ -292,12 +298,12 @@ def review_tender(tender_id: int, payload: ReviewCreate, db: Session = Depends(g
 
 
 @app.get("/api/v1/audit", response_model=list[AuditRead], tags=["audit"])
-def audit_history(db: Session = Depends(get_db), _: User = Depends(require_reviewer)) -> list[AuditLog]:
+def audit_history(db: Session = Depends(get_db), _: User = Depends(require_permission(Permission.AUDIT_READ))) -> list[AuditLog]:
     return list(db.scalars(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(200)).all())
 
 
 @app.get("/api/v1/tenders/{tender_id}/report/{report_format}", tags=["reports"])
-def download_report(tender_id: int, report_format: str, db: Session = Depends(get_db), user: User = Depends(require_reviewer)) -> StreamingResponse:
+def download_report(tender_id: int, report_format: str, db: Session = Depends(get_db), user: User = Depends(require_permission(Permission.REPORT_EXPORT))) -> StreamingResponse:
     tender = db.get(Tender, tender_id)
     if not tender:
         raise HTTPException(status_code=404, detail="Tender not found")

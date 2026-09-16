@@ -66,6 +66,27 @@ def _effective_verification(row: dict) -> VerificationStatus:
     return VerificationStatus.verified
 
 
+def _seed_demo_users(db: Session, settings) -> None:
+    """Seed local demonstration accounts.
+
+    A second, deliberately restricted supplier account exists so role-based
+    access control can be demonstrated rather than merely asserted: signing in
+    as the supplier shows review, export and audit refused by the API.
+    """
+    accounts = [
+        (settings.demo_user_email, settings.demo_user_password, "Ananya Rao", "procurement_officer"),
+        ("supplier@example.in", settings.demo_user_password, "Vikram Shetty", "supplier"),
+    ]
+    for email, password, full_name, role in accounts:
+        if db.scalar(select(User.id).where(User.email == email.lower()).limit(1)) is None:
+            db.add(User(
+                email=email.lower(),
+                full_name=full_name,
+                role=role,
+                password_hash=hash_password(password),
+            ))
+
+
 def load_catalogue() -> dict:
     with CATALOGUE_PATH.open(encoding="utf-8") as handle:
         return json.load(handle)
@@ -73,13 +94,8 @@ def load_catalogue() -> dict:
 
 def seed_demo_data(db: Session) -> None:
     settings = get_settings()
-    if db.scalar(select(User.id).where(User.email == settings.demo_user_email).limit(1)) is None:
-        db.add(User(
-            email=settings.demo_user_email,
-            full_name="Ananya Rao",
-            role="procurement_officer",
-            password_hash=hash_password(settings.demo_user_password),
-        ))
+    if settings.seed_demo_users:
+        _seed_demo_users(db, settings)
 
     catalogue = load_catalogue()
 

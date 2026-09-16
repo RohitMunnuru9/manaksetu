@@ -27,6 +27,9 @@ class UserRead(BaseModel):
     email: str
     full_name: str
     role: str
+    # Sent so the interface can hide actions the role cannot perform. The API
+    # still enforces every one of them server-side; this is presentation only.
+    permissions: list[str] = Field(default_factory=list)
 
 
 class TenderCreate(BaseModel):

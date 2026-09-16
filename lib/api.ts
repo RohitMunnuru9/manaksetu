@@ -56,7 +56,17 @@ export type AnalysisResult = {
 export type TenderSummary = AnalysisResult["tender"];
 export type AuditEntry = { id: number; action: string; entity_type: string; entity_id: string; details: Record<string, unknown>; created_at: string };
 export type DashboardStats = { total_tenders: number; pending_reviews: number; verified_standards: number; total_standards: number; completed_reviews: number };
-export type UserProfile = { id: number; email: string; full_name: string; role: string };
+export type UserProfile = { id: number; email: string; full_name: string; role: string; permissions: string[] };
+
+/** Capability names mirroring the server's Permission class. */
+export const PERMISSIONS = {
+  tenderRead: "tender:read",
+  tenderCreate: "tender:create",
+  reviewSubmit: "review:submit",
+  reportExport: "report:export",
+  auditRead: "audit:read",
+  standardVerify: "standard:verify",
+} as const;
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 const TOKEN_KEY = "manaksetu_access_token";

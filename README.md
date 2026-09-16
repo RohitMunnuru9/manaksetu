@@ -49,8 +49,12 @@ this system.
 - Tender-gap detection
 - Deterministic QCO check that refuses mandatory claims from unverified records
 - Source-traceable IS 2925:1984 public metadata and its 2023 helmet QCO from official BIS sources
-- JWT/Argon2 authentication foundation
-- Protected JWT workspace with role-gated review, audit and report actions
+- JWT/Argon2 authentication with a signing secret that has no committed default:
+  development mints an ephemeral one, other environments refuse to start without a real one
+- Role-based access control over a named capability matrix (six roles, six
+  permissions), enforced per endpoint by the API and fail-closed for any
+  unrecognised role; the interface hides what the role cannot do, and the server
+  refuses it independently
 - Validated PDF, DOCX and TXT upload endpoint with size limits
 - Text extraction for digital PDF, DOCX, XLSX and TXT tenders
 - PDF table extraction with pdfplumber
@@ -89,10 +93,35 @@ docker compose up --build
 
 ### Local judge login
 
-- Email: `officer@manaksetu.gov.in`
-- Password: `ManakSetu@2026`
+Two demonstration accounts are seeded, both with password `ManakSetu@2026`:
 
-These credentials are for the local demonstration environment only. Override `DEMO_USER_EMAIL`, `DEMO_USER_PASSWORD`, and `JWT_SECRET` before any shared deployment.
+| Email | Role | Can do |
+|---|---|---|
+| `officer@manaksetu.gov.in` | Procurement officer | Submit tenders, review, export reports, read the audit trail |
+| `supplier@example.in` | Supplier | Read the standards catalogue only |
+
+Signing in as the supplier is the quickest way to show access control working: the
+review, export and audit-history controls disappear, and calling those endpoints
+directly returns **403** rather than relying on the interface to hide them.
+
+These accounts exist only where `SEED_DEMO_USERS=true`. Set it to `false` for any
+shared deployment.
+
+### Signing secret
+
+`JWT_SECRET` has no default and no usable value is committed anywhere.
+
+- **Development** — leave it unset. The API generates a random secret at startup
+  and logs a warning. Sessions end when the process restarts, which is correct
+  for a laptop and means no secret lives in the repository.
+- **Anything else** — set `ENVIRONMENT` to something other than `development` and
+  supply a real `JWT_SECRET` of at least 32 characters. The API refuses to start
+  if it is missing, too short, or set to any placeholder that has appeared in a
+  committed file. Generate one with:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
 
 Optional local services remain off by default to keep laptop requirements manageable:
 
