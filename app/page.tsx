@@ -313,8 +313,12 @@ function NetworkGraph({ data, onPick }: { data: StandardNetwork; onPick: (id: st
   const positions: Record<string, { x: number; y: number }> = {};
   if (centre) positions[centre.id] = { x: cx, y: cy };
 
+  // Returns one offset per node. Zero nodes must yield no offsets: returning a
+  // single offset for an empty group made the caller read element [0] of an
+  // empty list and crash the page, which is why the diagram only worked for
+  // records that happened to have both test and safety links.
   const spread = (count: number, span: number) =>
-    count <= 1 ? [0] : Array.from({ length: count }, (_, i) => -span / 2 + (i * span) / (count - 1));
+    count <= 0 ? [] : count === 1 ? [0] : Array.from({ length: count }, (_, i) => -span / 2 + (i * span) / (count - 1));
 
   spread(right.length, Math.min(right.length * 132, 300)).forEach((dy, i) => {
     positions[right[i].id] = { x: cx + 300, y: cy + dy };
@@ -421,6 +425,10 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [openResult, setOpenResult] = useState<ApiRecommendation | null>(null);
   const [tab, setTab] = useState<"results" | "details" | "gaps">("results");
+  // After an analysis the officer is shown what was understood before what was
+  // found. Dumping every result at once gave them no way to catch a
+  // misreading of their own tender before acting on it.
+  const [stage, setStage] = useState<"review" | "results">("results");
 
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -439,6 +447,9 @@ export default function Home() {
   const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [network, setNetwork] = useState<StandardNetwork | null>(null);
   const [networkOf, setNetworkOf] = useState<ApiStandard | null>(null);
+  // Set only when the officer chooses a record explicitly; otherwise the
+  // diagram tracks whatever they last analysed.
+  const [pinnedRecord, setPinnedRecord] = useState<ApiStandard | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [approved, setApproved] = useState(false);
 
@@ -457,7 +468,7 @@ export default function Home() {
   }, [user]);
 
   // The written summary is slow, so it is fetched after results are on screen.
-  const tenderId = analysis?.tender.id;
+  const tenderId = analysis?.tender?.id;
   const briefingPending = analysis?.officer_summary_status === "pending";
   useEffect(() => {
     if (!tenderId || !briefingPending) return;
@@ -474,9 +485,10 @@ export default function Home() {
     if (view === "audit" && can(PERMISSIONS.auditRead)) getAuditHistory().then(setAudit).catch(() => notify("Could not load the history"));
     if (view === "overview") getDashboardStats().then(setStats).catch(() => undefined);
     if (view === "network") {
-      // Default to whatever the last analysis put at the top, so the diagram
-      // opens on something the officer was already looking at.
-      const seed = networkOf ?? analysis?.recommendations[0]?.standard ?? null;
+      // Follow the current analysis unless the officer pinned a record by hand.
+      // Previously the first record it ever showed stuck forever, so analysing
+      // something new left the diagram on the old subject.
+      const seed = pinnedRecord ?? analysis?.recommendations[0]?.standard ?? null;
       if (seed) {
         setNetworkOf(seed);
         getNetwork(seed.id).then(setNetwork).catch(() => notify("Could not draw the connections"));
@@ -487,9 +499,10 @@ export default function Home() {
         }).catch(() => undefined);
       }
     }
-  }, [view, user, standardsQuery]);
+  }, [view, user, standardsQuery, pinnedRecord, analysis?.tender?.id]);
 
   const showNetworkFor = (standard: ApiStandard) => {
+    setPinnedRecord(standard);
     setNetworkOf(standard);
     setNetwork(null);
     setView("network");
@@ -509,7 +522,7 @@ export default function Home() {
     setSubmitting(true); setFormError("");
     try {
       const result = mode === "file" && file ? await analyseFile(file) : await analyseTender(form);
-      setAnalysis(result); setApproved(false); setTab("results"); setView("analyse");
+      setAnalysis(result); setApproved(false); setTab("results"); setStage("review"); setView("analyse");
       notify(result.recommendations.length ? `Found ${result.recommendations.length} possible standards` : "No matching standards found");
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Could not analyse that. Please try again.");
@@ -582,7 +595,7 @@ export default function Home() {
   const product = details.find(d => d.requirement_type === "product");
   const verifiedCount = stats?.verified_standards ?? 0;
   const totalCount = stats?.total_standards ?? 0;
-  const sourceText = analysis?.tender.source_text ?? "";
+  const sourceText = analysis?.tender?.source_text ?? "";
   // Highlight the words that actually drove a match, so the officer can see the
   // link between their wording and the results rather than taking it on trust.
   const highlightTerms = Array.from(new Set(recs.flatMap(r => r.matched_requirements)));
@@ -749,7 +762,58 @@ export default function Home() {
                     </div>
                   )}
 
-                  {analysis && (
+                  {/* Step one: what we understood, before what we found. */}
+                  {analysis && stage === "review" && (
+                    <div className="card card-pad">
+                      <p className="eyebrow">Step 1 of 2</p>
+                      <h3 className="section-head mt-2">Here is what we understood</h3>
+                      <p className="section-sub">Check this before looking at the standards. If we have read your tender wrongly, the results will be wrong too.</p>
+
+                      <dl className="mt-5">
+                        {details.map(d => (
+                          <div className="req-line" key={`${d.requirement_type}-${d.value}`}>
+                            <dt>{d.requirement_type.replaceAll("_", " ")}</dt>
+                            <dd>{d.value}</dd>
+                            {d.needs_confirmation
+                              ? <span className="tag amber">We guessed this</span>
+                              : <CheckCircle2 size={17} className="text-[var(--green)]" aria-label="Found in your tender" />}
+                          </div>
+                        ))}
+                      </dl>
+                      {!details.length && (
+                        <div className="notice amber mt-4">
+                          <TriangleAlert size={16} className="mt-0.5 shrink-0" />
+                          <span>We could not pick out any details. Try describing the purchase in a little more detail — what it is, who will use it, and any testing you need.</span>
+                        </div>
+                      )}
+
+                      {gaps.length > 0 && (
+                        <div className="mt-6">
+                          <h4 className="serif text-[15px]">Your tender does not mention</h4>
+                          <p className="section-sub mt-1">Adding these makes it harder to dispute later.</p>
+                          <div className="mt-3">
+                            {gaps.map(g => (
+                              <div className="rowcard" key={g}>
+                                <span className="ico warn"><TriangleAlert size={16} /></span>
+                                <div className="min-w-0 flex-1"><dd className="font-semibold">{g}</dd></div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-6 flex flex-wrap gap-9">
+                        <button className="btn btn-primary" onClick={() => setStage("results")}>
+                          Now show me the standards <ArrowRight size={15} />
+                        </button>
+                        <button className="btn btn-ghost" onClick={() => { setStage("results"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+                          That is wrong — let me edit
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {analysis && stage === "results" && (
                     <div className="card">
                       <div className="tabs">
                         <button className={tab === "results" ? "active" : ""} onClick={() => setTab("results")}>Standards found<span className="pill">{recs.length}</span></button>
@@ -760,7 +824,10 @@ export default function Home() {
                       <div className="card-pad">
                         {tab === "results" && (
                           <>
-                            <p className="section-sub mb-4">Tap any result to see why it came up and where it came from.</p>
+                            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                              <p className="section-sub">Tap any result to see why it came up and where it came from.</p>
+                              <button className="btn btn-ghost btn-sm" onClick={() => setStage("review")}>What we understood</button>
+                            </div>
                             {recs.map(item => <ResultRow key={item.standard.id} item={item} onOpen={() => setOpenResult(item)} />)}
                             {!recs.length && (
                               <div className="empty">
@@ -910,7 +977,10 @@ export default function Home() {
                       <Identifier standard={networkOf} />
                       <h3 className="section-head mt-2">{networkOf.official_title}</h3>
                     </div>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setView("standards")}>Pick another <ArrowRight size={14} /></button>
+                    <div className="flex gap-9">
+                      {pinnedRecord && <button className="btn btn-ghost btn-sm" onClick={() => { setPinnedRecord(null); setView("network"); }}>Back to my tender</button>}
+                      <button className="btn btn-ghost btn-sm" onClick={() => setView("standards")}>Pick another <ArrowRight size={14} /></button>
+                    </div>
                   </div>
                 </div>
               )}
