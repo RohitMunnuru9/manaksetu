@@ -107,8 +107,15 @@ def extract_requirements(text: str) -> list[RequirementValue]:
         if matched:
             values.append(RequirementValue(requirement_type, ", ".join(matched[:3]), 0.78, _excerpt(compact, matched[0])))
 
-    for standard in sorted(set(re.findall(r"\bIS\s*\d+(?:\s*\([^)]*\))?(?::\s*\d{4})?", compact, re.IGNORECASE))):
-        values.append(RequirementValue("existing_standard_reference", standard.upper(), 0.97, _excerpt(compact, standard), False))
+    # Normalise before de-duplicating. Collapsing the raw matches first let
+    # "IS 1892" and "is  1892" survive as two entries that became identical once
+    # uppercased, which then collided as duplicate keys in the interface.
+    seen: dict[str, str] = {}
+    for raw in re.findall(r"\bIS\s*\d+(?:\s*\([^)]*\))?(?::\s*\d{4})?", compact, re.IGNORECASE):
+        normalised = re.sub(r"\s+", " ", raw).strip().upper()
+        seen.setdefault(normalised, raw)
+    for normalised in sorted(seen):
+        values.append(RequirementValue("existing_standard_reference", normalised, 0.97, _excerpt(compact, seen[normalised]), False))
     return values
 
 

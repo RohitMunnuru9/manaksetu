@@ -517,6 +517,23 @@ export default function Home() {
     finally { setSigningIn(false); }
   };
 
+  /** Clear the previous analysis so the officer starts from a blank form. */
+  const startNewAnalysis = () => {
+    setAnalysis(null);
+    setOpenResult(null);
+    setPinnedRecord(null);
+    setNetwork(null);
+    setNetworkOf(null);
+    setApproved(false);
+    setReviewNote("");
+    setFormError("");
+    setFile(null);
+    setStage("results");
+    setForm({ title: "", description: "", language: "en" });
+    setView("analyse");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const runAnalysis = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true); setFormError("");
@@ -668,7 +685,7 @@ export default function Home() {
 
               <div className="mt-7 flex flex-wrap gap-9">
                 {can(PERMISSIONS.tenderCreate) && (
-                  <button className="btn btn-primary" onClick={() => setView("analyse")}><FileSearch size={16} /> Analyse a tender</button>
+                  <button className="btn btn-primary" onClick={startNewAnalysis}><FileSearch size={16} /> Analyse a new tender</button>
                 )}
                 <button className="btn btn-ghost" onClick={() => setView("standards")}><BookOpenCheck size={16} /> Browse standards</button>
               </div>
@@ -719,9 +736,16 @@ export default function Home() {
           {/* ---------------- Analyse ---------------- */}
           {view === "analyse" && (
             <>
-              <p className="eyebrow">Analyse a tender</p>
-              <h1 className="display mt-3">{analysis ? analysis.tender.title : "What are you buying?"}</h1>
-              {analysis && <p className="lede">Reference {analysis.tender.reference} · {new Date(analysis.tender.created_at).toLocaleString()}</p>}
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="eyebrow">Analyse a tender</p>
+                  <h1 className="display mt-3">{analysis ? analysis.tender.title : "What are you buying?"}</h1>
+                  {analysis && <p className="lede">Reference {analysis.tender.reference} · {new Date(analysis.tender.created_at).toLocaleString()}</p>}
+                </div>
+                {analysis && can(PERMISSIONS.tenderCreate) && (
+                  <button className="btn btn-primary" onClick={startNewAnalysis}>Start a new analysis</button>
+                )}
+              </div>
 
               <div className="card card-pad mt-6"><Stepper analysis={analysis} running={submitting} /></div>
 
@@ -741,10 +765,10 @@ export default function Home() {
                         {mode === "text" ? (
                           <>
                             <label className="label" htmlFor="t">Short title</label>
-                            <input id="t" className="input" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required minLength={3} />
+                            <input id="t" className="input" placeholder="e.g. Safety helmets for site workers" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required minLength={3} />
                             <div className="h-4" />
                             <label className="label" htmlFor="d">What are you buying?</label>
-                            <textarea id="d" className="textarea" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} required minLength={10} />
+                            <textarea id="d" className="textarea" placeholder="Describe what you are buying. A sentence or two is enough — what it is, who will use it, and any testing or certification you need." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} required minLength={10} />
                           </>
                         ) : (
                           <label className="dropzone block cursor-pointer">
@@ -770,8 +794,8 @@ export default function Home() {
                       <p className="section-sub">Check this before looking at the standards. If we have read your tender wrongly, the results will be wrong too.</p>
 
                       <dl className="mt-5">
-                        {details.map(d => (
-                          <div className="req-line" key={`${d.requirement_type}-${d.value}`}>
+                        {details.map((d, i) => (
+                          <div className="req-line" key={`${d.requirement_type}-${d.value}-${i}`}>
                             <dt>{d.requirement_type.replaceAll("_", " ")}</dt>
                             <dd>{d.value}</dd>
                             {d.needs_confirmation
@@ -892,8 +916,8 @@ export default function Home() {
                               </div>
                               <div>
                                 <dl className="m-0">
-                                  {details.map(d => (
-                                    <div className="req-line" key={`${d.requirement_type}-${d.value}`}>
+                                  {details.map((d, i) => (
+                                    <div className="req-line" key={`${d.requirement_type}-${d.value}-${i}`}>
                                       <dt>{d.requirement_type.replaceAll("_", " ")}</dt>
                                       <dd>{d.value}</dd>
                                       {d.needs_confirmation
