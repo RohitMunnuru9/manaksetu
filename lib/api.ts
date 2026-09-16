@@ -42,6 +42,7 @@ export type AnalysisResult = {
     language: string;
     filename: string | null;
     created_at: string;
+    source_text: string;
   };
   recommendations: ApiRecommendation[];
   extracted_requirements: Array<{
@@ -170,6 +171,16 @@ export type Briefing = Pick<AnalysisResult, "officer_summary" | "officer_summary
 
 /** Requested only after results are on screen; local generation takes tens of seconds. */
 export const getBriefing = (tenderId: number) => getJson<Briefing>(`/tenders/${tenderId}/briefing`);
+
+export type NetworkNode = { id: string; label: string; identifier: string | null; kind: string; tier: "verified" | "checking" | "example"; is_centre: boolean };
+export type NetworkEdge = { source: string; target: string; label: string; dashed: boolean };
+export type StandardNetwork = {
+  centre_id: string; nodes: NetworkNode[]; edges: NetworkEdge[];
+  linked_standards: number; official_source_verified: boolean; current_version_confirmed: boolean;
+};
+
+/** Everything connected to one standard, drawn from the same edges retrieval uses. */
+export const getNetwork = (standardId: number) => getJson<StandardNetwork>(`/standards/${standardId}/network`);
 
 export const getStandards = (query = "") => getJson<ApiStandard[]>(`/standards${query ? `?q=${encodeURIComponent(query)}` : ""}`);
 export const getAuditHistory = () => getJson<AuditEntry[]>("/audit");

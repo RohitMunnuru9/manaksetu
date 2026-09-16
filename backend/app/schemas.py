@@ -47,6 +47,9 @@ class TenderRead(BaseModel):
     language: str
     filename: str | None
     created_at: datetime
+    # The text as the system read it, so an officer can see exactly what was
+    # analysed -- including what OCR made of a scanned page.
+    source_text: str = ""
 
 
 class StandardRead(BaseModel):
@@ -168,3 +171,30 @@ class DashboardStats(BaseModel):
     verified_standards: int
     total_standards: int
     completed_reviews: int
+
+
+class NetworkNode(BaseModel):
+    """One record in the standards network, positioned for drawing."""
+    id: str
+    label: str
+    identifier: str | None = None
+    # product | standard | test | safety | certification | regulatory | revision
+    kind: str
+    tier: str = "example"
+    is_centre: bool = False
+
+
+class NetworkEdge(BaseModel):
+    source: str
+    target: str
+    label: str
+    dashed: bool = False
+
+
+class NetworkResponse(BaseModel):
+    centre_id: str
+    nodes: list[NetworkNode]
+    edges: list[NetworkEdge]
+    linked_standards: int = 0
+    official_source_verified: bool = False
+    current_version_confirmed: bool = False

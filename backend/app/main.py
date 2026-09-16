@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 
 from .config import get_settings
 from .database import Base, SessionLocal, engine, get_db
-from .models import AuditLog, Recommendation, ReviewDecision, Standard, Tender, TenderRequirement, User, VerificationStatus
-from .schemas import AmendmentRead, AnalysisResponse, AuditRead, BriefingResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
+from .models import AuditLog, QualityControlOrder, Recommendation, ReviewDecision, Standard, StandardRelationship, StandardStatus, Tender, TenderRequirement, User, VerificationStatus
+from .schemas import AmendmentRead, AnalysisResponse, AuditRead, BriefingResponse, NetworkEdge, NetworkNode, NetworkResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
 from .security import Permission, create_access_token, get_current_user, permissions_for, require_permission, verify_password
 from .seed import seed_demo_data
 from .services.recommendation import apply_graph_context, confidence_level, evaluate_qco, find_candidates, missing_requirements, retrieval_mode
@@ -87,6 +87,95 @@ def list_standards(q: str | None = None, db: Session = Depends(get_db), _: User 
     if q:
         query = query.where(Standard.official_title.ilike(f"%{q}%"))
     return list(db.scalars(query.limit(50)).all())
+
+
+# How a relationship type presents in the network view.
+_EDGE_WORDS = {
+    "tested_by": ("Tested by", "test"),
+    "safety": ("Safety rules", "safety"),
+    "terminology": ("Definitions", "safety"),
+    "references": ("References", "standard"),
+    "installation": ("Installation", "safety"),
+}
+
+
+def _tier_of(standard: Standard) -> str:
+    if standard.verification_status == VerificationStatus.verified and standard.standard_number:
+        return "verified"
+    return "checking" if standard.standard_number else "example"
+
+
+def _node(standard: Standard, kind: str, centre: bool = False) -> NetworkNode:
+    return NetworkNode(
+        id=f"s{standard.id}",
+        label=standard.official_title,
+        identifier=standard.standard_number or standard.catalogue_ref,
+        kind=kind,
+        tier=_tier_of(standard),
+        is_centre=centre,
+    )
+
+
+@app.get("/api/v1/standards/{standard_id}/network", response_model=NetworkResponse, tags=["standards"])
+def standard_network(standard_id: int, db: Session = Depends(get_db), _: User = Depends(require_permission(Permission.TENDER_READ))) -> NetworkResponse:
+    """Everything connected to one standard, ready to draw.
+
+    Built from the same relationship edges retrieval uses, so the picture cannot
+    drift from the recommendations: if an edge is not in the database, it is not
+    on the diagram.
+    """
+    centre = db.get(Standard, standard_id)
+    if not centre:
+        raise HTTPException(status_code=404, detail="Standard not found")
+
+    nodes: dict[str, NetworkNode] = {}
+    edges: list[NetworkEdge] = []
+    nodes[f"s{centre.id}"] = _node(centre, "standard", centre=True)
+
+    outgoing = db.scalars(select(StandardRelationship).where(StandardRelationship.source_id == centre.id)).all()
+    for edge in outgoing:
+        target = edge.target
+        if target is None:
+            continue
+        word, kind = _EDGE_WORDS.get(edge.relationship_type, ("Linked", "standard"))
+        nodes.setdefault(f"s{target.id}", _node(target, kind))
+        edges.append(NetworkEdge(source=f"s{centre.id}", target=f"s{target.id}", label=word))
+
+    incoming = db.scalars(select(StandardRelationship).where(StandardRelationship.target_id == centre.id)).all()
+    for edge in incoming:
+        source = edge.source
+        if source is None:
+            continue
+        nodes.setdefault(f"s{source.id}", _node(source, "standard"))
+        edges.append(NetworkEdge(source=f"s{source.id}", target=f"s{centre.id}", label="References"))
+
+    # The record that replaced this one, or the one this replaced.
+    if centre.superseded_by is not None:
+        nodes.setdefault(f"s{centre.superseded_by.id}", _node(centre.superseded_by, "revision"))
+        edges.append(NetworkEdge(source=f"s{centre.id}", target=f"s{centre.superseded_by.id}", label="Replaced by"))
+    replaced = db.scalars(select(Standard).where(Standard.superseded_by_id == centre.id)).all()
+    for old in replaced:
+        nodes.setdefault(f"s{old.id}", _node(old, "revision"))
+        edges.append(NetworkEdge(source=f"s{old.id}", target=f"s{centre.id}", label="Replaced by", dashed=True))
+
+    # A quality control order only appears when it actually names this standard.
+    for qco in db.scalars(select(QualityControlOrder).where(QualityControlOrder.mandated_standard_id == centre.id)).all():
+        key = f"q{qco.id}"
+        nodes[key] = NetworkNode(
+            id=key, label=qco.title, identifier="Quality Control Order",
+            kind="regulatory",
+            tier="verified" if qco.verification_status == VerificationStatus.verified else "checking",
+        )
+        edges.append(NetworkEdge(source=key, target=f"s{centre.id}", label="Governs"))
+
+    return NetworkResponse(
+        centre_id=f"s{centre.id}",
+        nodes=list(nodes.values()),
+        edges=edges,
+        linked_standards=len([n for n in nodes.values() if n.id.startswith("s") and not n.is_centre]),
+        official_source_verified=bool(centre.official_source_url) and centre.verification_status == VerificationStatus.verified,
+        current_version_confirmed=centre.status == StandardStatus.current,
+    )
 
 
 @app.get("/api/v1/dashboard", response_model=DashboardStats, tags=["system"])

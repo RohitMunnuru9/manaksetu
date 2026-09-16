@@ -3,18 +3,18 @@
 import {
   ArrowRight, BookOpenCheck, Check, CheckCircle2, ChevronRight, Clock3, FileCheck2,
   FileSearch, FileText, History, LayoutDashboard, Link2, LoaderCircle, LockKeyhole,
-  LogOut, Menu, Search, ShieldCheck, Sparkles, TriangleAlert, UploadCloud, X,
+  LogOut, Menu, Search, Share2, ShieldCheck, Sparkles, TriangleAlert, UploadCloud, X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   PERMISSIONS, analyseFile, analyseTender, downloadReport, getAuditHistory, getBriefing,
-  getCurrentUser, getDashboardStats, getLatestAnalysis, getStandards, login as loginUser,
+  getCurrentUser, getDashboardStats, getLatestAnalysis, getNetwork, getStandards, login as loginUser,
   logout, saveReview,
   type AnalysisResult, type ApiRecommendation, type ApiStandard, type AuditEntry,
-  type DashboardStats, type UserProfile,
+  type DashboardStats, type StandardNetwork, type UserProfile,
 } from "@/lib/api";
 
-type View = "overview" | "analyse" | "standards" | "reports" | "audit";
+type View = "overview" | "analyse" | "network" | "standards" | "reports" | "audit";
 
 /* ---------------------------------------------------------------------
    Plain-language helpers.
@@ -240,6 +240,109 @@ function DetailPanel({ item, onClose }: { item: ApiRecommendation; onClose: () =
   );
 }
 
+
+/* ---------------------------------------------------------------------
+   Standards network — drawn from the same relationship edges retrieval
+   uses, so the picture can never show a link the database does not hold.
+   --------------------------------------------------------------------- */
+
+const NODE_COLOUR: Record<string, string> = {
+  centre: "#b4522e",
+  standard: "#2f7a52",
+  test: "#3c6c9e",
+  safety: "#6a6a96",
+  regulatory: "#b08a30",
+  revision: "#b08a30",
+};
+
+const LEGEND: Array<[string, string]> = [
+  ["#b4522e", "The record you picked"],
+  ["#2f7a52", "Checked official record"],
+  ["#3c6c9e", "Testing record"],
+  ["#6a6a96", "Marking or definitions"],
+  ["#b08a30", "Rule or older version"],
+];
+
+function NetworkGraph({ data, onPick }: { data: StandardNetwork; onPick: (id: string) => void }) {
+  const W = 820, H = 430, cx = W / 2, cy = H / 2 - 8;
+  const centre = data.nodes.find(n => n.is_centre);
+  const others = data.nodes.filter(n => !n.is_centre);
+
+  // Spread the neighbours evenly around the centre. Deterministic, so the
+  // diagram does not rearrange itself between renders.
+  const positions: Record<string, { x: number; y: number }> = {};
+  if (centre) positions[centre.id] = { x: cx, y: cy };
+  const radius = others.length > 5 ? 172 : 148;
+  others.forEach((n, i) => {
+    const angle = (-Math.PI / 2) + (i * 2 * Math.PI) / Math.max(others.length, 1) + 0.45;
+    positions[n.id] = { x: cx + radius * Math.cos(angle) * 1.55, y: cy + radius * Math.sin(angle) };
+  });
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="How this standard connects to other records">
+      <defs>
+        <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#c3bcae" />
+        </marker>
+      </defs>
+
+      {data.edges.map((e, i) => {
+        const a = positions[e.source], b = positions[e.target];
+        if (!a || !b) return null;
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        return (
+          <g key={`${e.source}-${e.target}-${i}`}>
+            <line x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+              stroke={e.dashed ? "#cfc9bd" : "#c3bcae"} strokeWidth="1.6"
+              strokeDasharray={e.dashed ? "5 4" : undefined} markerEnd="url(#arw)" />
+            <text className="net-edge-label" x={mx} y={my - 6} textAnchor="middle">{e.label}</text>
+          </g>
+        );
+      })}
+
+      {data.nodes.map(n => {
+        const pos = positions[n.id];
+        if (!pos) return null;
+        const colour = n.is_centre ? NODE_COLOUR.centre : (NODE_COLOUR[n.kind] ?? NODE_COLOUR.standard);
+        const r = n.is_centre ? 33 : 25;
+        return (
+          <g key={n.id} className="net-node" onClick={() => onPick(n.id)}>
+            {n.is_centre && <circle cx={pos.x} cy={pos.y} r={r + 8} fill={colour} opacity="0.12" />}
+            <circle cx={pos.x} cy={pos.y} r={r} fill="#fff" stroke={colour} strokeWidth="2.4" />
+            <circle cx={pos.x} cy={pos.y} r={r - 7} fill={colour} opacity={n.tier === "example" ? 0.25 : 0.85} />
+            <text className="net-ident" x={pos.x} y={pos.y + r + 15} textAnchor="middle">{n.identifier ?? ""}</text>
+            <text className="net-label" x={pos.x} y={pos.y + r + 27} textAnchor="middle">
+              {n.label.length > 26 ? `${n.label.slice(0, 26)}…` : n.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** The tender text, with the words that drove the match highlighted. */
+function DocumentPreview({ text, terms }: { text: string; terms: string[] }) {
+  if (!text.trim()) {
+    return <div className="doc-empty"><FileText size={26} /><strong className="serif">Nothing to show</strong><span className="text-[12px]">This tender was submitted without readable text.</span></div>;
+  }
+  const unique = Array.from(new Set(terms.filter(t => t.length > 3))).slice(0, 12);
+  // Terms come from tender text, so they must be escaped before becoming a pattern.
+  const escape = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = unique.length ? new RegExp(`(${unique.map(escape).join("|")})`, "gi") : null;
+  const parts = pattern ? text.split(pattern) : [text];
+  return (
+    <div className="doc-page">
+      {parts.map((part, i) =>
+        pattern && unique.some(t => t.toLowerCase() === part.toLowerCase())
+          ? <mark key={i}>{part}</mark>
+          : <span key={i}>{part}</span>
+      )}
+    </div>
+  );
+}
+
+
 /* ---------------------------------------------------------------------
    Page
    --------------------------------------------------------------------- */
@@ -273,6 +376,8 @@ export default function Home() {
   const [standards, setStandards] = useState<ApiStandard[]>([]);
   const [standardsQuery, setStandardsQuery] = useState("");
   const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [network, setNetwork] = useState<StandardNetwork | null>(null);
+  const [networkOf, setNetworkOf] = useState<ApiStandard | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [approved, setApproved] = useState(false);
 
@@ -306,7 +411,28 @@ export default function Home() {
     if (view === "standards") getStandards(standardsQuery).then(setStandards).catch(() => notify("Could not load the standards list"));
     if (view === "audit" && can(PERMISSIONS.auditRead)) getAuditHistory().then(setAudit).catch(() => notify("Could not load the history"));
     if (view === "overview") getDashboardStats().then(setStats).catch(() => undefined);
+    if (view === "network") {
+      // Default to whatever the last analysis put at the top, so the diagram
+      // opens on something the officer was already looking at.
+      const seed = networkOf ?? analysis?.recommendations[0]?.standard ?? null;
+      if (seed) {
+        setNetworkOf(seed);
+        getNetwork(seed.id).then(setNetwork).catch(() => notify("Could not draw the connections"));
+      } else {
+        getStandards().then(list => {
+          const first = list.find(s => s.verification_status === "verified") ?? list[0];
+          if (first) { setNetworkOf(first); getNetwork(first.id).then(setNetwork).catch(() => undefined); }
+        }).catch(() => undefined);
+      }
+    }
   }, [view, user, standardsQuery]);
+
+  const showNetworkFor = (standard: ApiStandard) => {
+    setNetworkOf(standard);
+    setNetwork(null);
+    setView("network");
+    getNetwork(standard.id).then(setNetwork).catch(() => notify("Could not draw the connections"));
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -394,10 +520,15 @@ export default function Home() {
   const product = details.find(d => d.requirement_type === "product");
   const verifiedCount = stats?.verified_standards ?? 0;
   const totalCount = stats?.total_standards ?? 0;
+  const sourceText = analysis?.tender.source_text ?? "";
+  // Highlight the words that actually drove a match, so the officer can see the
+  // link between their wording and the results rather than taking it on trust.
+  const highlightTerms = Array.from(new Set(recs.flatMap(r => r.matched_requirements)));
 
   const nav: Array<{ id: View; label: string; icon: React.ElementType; show: boolean; count?: number }> = [
     { id: "overview", label: "Overview", icon: LayoutDashboard, show: true },
     { id: "analyse", label: "Analyse a tender", icon: FileSearch, show: true, count: recs.length || undefined },
+    { id: "network", label: "How they connect", icon: Share2, show: true },
     { id: "standards", label: "Standards list", icon: BookOpenCheck, show: true },
     { id: "reports", label: "Download report", icon: FileCheck2, show: can(PERMISSIONS.reportExport) },
     { id: "audit", label: "History", icon: History, show: can(PERMISSIONS.auditRead) },
@@ -581,18 +712,38 @@ export default function Home() {
 
                         {tab === "details" && (
                           <>
-                            <p className="section-sub mb-4">This is what we understood from your tender. Correct anything that looks wrong before you approve.</p>
-                            {details.map(d => (
-                              <div className="rowcard" key={`${d.requirement_type}-${d.value}`}>
-                                <span className="ico"><CheckCircle2 size={17} /></span>
-                                <div className="min-w-0 flex-1">
-                                  <dt>{d.requirement_type.replaceAll("_", " ")}</dt>
-                                  <dd>{d.value}</dd>
+                            <p className="section-sub mb-4">On the left is the tender as we read it, with the words that drove the match highlighted. On the right is what we understood. Correct anything that looks wrong before approving.</p>
+                            <div className="grid gap-4 lg:grid-cols-2">
+                              <div className="doc-frame">
+                                <div className="doc-bar">
+                                  <FileText size={14} />
+                                  <span className="truncate">{analysis.tender.filename ?? "Typed description"}</span>
+                                  <span className="ml-auto">{analysis.tender.language.toUpperCase()}</span>
                                 </div>
-                                {d.needs_confirmation && <span className="tag amber">Please confirm</span>}
+                                <DocumentPreview text={sourceText} terms={highlightTerms} />
                               </div>
-                            ))}
-                            {!details.length && <div className="empty"><strong>Nothing picked up</strong><span>Try describing the purchase in a little more detail.</span></div>}
+                              <div>
+                                <dl className="m-0">
+                                  {details.map(d => (
+                                    <div className="req-line" key={`${d.requirement_type}-${d.value}`}>
+                                      <dt>{d.requirement_type.replaceAll("_", " ")}</dt>
+                                      <dd>{d.value}</dd>
+                                      {d.needs_confirmation
+                                        ? <TriangleAlert size={17} className="text-[var(--amber)]" aria-label="Please confirm" />
+                                        : <CheckCircle2 size={17} className="text-[var(--green)]" aria-label="Confident" />}
+                                    </div>
+                                  ))}
+                                </dl>
+                                {!details.length && <div className="empty"><strong>Nothing picked up</strong><span>Try describing the purchase in a little more detail.</span></div>}
+                                <div className="mt-5 border-t border-[var(--line)] pt-4">
+                                  <h4 className="serif text-[16px]">In summary</h4>
+                                  <div className="mt-3 flex flex-wrap gap-7">
+                                    <span className="summary-figure"><span className="fig">{details.length}</span><span className="text-[12px] leading-tight text-[var(--muted)]">details<br />found</span></span>
+                                    <span className="summary-figure"><span className="fig warn">{gaps.length}</span><span className="text-[12px] leading-tight text-[var(--muted)]">things<br />to fix</span></span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </>
                         )}
 
@@ -669,6 +820,70 @@ export default function Home() {
             </>
           )}
 
+          {/* ---------------- How they connect ---------------- */}
+          {view === "network" && (
+            <>
+              <p className="eyebrow">How they connect</p>
+              <h1 className="display mt-3">One standard rarely stands alone</h1>
+              <p className="lede">Most standards depend on others — a test method, a marking rule, a legal order. This shows those links for whichever record you pick.</p>
+
+              {networkOf && (
+                <div className="card card-pad mt-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <Identifier standard={networkOf} />
+                      <h3 className="section-head mt-2">{networkOf.official_title}</h3>
+                    </div>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setView("standards")}>Pick another <ArrowRight size={14} /></button>
+                  </div>
+                </div>
+              )}
+
+              <div className="card mt-5 overflow-hidden">
+                {network ? (
+                  <>
+                    <div className="net-wrap">
+                      <div className="net-canvas">
+                        <NetworkGraph data={network} onPick={() => notify("Pick a record from the standards list to centre it")} />
+                      </div>
+                      <div className="net-side">
+                        <p className="eyebrow">This record</p>
+                        <h3 className="section-head mt-2">What we know</h3>
+                        <div className="mt-3">
+                          <div className={`check-row ${network.official_source_verified ? "" : "off"}`}>
+                            {network.official_source_verified ? <CheckCircle2 size={16} className="text-[var(--green)]" /> : <Clock3 size={16} />}
+                            {network.official_source_verified ? "Official source checked" : "Official source not yet checked"}
+                          </div>
+                          <div className={`check-row ${network.current_version_confirmed ? "" : "off"}`}>
+                            {network.current_version_confirmed ? <CheckCircle2 size={16} className="text-[var(--green)]" /> : <TriangleAlert size={16} className="text-[var(--amber)]" />}
+                            {network.current_version_confirmed ? "This is the current version" : "Version not confirmed"}
+                          </div>
+                          <div className="check-row"><Link2 size={16} className="text-[var(--muted)]" /> {network.linked_standards} linked record{network.linked_standards === 1 ? "" : "s"}</div>
+                          <div className="check-row"><FileText size={16} className="text-[var(--muted)]" /> {network.edges.length} connection{network.edges.length === 1 ? "" : "s"} drawn</div>
+                        </div>
+                        {networkOf?.official_source_url && (
+                          <a className="btn btn-primary mt-4 w-full" href={networkOf.official_source_url} target="_blank" rel="noopener noreferrer">
+                            <Link2 size={15} /> Open the official page
+                          </a>
+                        )}
+                        <p className="mt-4 text-[11.5px] leading-relaxed text-[var(--faint)]">
+                          Every line here comes from a link recorded in the catalogue. If a link is not in the data, it is not on this diagram.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="net-legend">
+                      {LEGEND.map(([colour, label]) => (
+                        <span key={label}><i style={{ background: colour }} /> {label}</span>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="empty"><Share2 size={26} /><strong>Nothing to draw yet</strong><span>Analyse a tender, or pick a record from the standards list.</span></div>
+                )}
+              </div>
+            </>
+          )}
+
           {/* ---------------- Standards list ---------------- */}
           {view === "standards" && (
             <>
@@ -686,9 +901,12 @@ export default function Home() {
                       <h4>{s.official_title}</h4>
                       <p className="sub">{s.scope_summary.slice(0, 130)}{s.scope_summary.length > 130 ? "…" : ""}</p>
                     </span>
-                    {s.official_source_url
-                      ? <a className="icon-btn" href={s.official_source_url} target="_blank" rel="noopener noreferrer" aria-label="Open official page"><Link2 size={16} /></a>
-                      : <span className="icon-btn opacity-30"><Link2 size={16} /></span>}
+                    <span className="flex items-center gap-1">
+                      <button className="icon-btn" onClick={() => showNetworkFor(s)} aria-label="See how this connects" title="See how this connects"><Share2 size={16} /></button>
+                      {s.official_source_url
+                        ? <a className="icon-btn" href={s.official_source_url} target="_blank" rel="noopener noreferrer" aria-label="Open official page" title="Open official page"><Link2 size={16} /></a>
+                        : <span className="icon-btn opacity-25" title="No official page"><Link2 size={16} /></span>}
+                    </span>
                   </div>
                 ))}
                 {!standards.length && <div className="empty"><strong>Nothing found</strong><span>Try a different word, or clear the search box above.</span></div>}
