@@ -386,7 +386,7 @@ export default function Home() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-5 sm:grid-cols-4 sm:gap-3">
-                    <div><p className="hero-label">Product identified</p><p className="hero-value">{productRequirement?.value ?? "Not determined"}</p></div>
+                    <div><p className="hero-label">Product identified</p><p className="hero-value">{productRequirement?.value ?? "Not determined"}{productRequirement?.needs_confirmation && <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-[.06em] text-[#ffc075]">inferred · confirm</span>}</p></div>
                     <div><p className="hero-label">Recommendations</p><p className="hero-value">{recommendationCount} candidate{recommendationCount === 1 ? "" : "s"}</p></div>
                     <div><p className="hero-label">Tender gaps</p><p className="hero-value text-[#ffc075]">{gapCount} require action</p></div>
                     <div><p className="hero-label">Review status</p><p className="hero-value">{approved ? "Approved" : analysis ? "Pending review" : "—"}</p></div>
