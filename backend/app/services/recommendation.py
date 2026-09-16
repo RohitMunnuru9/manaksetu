@@ -17,8 +17,10 @@ STOP_WORDS = {"and", "the", "for", "with", "from", "that", "this", "units", "pur
 # about ranking quality.
 WEIGHT_SEMANTIC = 0.45
 WEIGHT_LEXICAL = 0.35
-WEIGHT_VERIFIED = 0.15
-WEIGHT_FRESHNESS = 0.05
+# Applied as multipliers on relevance, not as additions to it, so evidence
+# quality can order two similar matches without inventing a match.
+TRUST_VERIFIED = 0.30
+TRUST_FRESHNESS = 0.08
 
 # An unverified record can never present as high confidence, regardless of how
 # well it matches. This is the ranking half of the anti-hallucination rule.
@@ -71,29 +73,50 @@ def _lexical_candidates(db: Session, terms: list[str]) -> list[Standard]:
 
 
 def _score(standard: Standard, lexical: float, semantic: float) -> tuple[float, dict[str, float]]:
+    """Relevance first, then trust as a multiplier on it.
+
+    Being verified is a statement about evidence, not about how well a record
+    answers this tender, so it must not manufacture relevance. Adding it as a
+    flat bonus did exactly that: on a footwear tender the verified helmet
+    standard scored 0.36 of relevance plus 0.20 of trust and beat the footwear
+    standard's 0.53 of relevance. Multiplying instead lets a clearly better match
+    win, while still preferring the verified record between two close ones.
+    """
     verified = standard.verification_status == VerificationStatus.verified
+    relevance = semantic * WEIGHT_SEMANTIC + lexical * WEIGHT_LEXICAL
+    trust = 1.0 + (TRUST_VERIFIED if verified else 0.0) + (TRUST_FRESHNESS if standard.last_checked_date else 0.0)
+
+    score = min(relevance * trust, 0.99)
+    if not verified:
+        score = min(score, UNVERIFIED_SCORE_CEILING)
+
     breakdown = {
         "semantic": round(semantic * WEIGHT_SEMANTIC, 3),
         "lexical": round(lexical * WEIGHT_LEXICAL, 3),
-        "verified": WEIGHT_VERIFIED if verified else 0.0,
-        "freshness": WEIGHT_FRESHNESS if standard.last_checked_date else 0.0,
+        "relevance": round(relevance, 3),
+        "trust_multiplier": round(trust, 2),
     }
-    score = min(sum(breakdown.values()), 0.99)
-    if not verified:
-        score = min(score, UNVERIFIED_SCORE_CEILING)
     return round(score, 2), breakdown
 
 
-def find_candidates(db: Session, text: str, limit: int = 5) -> list[RankedStandard]:
+def find_candidates(db: Session, text: str, limit: int = 5, augment: str = "") -> list[RankedStandard]:
     """Hybrid retrieval: lexical overlap unioned with semantic similarity.
 
     Semantic recall is what lets 'head protection for site workers' reach a
     record titled 'industrial safety helmets'. When no embedding model is
     available this degrades to the original lexical behaviour rather than
     failing.
+
+    ``augment`` carries what the requirement extractor already worked out -- the
+    product, in English. An Indic tender yields no ASCII tokens at all, so
+    lexical search finds nothing and cross-script embedding similarity alone can
+    fall below the relevance floor. Searching the extracted product alongside the
+    original text reuses a translation the system has already made, rather than
+    loosening the floor for everyone.
     """
-    terms = extract_terms(text)
-    query_vector = semantic_index.embed_one(text) if semantic_index.available else None
+    query = f"{text} {augment}".strip() if augment else text
+    terms = extract_terms(query)
+    query_vector = semantic_index.embed_one(query) if semantic_index.available else None
 
     pool: dict[int, Standard] = {item.id: item for item in _lexical_candidates(db, terms)}
     if query_vector is not None:
@@ -122,14 +145,18 @@ def find_candidates(db: Session, text: str, limit: int = 5) -> list[RankedStanda
     # never outrank a real standard however well its wording happens to match --
     # an officer reading the list top-down should meet real identifiers first.
     ranked.sort(key=lambda item: (_tier_rank(item.standard), item.score), reverse=True)
-    ranked = [item for item in ranked if _is_relevant(item, text, query_vector is not None)]
+    ranked = [item for item in ranked if _is_relevant(item, query, query_vector is not None)]
     return ranked[:limit]
 
 
 def _tier_rank(standard: Standard) -> int:
-    """2 = officer-verified, 1 = real identifier awaiting a check, 0 = illustrative."""
-    if standard.verification_status == VerificationStatus.verified and standard.standard_number:
-        return 2
+    """1 = a real identifier, 0 = illustrative.
+
+    Only demonstration records are demoted. Verified and imported records compete
+    on how well they match, because ranking by tier alone put a weakly-matching
+    verified helmet standard above a strongly-matching footwear standard purely
+    for being verified -- which is worse than useless to an officer buying boots.
+    """
     return 1 if standard.standard_number else 0
 
 
