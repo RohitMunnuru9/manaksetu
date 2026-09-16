@@ -263,39 +263,97 @@ const LEGEND: Array<[string, string]> = [
   ["#b08a30", "Rule or older version"],
 ];
 
+/** Break a title into at most two short lines rather than truncating it. */
+function wrapTitle(title: string, perLine = 20): string[] {
+  const words = title.replace(/\s*\(demonstration record\)\s*/i, "").split(/\s+/);
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    if ((line + " " + word).trim().length > perLine) {
+      if (lines.length === 1) { lines.push(`${line}…`); return lines; }
+      lines.push(line.trim()); line = word;
+    } else line = `${line} ${word}`;
+  }
+  if (line.trim() && lines.length < 2) lines.push(line.trim());
+  return lines;
+}
+
+/** A small glyph per node type, so the shapes are distinguishable at a glance. */
+function NodeGlyph({ kind, x, y, colour }: { kind: string; x: number; y: number; colour: string }) {
+  const common = { stroke: colour, strokeWidth: 1.8, fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  if (kind === "test") {
+    return <g transform={`translate(${x - 7},${y - 7})`}><path d="M5 1v4.5L1.5 12a1.5 1.5 0 0 0 1.3 2.2h8.4A1.5 1.5 0 0 0 12.5 12L9 5.5V1" {...common} /><path d="M3.5 1h7" {...common} /></g>;
+  }
+  if (kind === "regulatory") {
+    return <g transform={`translate(${x - 7},${y - 7})`}><path d="M2 13h10M7 13V5M3 5h8l-1.5-3h-5z" {...common} /></g>;
+  }
+  if (kind === "revision") {
+    return <g transform={`translate(${x - 7},${y - 7})`}><path d="M12.5 7a5.5 5.5 0 1 1-1.8-4" {...common} /><path d="M11 1v3.2H7.8" {...common} /></g>;
+  }
+  if (kind === "safety") {
+    return <g transform={`translate(${x - 7},${y - 7})`}><path d="M7 1l5 2v4.5c0 3.2-2.1 5.4-5 6.3-2.9-.9-5-3.1-5-6.3V3z" {...common} /></g>;
+  }
+  return <g transform={`translate(${x - 7},${y - 7})`}><path d="M3 1h5l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z" {...common} /><path d="M8 1v3h3" {...common} /></g>;
+}
+
 function NetworkGraph({ data, onPick }: { data: StandardNetwork; onPick: (id: string) => void }) {
-  const W = 820, H = 430, cx = W / 2, cy = H / 2 - 8;
+  const W = 940, H = 520, cx = W / 2, cy = H / 2 - 10;
   const centre = data.nodes.find(n => n.is_centre);
   const others = data.nodes.filter(n => !n.is_centre);
 
-  // Spread the neighbours evenly around the centre. Deterministic, so the
-  // diagram does not rearrange itself between renders.
+  // Position by meaning rather than by index: what the standard depends on sits
+  // to the right, what governs it to the left, other versions of it above and
+  // below. The arrangement is deterministic, so the picture never reshuffles.
+  const RIGHT = ["test", "safety"];
+  const LEFT = ["regulatory"];
+  const right = others.filter(n => RIGHT.includes(n.kind));
+  const left = others.filter(n => LEFT.includes(n.kind));
+  const vertical = others.filter(n => !RIGHT.includes(n.kind) && !LEFT.includes(n.kind));
+
   const positions: Record<string, { x: number; y: number }> = {};
   if (centre) positions[centre.id] = { x: cx, y: cy };
-  const radius = others.length > 5 ? 172 : 148;
-  others.forEach((n, i) => {
-    const angle = (-Math.PI / 2) + (i * 2 * Math.PI) / Math.max(others.length, 1) + 0.45;
-    positions[n.id] = { x: cx + radius * Math.cos(angle) * 1.55, y: cy + radius * Math.sin(angle) };
+
+  const spread = (count: number, span: number) =>
+    count <= 1 ? [0] : Array.from({ length: count }, (_, i) => -span / 2 + (i * span) / (count - 1));
+
+  spread(right.length, Math.min(right.length * 132, 300)).forEach((dy, i) => {
+    positions[right[i].id] = { x: cx + 300, y: cy + dy };
+  });
+  spread(left.length, Math.min(left.length * 132, 260)).forEach((dy, i) => {
+    positions[left[i].id] = { x: cx - 300, y: cy + dy };
+  });
+  vertical.forEach((n, i) => {
+    positions[n.id] = { x: cx + (i % 2 === 0 ? -128 : 128), y: i % 2 === 0 ? cy + 178 : cy - 178 };
   });
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="How this standard connects to other records">
       <defs>
-        <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M0,0 L10,5 L0,10 z" fill="#c3bcae" />
+        <marker id="arw" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#bdb5a6" />
         </marker>
       </defs>
 
       {data.edges.map((e, i) => {
         const a = positions[e.source], b = positions[e.target];
         if (!a || !b) return null;
-        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        // Stop the line at the node edge so the arrowhead is not hidden under it.
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const startR = data.nodes.find(n => n.id === e.source)?.is_centre ? 46 : 32;
+        const endR = data.nodes.find(n => n.id === e.target)?.is_centre ? 46 : 32;
+        const x1 = a.x + (dx / len) * startR, y1 = a.y + (dy / len) * startR;
+        const x2 = b.x - (dx / len) * (endR + 7), y2 = b.y - (dy / len) * (endR + 7);
+        const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+        const width = e.label.length * 5.4 + 14;
         return (
           <g key={`${e.source}-${e.target}-${i}`}>
-            <line x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-              stroke={e.dashed ? "#cfc9bd" : "#c3bcae"} strokeWidth="1.6"
+            <line x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke={e.dashed ? "#d3ccbe" : "#bdb5a6"} strokeWidth="1.5"
               strokeDasharray={e.dashed ? "5 4" : undefined} markerEnd="url(#arw)" />
-            <text className="net-edge-label" x={mx} y={my - 6} textAnchor="middle">{e.label}</text>
+            {/* A pill behind the label keeps it readable where it crosses the line. */}
+            <rect x={mx - width / 2} y={my - 9} width={width} height="17" rx="8.5" fill="#fbf9f6" stroke="#eae5da" strokeWidth="0.8" />
+            <text className="net-edge-label" x={mx} y={my + 2.5} textAnchor="middle">{e.label}</text>
           </g>
         );
       })}
@@ -304,16 +362,18 @@ function NetworkGraph({ data, onPick }: { data: StandardNetwork; onPick: (id: st
         const pos = positions[n.id];
         if (!pos) return null;
         const colour = n.is_centre ? NODE_COLOUR.centre : (NODE_COLOUR[n.kind] ?? NODE_COLOUR.standard);
-        const r = n.is_centre ? 33 : 25;
+        const r = n.is_centre ? 44 : 30;
+        const lines = wrapTitle(n.label);
         return (
           <g key={n.id} className="net-node" onClick={() => onPick(n.id)}>
-            {n.is_centre && <circle cx={pos.x} cy={pos.y} r={r + 8} fill={colour} opacity="0.12" />}
-            <circle cx={pos.x} cy={pos.y} r={r} fill="#fff" stroke={colour} strokeWidth="2.4" />
-            <circle cx={pos.x} cy={pos.y} r={r - 7} fill={colour} opacity={n.tier === "example" ? 0.25 : 0.85} />
-            <text className="net-ident" x={pos.x} y={pos.y + r + 15} textAnchor="middle">{n.identifier ?? ""}</text>
-            <text className="net-label" x={pos.x} y={pos.y + r + 27} textAnchor="middle">
-              {n.label.length > 26 ? `${n.label.slice(0, 26)}…` : n.label}
-            </text>
+            {n.is_centre && <circle cx={pos.x} cy={pos.y} r={r + 11} fill={colour} opacity="0.1" />}
+            <circle cx={pos.x} cy={pos.y} r={r} fill="#fff" stroke={colour} strokeWidth={n.is_centre ? 2.6 : 2} />
+            <circle cx={pos.x} cy={pos.y} r={r - 5} fill={colour} opacity={n.tier === "example" ? 0.1 : 0.14} />
+            <NodeGlyph kind={n.is_centre ? "standard" : n.kind} x={pos.x} y={pos.y} colour={colour} />
+            <text className="net-ident" x={pos.x} y={pos.y + r + 16} textAnchor="middle">{n.identifier ?? ""}</text>
+            {lines.map((line, li) => (
+              <text className="net-label" key={li} x={pos.x} y={pos.y + r + 28 + li * 11} textAnchor="middle">{line}</text>
+            ))}
           </g>
         );
       })}

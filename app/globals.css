@@ -248,15 +248,15 @@ a { color: var(--rust); }
 /* ---------- Standards network ---------- */
 .net-wrap { display: grid; gap: 0; }
 @media (min-width: 1100px) { .net-wrap { grid-template-columns: minmax(0,1fr) 300px; } }
-.net-canvas { min-height: 430px; border-radius: 14px 0 0 14px; background: radial-gradient(circle at 50% 45%, #fff 0%, #fbf9f6 70%); overflow: hidden; }
+.net-canvas { min-height: 470px; padding: 8px 4px; border-radius: 14px 0 0 14px; background: radial-gradient(circle at 50% 45%, #fff 0%, #fbf9f6 72%); overflow: hidden; }
 .net-side { border-left: 1px solid var(--line); padding: 22px; background: #fff; }
 @media (max-width: 1099px) { .net-side { border-left: 0; border-top: 1px solid var(--line); border-radius: 0 0 14px 14px; } }
 .net-node { cursor: pointer; }
 .net-node circle { transition: r .15s ease, stroke-width .15s ease; }
 .net-node:hover circle { stroke-width: 3; }
-.net-label { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; fill: var(--muted); }
-.net-ident { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9.5px; fill: var(--faint); }
-.net-edge-label { font-size: 8px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; fill: var(--faint); }
+.net-label { font-size: 9.5px; font-weight: 600; letter-spacing: .02em; fill: var(--muted); }
+.net-ident { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; font-weight: 700; fill: var(--ink); }
+.net-edge-label { font-size: 8.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; fill: var(--muted); }
 .net-legend { display: flex; flex-wrap: wrap; gap: 16px; border-top: 1px solid var(--line); padding: 14px 20px; }
 .net-legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 10.5px; color: var(--muted); }
 .net-legend i { width: 10px; height: 10px; border-radius: 50%; }
