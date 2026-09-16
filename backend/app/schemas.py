@@ -63,6 +63,22 @@ class StandardRead(BaseModel):
     verification_status: VerificationStatus
 
 
+class AmendmentRead(BaseModel):
+    amendment_number: str
+    issued_date: str | None = None
+    summary: str = ""
+    official_source_url: str | None = None
+
+
+class OutdatedCitation(BaseModel):
+    """A standard the tender itself cites that the catalogue knows is outdated."""
+    cited_standard: str
+    status: str
+    superseded_by: str | None = None
+    amendment_count: int = 0
+    message: str | None = None
+
+
 class RecommendationRead(BaseModel):
     standard: StandardRead
     standard_type: str
@@ -79,6 +95,11 @@ class RecommendationRead(BaseModel):
     warning: str | None = None
     relation_note: str | None = None
     score_breakdown: dict[str, float] = Field(default_factory=dict)
+    # Currency of the record itself, decided deterministically.
+    is_outdated: bool = False
+    superseded_by: str | None = None
+    amendments: list[AmendmentRead] = Field(default_factory=list)
+    currency_warning: str | None = None
 
 
 class ExtractedRequirement(BaseModel):
@@ -95,6 +116,8 @@ class AnalysisResponse(BaseModel):
     recommendations: list[RecommendationRead]
     extracted_requirements: list[ExtractedRequirement] = Field(default_factory=list)
     missing_requirements: list[str]
+    # Outdated standards the tender text already cites.
+    outdated_citations: list[OutdatedCitation] = Field(default_factory=list)
     guardrail_message: str | None = None
     # "hybrid" when the local embedding model is loaded, "lexical" when the
     # system is running on keyword matching alone. Surfaced so the interface

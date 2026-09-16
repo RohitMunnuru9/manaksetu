@@ -14,17 +14,36 @@
     "'verified'. Re-run the seed; the content hash and embedding regenerate.",
     "",
     "relationships: edges to other records in this file, by 'key'. Types are",
-    "references | tested_by | safety | installation | terminology."
+    "references | tested_by | safety | installation | terminology.",
+    "",
+    "VERSION FIELDS: status is current | revised | withdrawn | uncertain.",
+    "superseded_by names another record's key; set it together with a status of",
+    "revised or withdrawn. amendments is a list of {amendment_number, issued_date,",
+    "summary, official_source_url, verification_status}. An amendment may only be",
+    "marked verified when its own official source is recorded."
   ],
-
   "categories": [
-    { "name": "Personal protective equipment", "description": "Head, foot and body protection for workers" },
-    { "name": "Electrical equipment and cables", "description": "Power cables, wiring and electrical accessories" },
-    { "name": "Packaged drinking water", "description": "Bottled and packaged water for human consumption" },
-    { "name": "Construction materials", "description": "Cement, aggregates and structural materials" },
-    { "name": "Office furniture", "description": "Seating, desks and storage for office environments" }
+    {
+      "name": "Personal protective equipment",
+      "description": "Head, foot and body protection for workers"
+    },
+    {
+      "name": "Electrical equipment and cables",
+      "description": "Power cables, wiring and electrical accessories"
+    },
+    {
+      "name": "Packaged drinking water",
+      "description": "Bottled and packaged water for human consumption"
+    },
+    {
+      "name": "Construction materials",
+      "description": "Cement, aggregates and structural materials"
+    },
+    {
+      "name": "Office furniture",
+      "description": "Seating, desks and storage for office environments"
+    }
   ],
-
   "standards": [
     {
       "key": "ppe-helmet-primary",
@@ -41,10 +60,30 @@
       "retrieved_date": "2026-09-14",
       "last_checked_date": "2026-09-14",
       "relationships": [
-        { "target": "ppe-helmet-test", "type": "tested_by" },
-        { "target": "ppe-marking", "type": "safety" },
-        { "target": "ppe-terminology", "type": "terminology" }
+        {
+          "target": "ppe-helmet-test",
+          "type": "tested_by"
+        },
+        {
+          "target": "ppe-marking",
+          "type": "safety"
+        },
+        {
+          "target": "ppe-terminology",
+          "type": "terminology"
+        }
       ]
+    },
+    {
+      "key": "ppe-helmet-superseded",
+      "category": "Personal protective equipment",
+      "standard_number": null,
+      "official_title": "Industrial safety helmets — earlier edition (demonstration record, superseded)",
+      "scope_summary": "Superseded demonstration record for industrial head protection, retained to exercise outdated-standard detection. Replaced by the current helmet specification.",
+      "status": "withdrawn",
+      "verification_status": "demo",
+      "superseded_by": "ppe-helmet-primary",
+      "relationships": []
     },
     {
       "key": "ppe-helmet-test",
@@ -54,7 +93,23 @@
       "scope_summary": "Test procedures for shock absorption, penetration resistance, flammability and chin-strap retention of protective headgear. Demonstration placeholder pending official verification.",
       "status": "uncertain",
       "verification_status": "demo",
-      "relationships": []
+      "relationships": [],
+      "amendments": [
+        {
+          "amendment_number": "Amendment 1",
+          "issued_date": "2019-06-01",
+          "summary": "Demonstration amendment: revised shock-absorption acceptance thresholds.",
+          "official_source_url": null,
+          "verification_status": "demo"
+        },
+        {
+          "amendment_number": "Amendment 2",
+          "issued_date": "2022-03-15",
+          "summary": "Demonstration amendment: added chin-strap retention test.",
+          "official_source_url": null,
+          "verification_status": "demo"
+        }
+      ]
     },
     {
       "key": "ppe-marking",
@@ -84,7 +139,12 @@
       "scope_summary": "Safety boots and shoes for industrial workers, covering toecap impact resistance, slip resistance, sole penetration and antistatic properties. Demonstration placeholder.",
       "status": "uncertain",
       "verification_status": "demo",
-      "relationships": [{ "target": "ppe-footwear-test", "type": "tested_by" }]
+      "relationships": [
+        {
+          "target": "ppe-footwear-test",
+          "type": "tested_by"
+        }
+      ]
     },
     {
       "key": "ppe-footwear-test",
@@ -105,8 +165,14 @@
       "status": "uncertain",
       "verification_status": "demo",
       "relationships": [
-        { "target": "elec-cable-test", "type": "tested_by" },
-        { "target": "elec-install", "type": "installation" }
+        {
+          "target": "elec-cable-test",
+          "type": "tested_by"
+        },
+        {
+          "target": "elec-install",
+          "type": "installation"
+        }
       ]
     },
     {
@@ -137,7 +203,12 @@
       "scope_summary": "Quality requirements for packaged drinking water including physical, chemical, microbiological and pesticide residue limits, packaging and labelling. Demonstration placeholder.",
       "status": "uncertain",
       "verification_status": "demo",
-      "relationships": [{ "target": "water-test", "type": "tested_by" }]
+      "relationships": [
+        {
+          "target": "water-test",
+          "type": "tested_by"
+        }
+      ]
     },
     {
       "key": "water-test",
@@ -157,7 +228,12 @@
       "scope_summary": "Chemical composition, fineness, setting time and compressive strength requirements for ordinary Portland cement used in structural concrete. Demonstration placeholder.",
       "status": "uncertain",
       "verification_status": "demo",
-      "relationships": [{ "target": "cement-test", "type": "tested_by" }]
+      "relationships": [
+        {
+          "target": "cement-test",
+          "type": "tested_by"
+        }
+      ]
     },
     {
       "key": "cement-test",
@@ -177,7 +253,12 @@
       "scope_summary": "Dimensional, stability, strength and durability requirements for office chairs including seat height adjustment, backrest and castor performance. Demonstration placeholder.",
       "status": "uncertain",
       "verification_status": "demo",
-      "relationships": [{ "target": "furniture-test", "type": "tested_by" }]
+      "relationships": [
+        {
+          "target": "furniture-test",
+          "type": "tested_by"
+        }
+      ]
     },
     {
       "key": "furniture-test",
@@ -190,7 +271,6 @@
       "relationships": []
     }
   ],
-
   "quality_control_orders": [
     {
       "title": "Helmet for Police Force, Civil Defence and Personal Protection (Quality Control) Order, 2023 — S.O. 4649(E)",
@@ -199,7 +279,9 @@
       "enforcement_date": "2024-04-24",
       "official_source_url": "https://www.bis.gov.in/wp-content/uploads/2023/10/Helmet-for-Police-Force-Civil-Defence-Personal-Protection-QCO-2023.pdf",
       "verification_status": "verified",
-      "exemptions": ["goods or articles manufactured domestically for export"]
+      "exemptions": [
+        "goods or articles manufactured domestically for export"
+      ]
     }
   ]
 }

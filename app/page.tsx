@@ -35,7 +35,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { PERMISSIONS, analyseFile, analyseTender, downloadReport, getAuditHistory, getBriefing, getCurrentUser, getDashboardStats, getLatestAnalysis, getStandards, login as loginUser, logout, saveReview, type AnalysisResult, type ApiStandard, type AuditEntry, type DashboardStats, type UserProfile } from "@/lib/api";
+import { PERMISSIONS, analyseFile, analyseTender, downloadReport, getAuditHistory, getBriefing, getCurrentUser, getDashboardStats, getLatestAnalysis, getStandards, login as loginUser, logout, saveReview, type AnalysisResult, type ApiRecommendation, type ApiStandard, type AuditEntry, type DashboardStats, type UserProfile } from "@/lib/api";
 
 type NavItemProps = {
   icon: React.ElementType;
@@ -177,6 +177,44 @@ function OfficerBriefing({ analysis }: { analysis: AnalysisResult }) {
   }
 
   return null;
+}
+
+/** Currency of a single record: superseded, or carrying amendments. */
+function CurrencyNotice({ item }: { item: ApiRecommendation }) {
+  if (!item.currency_warning) return null;
+  return (
+    <div className={`currency-warn${item.is_outdated ? " severe" : ""}`}>
+      <TriangleAlert size={13} className="mt-0.5 shrink-0" />
+      <div>
+        <strong>{item.is_outdated ? "Outdated record" : "Amended since publication"}</strong> — {item.currency_warning}
+        {item.amendments.length > 0 && (
+          <ul className="amendment-list">
+            {item.amendments.map(a => (
+              <li key={a.amendment_number}>
+                <strong>{a.amendment_number}</strong>{a.issued_date ? ` (${a.issued_date})` : ""}{a.summary ? ` — ${a.summary}` : ""}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Standards the tender text itself cites that the catalogue knows are outdated. */
+function OutdatedCitations({ citations }: { citations: AnalysisResult["outdated_citations"] }) {
+  if (!citations.length) return null;
+  return (
+    <div className="citation-alert">
+      <h4><TriangleAlert size={12} className="mr-1 inline" />This tender cites an outdated standard</h4>
+      {citations.map(c => (
+        <p key={c.cited_standard}>
+          <code>{c.cited_standard}</code> — {c.message ?? `status: ${c.status}`}
+        </p>
+      ))}
+      <p className="text-[10.5px] opacity-80">Detected by comparing the numbers written in the tender against the catalogue. Confirm against the official BIS record before amending the clause.</p>
+    </div>
+  );
 }
 
 function NavItem({ icon: Icon, label, active, badge, onClick }: NavItemProps) {
@@ -535,6 +573,7 @@ export default function Home() {
                       <select className="filter-button" value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)} aria-label="Filter recommendation type"><option value="all">All types</option><option value="verified">Verified only</option><option value="demo">Demo only</option></select>
                     </div>
 
+                    {analysis && <OutdatedCitations citations={analysis.outdated_citations} />}
                     {analysis && <EvidenceLegend verifiedCount={verifiedRecordCount} totalCount={catalogueSize} />}
                     {analysis && <OfficerBriefing analysis={analysis} />}
 
@@ -549,6 +588,7 @@ export default function Home() {
                           </div>
                           <p className="mt-3 text-[13px] leading-6 text-[#64726b]">{primary.reason_for_recommendation}</p>
                           {primary.warning && <p className="mt-3 rounded-lg border border-[#e8a353] bg-[#fff3e3] px-3 py-2 text-[12px] leading-5 text-[#8a5a12]"><TriangleAlert size={13} className="mr-1 inline" />{primary.warning}</p>}
+                          <CurrencyNotice item={primary} />
                           <div className="mt-4 flex flex-wrap gap-2">{primary.matched_requirements.map(item => <span className="match-chip" key={item}>{item}</span>)}</div>
                           <div className="mt-5 grid gap-4 border-t border-[#e8ece8] pt-4 sm:grid-cols-3">
                             <div><p className="meta-label">Source status</p><p className="meta-value"><ShieldCheck size={13} /> {primary.standard.verification_status === "verified" ? "BIS source verified" : "Verification required"}</p></div>
@@ -568,6 +608,7 @@ export default function Home() {
                             <div className="mt-4"><StandardIdentity standard={item.standard} size="compact" /></div><h4 className="mt-2 text-sm font-semibold leading-5">{item.standard.official_title}</h4>
                             {item.relation_note && <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-[#eef3ef] px-2 py-1 text-[10px] font-semibold uppercase tracking-[.06em] text-pine"><Fingerprint size={11} /> graph link · {item.relation_note}</p>}
                             <p className="mt-3 text-xs leading-5 text-[#708078]">{item.standard.scope_summary}</p>
+                            <CurrencyNotice item={item} />
                             <button onClick={() => setDetailsOpen(detailsOpen === key ? null : key)}>View rationale <ArrowRight size={13} /></button>
                             {detailsOpen === key && <div className="rationale-detail">{item.reason_for_recommendation}{item.warning ? ` — ${item.warning}` : ""}</div>}
                           </article>

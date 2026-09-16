@@ -24,6 +24,7 @@ from .models import (
     ProductCategory,
     QualityControlOrder,
     Standard,
+    StandardAmendment,
     StandardRelationship,
     StandardStatus,
     User,
@@ -133,6 +134,8 @@ def seed_demo_data(db: Session) -> None:
         by_key[row["key"]] = existing
 
     _seed_embeddings(db, by_key.values())
+    _seed_supersession(db, catalogue, by_key)
+    _seed_amendments(db, catalogue, by_key)
     _seed_relationships(db, catalogue, by_key)
     _seed_qcos(db, catalogue, by_key)
     db.commit()
@@ -152,6 +155,56 @@ def _seed_embeddings(db: Session, standards) -> None:
         standard.embedding = vector
     db.flush()
     logger.info("Embedded %d catalogue records.", len(pending))
+
+
+def _seed_supersession(db: Session, catalogue: dict, by_key: dict[str, Standard]) -> None:
+    """Link each superseded record to its replacement."""
+    for row in catalogue["standards"]:
+        successor_key = row.get("superseded_by")
+        if not successor_key:
+            continue
+        successor = by_key.get(successor_key)
+        if successor is None:
+            logger.warning("Record %r is superseded by unknown key %r", row["key"], successor_key)
+            continue
+        record = by_key[row["key"]]
+        if record.id == successor.id:
+            logger.warning("Record %r cannot supersede itself; ignoring.", row["key"])
+            continue
+        record.superseded_by_id = successor.id
+    db.flush()
+
+
+def _seed_amendments(db: Session, catalogue: dict, by_key: dict[str, Standard]) -> None:
+    for row in catalogue["standards"]:
+        standard = by_key[row["key"]]
+        for entry in row.get("amendments", []):
+            exists = db.scalar(
+                select(StandardAmendment.id).where(
+                    StandardAmendment.standard_id == standard.id,
+                    StandardAmendment.amendment_number == entry["amendment_number"],
+                ).limit(1)
+            )
+            if exists is not None:
+                continue
+            # An amendment is only verified when it carries its own source.
+            claimed = entry.get("verification_status", "demo")
+            status = VerificationStatus(claimed)
+            if status == VerificationStatus.verified and not entry.get("official_source_url"):
+                logger.warning(
+                    "Amendment %r of %r claims verified status without a source; downgrading.",
+                    entry["amendment_number"], row["key"],
+                )
+                status = VerificationStatus.pending
+            db.add(StandardAmendment(
+                standard_id=standard.id,
+                amendment_number=entry["amendment_number"],
+                issued_date=_parse_date(entry.get("issued_date")),
+                summary=entry.get("summary", ""),
+                official_source_url=entry.get("official_source_url"),
+                verification_status=status,
+            ))
+    db.flush()
 
 
 def _seed_relationships(db: Session, catalogue: dict, by_key: dict[str, Standard]) -> None:

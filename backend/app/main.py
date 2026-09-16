@@ -15,12 +15,13 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .database import Base, SessionLocal, engine, get_db
 from .models import AuditLog, Recommendation, ReviewDecision, Standard, Tender, TenderRequirement, User, VerificationStatus
-from .schemas import AnalysisResponse, AuditRead, BriefingResponse, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
+from .schemas import AmendmentRead, AnalysisResponse, AuditRead, BriefingResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
 from .security import Permission, create_access_token, get_current_user, permissions_for, require_permission, verify_password
 from .seed import seed_demo_data
 from .services.recommendation import apply_graph_context, confidence_level, evaluate_qco, find_candidates, missing_requirements, retrieval_mode
 from .services.embeddings import semantic_index
 from .services.explanation import explain_analysis, warm_model
+from .services.versions import describe_currency, outdated_citations
 from .services.documents import extract_document
 from .services.reports import build_docx, build_json, build_pdf, build_xlsx
 from .services.requirements import detect_language, extract_requirements
@@ -104,6 +105,17 @@ def list_tenders(db: Session = Depends(get_db), _: User = Depends(require_permis
     return list(db.scalars(select(Tender).order_by(Tender.created_at.desc()).limit(100)).all())
 
 
+def _currency_fields(standard: Standard) -> dict:
+    """Version facts shaped for RecommendationRead."""
+    currency = describe_currency(standard)
+    return {
+        "is_outdated": currency["is_outdated"],
+        "superseded_by": currency["superseded_by"],
+        "amendments": [AmendmentRead(**item) for item in currency["amendments"]],
+        "currency_warning": currency["currency_warning"],
+    }
+
+
 def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> AnalysisResponse:
     tender.language = detect_language(tender.source_text)
     extracted = extract_requirements(tender.source_text)
@@ -161,6 +173,7 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
             warning=warning,
             relation_note=candidate.relation_note,
             score_breakdown=candidate.breakdown,
+            **_currency_fields(standard),
         ))
     tender.status = "review_required"
     db.add(AuditLog(actor_id=actor_id, action="tender.analysis.completed", entity_type="tender", entity_id=str(tender.id), details={"candidate_count": len(response_items), "retrieval_mode": retrieval_mode()}))
@@ -176,6 +189,7 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
         recommendations=response_items,
         extracted_requirements=extracted,
         missing_requirements=gaps,
+        outdated_citations=[OutdatedCitation(**item) for item in outdated_citations(db, tender.source_text)],
         guardrail_message=guardrail,
         retrieval_mode=retrieval_mode(),
         embedding_model=semantic_index.model_name,
@@ -205,6 +219,7 @@ def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
             warning=None if verified else "Demonstration or unverified record. Do not cite in a tender.",
             relation_note=item.relation_note,
             score_breakdown=item.score_breakdown or {},
+            **_currency_fields(item.standard),
         ))
     guardrail = None if recommendations else "No verified recommendation found. Expert review is required."
     extracted = list(db.scalars(select(TenderRequirement).where(TenderRequirement.tender_id == tender.id)).all())
@@ -213,6 +228,7 @@ def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
         recommendations=recommendations,
         extracted_requirements=extracted,
         missing_requirements=missing_requirements(tender.source_text),
+        outdated_citations=[OutdatedCitation(**item) for item in outdated_citations(db, tender.source_text)],
         guardrail_message=guardrail,
         retrieval_mode=retrieval_mode(),
         embedding_model=semantic_index.model_name,

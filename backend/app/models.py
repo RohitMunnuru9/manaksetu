@@ -75,6 +75,31 @@ class Standard(Base):
     # catalogue is small enough that cosine similarity runs in-process; moving
     # this to a pgvector column is the production upgrade path.
     embedding: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
+    # Set when this record has been replaced. Combined with `status`, this is
+    # what lets the system warn that a tender is citing an outdated standard.
+    superseded_by_id: Mapped[int | None] = mapped_column(ForeignKey("standards.id"), nullable=True)
+    superseded_by: Mapped[Standard | None] = relationship(remote_side=[id], foreign_keys=[superseded_by_id])
+    amendments: Mapped[list[StandardAmendment]] = relationship(back_populates="standard", cascade="all, delete-orphan")
+
+
+class StandardAmendment(Base):
+    """An amendment issued against a published standard.
+
+    Amendments change a standard's requirements without changing its number, so
+    a tender citing the base number alone may still be incomplete. Each row
+    carries its own source so the officer can check it.
+    """
+
+    __tablename__ = "standard_amendments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    standard_id: Mapped[int] = mapped_column(ForeignKey("standards.id"), index=True)
+    amendment_number: Mapped[str] = mapped_column(String(40))
+    issued_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    summary: Mapped[str] = mapped_column(Text, default="")
+    official_source_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    verification_status: Mapped[VerificationStatus] = mapped_column(SqlEnum(VerificationStatus), default=VerificationStatus.pending)
+    standard: Mapped[Standard] = relationship(back_populates="amendments")
 
 
 class StandardRelationship(Base):

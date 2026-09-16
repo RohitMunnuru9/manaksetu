@@ -1,4 +1,7 @@
+import logging
+import os
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from shutil import which
 
@@ -8,6 +11,43 @@ import pytesseract
 from docx import Document
 from openpyxl import load_workbook
 from PIL import Image
+
+logger = logging.getLogger(__name__)
+
+# Windows installers add Tesseract to the system PATH, but a process started
+# before the install keeps a stale copy of it. Checking the usual install
+# locations as well means OCR works without anyone restarting their shell.
+FALLBACK_TESSERACT_PATHS = (
+    "C:/Program Files/Tesseract-OCR/tesseract.exe",
+    "C:/Program Files (x86)/Tesseract-OCR/tesseract.exe",
+    "/usr/bin/tesseract",
+    "/usr/local/bin/tesseract",
+    "/opt/homebrew/bin/tesseract",
+)
+
+
+@lru_cache(maxsize=1)
+def tesseract_path() -> str | None:
+    """Absolute path to the Tesseract binary, or None when it is unavailable."""
+    configured = os.environ.get("TESSERACT_CMD")
+    if configured and Path(configured).exists():
+        return configured
+    found = which("tesseract")
+    if found:
+        return found
+    for candidate in FALLBACK_TESSERACT_PATHS:
+        if Path(candidate).exists():
+            return candidate
+    return None
+
+
+def ocr_available() -> bool:
+    path = tesseract_path()
+    if path is None:
+        return False
+    # pytesseract shells out to this path, so point it at what we resolved.
+    pytesseract.pytesseract.tesseract_cmd = path
+    return True
 
 
 @dataclass
@@ -48,7 +88,7 @@ def _extract_pdf(path: Path) -> ExtractionResult:
     if tables:
         text = f"{text}\n\nExtracted tables:\n" + "\n".join(tables)
     requires_ocr = len(text.strip()) < max(40, len(document) * 15)
-    if requires_ocr and which("tesseract"):
+    if requires_ocr and ocr_available():
         ocr_pages = []
         for page in document:
             pixmap = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
@@ -61,7 +101,7 @@ def _extract_pdf(path: Path) -> ExtractionResult:
 
 
 def _extract_image(path: Path) -> ExtractionResult:
-    if not which("tesseract"):
+    if not ocr_available():
         return ExtractionResult("", 1, "ocr_unavailable", True)
     text = pytesseract.image_to_string(Image.open(path)).strip()
     return ExtractionResult(text, 1, "tesseract", not bool(text))

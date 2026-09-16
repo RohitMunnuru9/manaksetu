@@ -6,7 +6,7 @@ ManakSetu AI is an explainable, human-in-the-loop system for identifying applica
 
 ## Demonstration script
 
-Five cases, in order. Sign in with the local judge credentials below, then use
+Eight cases, in order. Sign in with the local judge credentials below, then use
 **New analysis** for each. Every claim here is reproducible from a clean database.
 
 | # | Paste this as the description | What to point out |
@@ -16,6 +16,9 @@ Five cases, in order. Sign in with the local judge credentials below, then use
 | 3 | `औद्योगिक सुरक्षा हेलमेट निर्माण श्रमिकों के लिए खरीद` | A Hindi query retrieves the English-titled standard. Language is detected as `hi`; the embedding model is multilingual. |
 | 4 | `Supply of bottled water for office consumption with microbiological testing.` | Retrieval switches cleanly to the water category. No helmet records leak in. |
 | 5 | `Procurement of artisanal sourdough starter cultures for the canteen.` | Returns **zero** recommendations and the guardrail message *"No verified recommendation found. Expert review is required."* The system declines rather than guessing. |
+| 6 | Same as case 1 — look at the **supporting cards** | One card is flagged **Outdated record** (withdrawn, superseded by IS 2925:1984); another shows **Amended since publication** with both amendments listed. Currency is decided deterministically, never by the model. |
+| 7 | Upload a **scanned** PDF (an image-only page, no text layer) | Tesseract reads it locally and the tender is analysed normally. Without Tesseract installed the document is flagged `ocr_required` rather than silently returning empty text. |
+| 8 | Sign in as `supplier@example.in` | Review, export and audit controls disappear, and calling those endpoints directly returns **403**. Access control is enforced by the API, not by hiding buttons. |
 
 ### The strongest thing to show a reviewer
 
@@ -72,7 +75,7 @@ this system.
 - Validated PDF, DOCX and TXT upload endpoint with size limits
 - Text extraction for digital PDF, DOCX, XLSX and TXT tenders
 - PDF table extraction with pdfplumber
-- Local Tesseract OCR adapter for scanned PDFs, PNG and JPEG files when the executable is installed
+
 - Deterministic Hindi/Telugu/English detection and structured requirement extraction
 - Scanned-document detection with a safe `ocr_required` handoff
 - Human review decisions and queryable audit history
@@ -81,6 +84,11 @@ this system.
   evidence and validated afterwards: output citing a standard that was not
   retrieved, or asserting a certification the rule engine did not confirm, is
   discarded rather than shown
+- Deterministic version checking: withdrawn and revised records are flagged with
+  their replacement, amendments are listed against the record they amend, and a
+  standard number cited in the tender itself is checked against the catalogue
+- Local Tesseract OCR resolved by path rather than by shell environment, so a
+  freshly installed engine works without restarting anything
 - Alembic migration foundation
 - Optional Docker Compose profiles for Neo4j Community and Ollama
 - Pytest guardrail tests
@@ -236,8 +244,14 @@ The local language model will be added only as an explanation and structured-ext
   per-recommendation reason text remains deterministic and is never produced by a
   language model. No language model generates a standard identifier anywhere in
   this system, and output that contains an unretrieved one is discarded.
-- Version, amendment and withdrawal checking is **not implemented**; the schema
-  carries status fields but there is no revision-history table yet.
+- Version, amendment and supersession checking is implemented and deterministic.
+  The **data** is demonstration data: the superseded record and its amendments are
+  demo records, because no supersession or amendment has been verified against an
+  official BIS source. No amendment is claimed against IS 2925:1984. Importing real
+  revision history is a data task; the mechanism and its tests already exist.
+- Alembic still creates the schema with `create_all` rather than versioned
+  migrations, so a model change currently requires recreating the database.
+  Fine for the prototype, not for anything holding real data.
 - Ranking weights in `services/recommendation.py` are untuned starting values.
 - This machine currently has no Tesseract executable, so scanned files are safely marked `ocr_required`; digital-document extraction remains fully operational.
 - Real BIS/QCO metadata must be imported only from permitted official sources and reviewed before its verification status is changed.

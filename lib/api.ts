@@ -27,6 +27,10 @@ export type ApiRecommendation = {
   warning: string | null;
   relation_note: string | null;
   score_breakdown: Record<string, number>;
+  is_outdated: boolean;
+  superseded_by: string | null;
+  amendments: Array<{ amendment_number: string; issued_date: string | null; summary: string; official_source_url: string | null }>;
+  currency_warning: string | null;
 };
 
 export type AnalysisResult = {
@@ -48,6 +52,7 @@ export type AnalysisResult = {
     needs_confirmation: boolean;
   }>;
   missing_requirements: string[];
+  outdated_citations: Array<{ cited_standard: string; status: string; superseded_by: string | null; amendment_count: number; message: string | null }>;
   guardrail_message: string | null;
   retrieval_mode: "hybrid" | "lexical";
   embedding_model: string | null;
