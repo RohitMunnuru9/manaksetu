@@ -161,6 +161,11 @@ export const getLatestAnalysis = async (): Promise<AnalysisResult | null> => {
   return tenders.length ? getJson<AnalysisResult>(`/tenders/${tenders[0].id}`) : null;
 };
 
+export type Briefing = Pick<AnalysisResult, "officer_summary" | "officer_summary_status" | "officer_summary_model">;
+
+/** Requested only after results are on screen; local generation takes tens of seconds. */
+export const getBriefing = (tenderId: number) => getJson<Briefing>(`/tenders/${tenderId}/briefing`);
+
 export const getStandards = (query = "") => getJson<ApiStandard[]>(`/standards${query ? `?q=${encodeURIComponent(query)}` : ""}`);
 export const getAuditHistory = () => getJson<AuditEntry[]>("/audit");
 export const getDashboardStats = () => getJson<DashboardStats>("/dashboard");

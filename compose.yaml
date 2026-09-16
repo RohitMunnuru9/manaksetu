@@ -28,12 +28,12 @@ services:
       # Export JWT_SECRET (at least 32 random characters) before any shared
       # deployment -- outside development the API refuses to start without one.
       JWT_SECRET: ${JWT_SECRET:-}
-      # Language-model briefing layer. Off unless the "ai" profile is running
-      # and this is set to true; when it cannot reach Ollama the analysis still
-      # completes, simply without prose.
-      ENABLE_LLM_EXPLANATIONS: ${ENABLE_LLM_EXPLANATIONS:-false}
+      # Language-model briefing layer. Needs the "ai" profile running with the
+      # model pulled; without it the analysis still completes, simply without
+      # prose. Set to false to skip the attempt entirely.
+      ENABLE_LLM_EXPLANATIONS: ${ENABLE_LLM_EXPLANATIONS:-true}
       OLLAMA_URL: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
     depends_on:
       db:
         condition: service_healthy

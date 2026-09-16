@@ -131,6 +131,35 @@ def build_evidence_block(recommendations: list) -> tuple[str, list[str], bool]:
     return "\n".join(lines), allowed, mandatory
 
 
+def warm_model() -> bool:
+    """Page the weights in ahead of the first real request.
+
+    Safe to call from a background thread at startup; a failure here only means
+    the first analysis pays the cold-start cost, never that anything breaks.
+    """
+    settings = get_settings()
+    if not settings.enable_llm_explanations or not settings.ollama_warm_on_startup:
+        return False
+    try:
+        response = httpx.post(
+            f"{settings.ollama_url.rstrip('/')}/api/generate",
+            json={
+                "model": settings.ollama_model,
+                "prompt": "ready",
+                "stream": False,
+                "keep_alive": settings.ollama_keep_alive,
+                "options": {"num_predict": 1},
+            },
+            timeout=settings.ollama_timeout_seconds,
+        )
+        response.raise_for_status()
+        logger.info("Warmed %s; it will stay resident for %s.", settings.ollama_model, settings.ollama_keep_alive)
+        return True
+    except Exception as exc:
+        logger.info("Could not warm %s (%s); the first analysis will load it instead.", settings.ollama_model, exc.__class__.__name__)
+        return False
+
+
 def explain_analysis(tender_text: str, recommendations: list, missing_requirements: list[str]) -> ExplanationResult:
     """Produce an officer-facing briefing, or nothing at all."""
     settings = get_settings()
@@ -152,6 +181,11 @@ def explain_analysis(tender_text: str, recommendations: list, missing_requiremen
             json={
                 "model": settings.ollama_model,
                 "stream": False,
+                # Keep the weights resident between analyses. Ollama unloads a
+                # model after five idle minutes by default, and reloading a 7B
+                # model costs around forty seconds -- long enough to look broken
+                # during a demonstration.
+                "keep_alive": settings.ollama_keep_alive,
                 # Low temperature: this is a summarisation task, not a creative one.
                 "options": {"temperature": 0.2, "num_predict": 320},
                 "messages": [

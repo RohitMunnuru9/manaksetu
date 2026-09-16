@@ -42,13 +42,21 @@ class Settings(BaseSettings):
     seed_demo_users: bool = True
 
     # Local language model, used only to phrase retrieval evidence for a reader.
-    # Off by default so a machine without Ollama behaves identically; turning it
-    # on cannot change which standards are recommended.
-    enable_llm_explanations: bool = False
+    # Enabling it cannot change which standards are recommended. When Ollama is
+    # absent the connection fails immediately and the analysis completes without
+    # prose, so leaving this on is safe on a machine that has no model.
+    enable_llm_explanations: bool = True
     ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen2.5:3b"
-    # Short enough that a stalled model cannot hold up an analysis.
-    ollama_timeout_seconds: float = 45.0
+    ollama_model: str = "qwen2.5:7b"
+    # Generous enough to absorb a cold model load (a 7B model takes roughly
+    # forty seconds to page in), short enough that a genuinely stalled model
+    # cannot hold an analysis open indefinitely.
+    ollama_timeout_seconds: float = 120.0
+    # How long Ollama keeps the weights resident after a request.
+    ollama_keep_alive: str = "30m"
+    # Load the model in the background at startup so the first officer request
+    # does not pay the cold-start cost.
+    ollama_warm_on_startup: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -35,7 +35,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { PERMISSIONS, analyseFile, analyseTender, downloadReport, getAuditHistory, getCurrentUser, getDashboardStats, getLatestAnalysis, getStandards, login as loginUser, logout, saveReview, type AnalysisResult, type ApiStandard, type AuditEntry, type DashboardStats, type UserProfile } from "@/lib/api";
+import { PERMISSIONS, analyseFile, analyseTender, downloadReport, getAuditHistory, getBriefing, getCurrentUser, getDashboardStats, getLatestAnalysis, getStandards, login as loginUser, logout, saveReview, type AnalysisResult, type ApiStandard, type AuditEntry, type DashboardStats, type UserProfile } from "@/lib/api";
 
 type NavItemProps = {
   icon: React.ElementType;
@@ -144,6 +144,20 @@ function OfficerBriefing({ analysis }: { analysis: AnalysisResult }) {
           Written by a local language model from the evidence above. It cannot add, remove or reorder a recommendation, and any explanation
           referencing a standard that was not retrieved is discarded before it reaches this screen. Treat the records above as authoritative.
         </footer>
+      </div>
+    );
+  }
+
+  if (status === "pending") {
+    return (
+      <div className="llm-brief">
+        <div className="llm-brief-head">
+          <LoaderCircle size={13} className="animate-spin text-pine" />
+          <strong>Officer briefing</strong>
+        </div>
+        <p className="text-[#8a978f]">
+          A local language model is writing a plain-English summary of the evidence above. The recommendations are already final and do not depend on it.
+        </p>
       </div>
     );
   }
@@ -298,6 +312,25 @@ export default function Home() {
       setSubmitting(false);
     }
   };
+
+  // The briefing is generated separately so that slow local inference never
+  // delays the evidence. Fetch it once results are already rendered.
+  const tenderId = analysis?.tender.id;
+  const briefingPending = analysis?.officer_summary_status === "pending";
+  useEffect(() => {
+    if (!tenderId || !briefingPending) return;
+    let cancelled = false;
+    getBriefing(tenderId)
+      .then(briefing => {
+        if (cancelled) return;
+        setAnalysis(current => (current && current.tender.id === tenderId ? { ...current, ...briefing } : current));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAnalysis(current => (current && current.tender.id === tenderId ? { ...current, officer_summary_status: "unavailable" } : current));
+      });
+    return () => { cancelled = true; };
+  }, [tenderId, briefingPending]);
 
   const stages = buildStages(analysis);
   const visibleRecommendations = (analysis?.recommendations ?? []).filter(

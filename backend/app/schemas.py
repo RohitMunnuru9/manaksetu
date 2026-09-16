@@ -108,6 +108,13 @@ class AnalysisResponse(BaseModel):
     officer_summary_model: str | None = None
 
 
+class BriefingResponse(BaseModel):
+    """Prose only. Requested after an analysis is already on screen."""
+    officer_summary: str | None = None
+    officer_summary_status: str = "disabled"
+    officer_summary_model: str | None = None
+
+
 class ReviewCreate(BaseModel):
     decision: str = Field(pattern="^(approved|rejected|expert_review)$")
     note: str = Field(default="", max_length=5_000)

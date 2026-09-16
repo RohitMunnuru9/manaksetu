@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from threading import Thread
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -14,12 +15,12 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .database import Base, SessionLocal, engine, get_db
 from .models import AuditLog, Recommendation, ReviewDecision, Standard, Tender, TenderRequirement, User, VerificationStatus
-from .schemas import AnalysisResponse, AuditRead, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
+from .schemas import AnalysisResponse, AuditRead, BriefingResponse, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
 from .security import Permission, create_access_token, get_current_user, permissions_for, require_permission, verify_password
 from .seed import seed_demo_data
 from .services.recommendation import apply_graph_context, confidence_level, evaluate_qco, find_candidates, missing_requirements, retrieval_mode
 from .services.embeddings import semantic_index
-from .services.explanation import explain_analysis
+from .services.explanation import explain_analysis, warm_model
 from .services.documents import extract_document
 from .services.reports import build_docx, build_json, build_pdf, build_xlsx
 from .services.requirements import detect_language, extract_requirements
@@ -33,6 +34,9 @@ async def lifespan(_: FastAPI):
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
     with SessionLocal() as db:
         seed_demo_data(db)
+    # Load the language model off the startup path, so the API is serving
+    # immediately and the first analysis does not pay the cold-start cost.
+    Thread(target=warm_model, daemon=True).start()
     yield
 
 
@@ -163,9 +167,10 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
     db.commit()
     guardrail = None if response_items else "No verified recommendation found. Expert review is required."
     gaps = missing_requirements(tender.source_text)
-    # Prose layer runs last, over evidence that is already final. It cannot add,
-    # remove or reorder a recommendation.
-    summary = explain_analysis(tender.source_text, response_items, gaps)
+    # The prose briefing is deliberately NOT generated here. Local generation
+    # takes tens of seconds, and an officer should see evidence immediately
+    # rather than wait on a description of it. The dashboard requests the
+    # briefing separately once results are on screen.
     return AnalysisResponse(
         tender=TenderRead.model_validate(tender),
         recommendations=response_items,
@@ -174,9 +179,7 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
         guardrail_message=guardrail,
         retrieval_mode=retrieval_mode(),
         embedding_model=semantic_index.model_name,
-        officer_summary=summary.text,
-        officer_summary_status=summary.status,
-        officer_summary_model=summary.model,
+        officer_summary_status="pending" if settings.enable_llm_explanations else "disabled",
     )
 
 
@@ -213,6 +216,9 @@ def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
         guardrail_message=guardrail,
         retrieval_mode=retrieval_mode(),
         embedding_model=semantic_index.model_name,
+        # Marked pending, not generated, so that reopening a saved analysis
+        # requests the briefing the same way a fresh one does.
+        officer_summary_status="pending" if (settings.enable_llm_explanations and recommendations) else "disabled",
     )
 
 
@@ -288,6 +294,25 @@ async def upload_and_analyse(file: UploadFile = File(...), db: Session = Depends
         db.commit()
         return AnalysisResponse(tender=TenderRead.model_validate(tender), recommendations=[], missing_requirements=[], guardrail_message="Scanned document detected. Local OCR processing is required before recommendations can be generated.")
     return run_analysis(db, tender, user.id)
+
+
+@app.get("/api/v1/tenders/{tender_id}/briefing", response_model=BriefingResponse, tags=["tenders"])
+def tender_briefing(tender_id: int, db: Session = Depends(get_db), _: User = Depends(require_permission(Permission.TENDER_READ))) -> BriefingResponse:
+    """Generate the prose briefing for an analysis that already exists.
+
+    Separate from the analysis itself so that slow, unavailable or rejected
+    generation can never delay or fail the evidence the officer actually needs.
+    """
+    tender = db.get(Tender, tender_id)
+    if not tender:
+        raise HTTPException(status_code=404, detail="Tender not found")
+    analysis = saved_analysis(db, tender)
+    summary = explain_analysis(tender.source_text, analysis.recommendations, analysis.missing_requirements)
+    return BriefingResponse(
+        officer_summary=summary.text,
+        officer_summary_status=summary.status,
+        officer_summary_model=summary.model,
+    )
 
 
 @app.post("/api/v1/tenders/{tender_id}/review", response_model=ReviewRead, tags=["reviews"])

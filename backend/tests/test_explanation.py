@@ -164,6 +164,7 @@ def test_timeout_degrades_quietly(monkeypatch, llm_enabled) -> None:
     assert result.ok is False and result.status == "timeout"
 
 
-def test_layer_is_inert_when_disabled() -> None:
+def test_layer_is_inert_when_disabled(monkeypatch) -> None:
+    monkeypatch.setattr(get_settings(), "enable_llm_explanations", False)
     result = explain_analysis("Purchase safety helmets", [verified_candidate()], [])
     assert result.ok is False and result.status == "disabled"
