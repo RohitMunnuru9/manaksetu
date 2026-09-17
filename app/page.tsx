@@ -84,12 +84,13 @@ const DEMO_SUPPLIER = { email: "supplier@example.in", password: "ManakSetu@2026"
    an officer can work in their own language.
    --------------------------------------------------------------------- */
 
-type UiLang = "en" | "hi" | "te";
+type UiLang = "en" | "hi" | "te" | "ta";
 
 const UI_LANGS: Array<{ code: UiLang; label: string; native: string }> = [
   { code: "en", label: "EN", native: "English" },
   { code: "hi", label: "हि", native: "हिन्दी" },
   { code: "te", label: "తె", native: "తెలుగు" },
+  { code: "ta", label: "த", native: "தமிழ்" },
 ];
 
 const T: Record<UiLang, Record<string, string>> = {
@@ -147,9 +148,27 @@ const T: Record<UiLang, Record<string, string>> = {
     startNew: "కొత్త విశ్లేషణ ప్రారంభించండి", verified: "ధృవీకరించబడింది",
     checking: "తనిఖీ అవసరం", example: "ఉదాహరణ మాత్రమే",
   },
+  ta: {
+    overview: "மொத்தப் பார்வை", analyse: "டெண்டர் பகுப்பாய்வு", network: "தொடர்புகள்",
+    standards: "தரநிலைப் பட்டியல்", reports: "அறிக்கை பதிவிறக்கம்", history: "வரலாறு",
+    signOutOfficer: "சப்ளையராக மாறு", signOutSupplier: "அலுவலராக மாறு",
+    heroTitle: "ஆதாரத்தில் நிலைத்த கொள்முதல் முடிவுகள்.",
+    heroLede: "ஒரு டெண்டரை நீங்கள் நியாயப்படுத்தக்கூடிய இந்தியத் தரநிலைகளின் பட்டியலாக மாற்றுங்கள் — ஒவ்வொன்றும் அதிகாரப்பூர்வ மூலத்துடன் இணைக்கப்பட்டது.",
+    newTender: "புதிய டெண்டரை பகுப்பாய்வு செய்", browse: "தரநிலைகளைப் பார்",
+    whatBuying: "நீங்கள் என்ன வாங்குகிறீர்கள்?", describe: "கொள்முதலை விவரியுங்கள்",
+    shortTitle: "சுருக்கமான தலைப்பு", whatBuyingQ: "நீங்கள் என்ன வாங்குகிறீர்கள்?",
+    typeIt: "தட்டச்சு செய்", uploadFile: "கோப்பைப் பதிவேற்று", findStandards: "தரநிலைகளைக் கண்டறி",
+    working: "செயலில் உள்ளது…", step1: "படி 1 / 2", understood: "நாங்கள் புரிந்துகொண்டது இதுதான்",
+    showStandards: "இப்போது தரநிலைகளைக் காட்டு", thatsWrong: "இது தவறு — திருத்த அனுமதி",
+    tabResults: "கிடைத்த தரநிலைகள்", tabRead: "நாங்கள் படித்தது", tabGaps: "சரிசெய்ய வேண்டியவை",
+    briefing: "எளிய மொழியில் சுருக்கம்", decision: "உங்கள் முடிவு", approve: "ஒப்புதல் அளி",
+    readAs: "இந்த மொழியில் படிக்கப்பட்டது", searchPlaceholder: "பெயரால் தரநிலைகளைத் தேடு…",
+    startNew: "புதிய பகுப்பாய்வைத் தொடங்கு", verified: "சரிபார்க்கப்பட்டது",
+    checking: "சரிபார்ப்பு தேவை", example: "எடுத்துக்காட்டு மட்டும்",
+  },
 };
 
-const LANGUAGE_NAME: Record<string, string> = { en: "English", hi: "Hindi", te: "Telugu" };
+const LANGUAGE_NAME: Record<string, string> = { en: "English", hi: "Hindi", te: "Telugu", ta: "Tamil" };
 
 function confidenceWord(level: string): string {
   return { high: "Strong match", medium: "Likely match", low: "Weak match" }[level] ?? level;

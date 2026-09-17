@@ -13,7 +13,7 @@ class RequirementValue:
     needs_confirmation: bool = True
 
 
-# Literal terms, checked first. Indic entries let a Hindi or Telugu tender
+# Literal terms, checked first. Indic entries let a Hindi, Telugu or Tamil tender
 # resolve its product without a translation model. These transliterations are
 # the common procurement spellings and should be reviewed by a native speaker
 # before the catalogue is used in production.
@@ -23,27 +23,32 @@ PRODUCT_TERMS = {
         "head protection", "protective headgear", "headgear", "hard hat",
         "हेलमेट", "सुरक्षा हेलमेट", "हेल्मेट",
         "హెల్మెట్", "భద్రతా హెల్మెట్",
+        "தலைக்கவசம்", "பாதுகாப்பு தலைக்கவசம்", "ஹெல்மெட்",
     ),
     "electric cable": (
         "electric cable", "electrical cable", "power cable", "wiring", "cable",
         "केबल", "विद्युत केबल", "कैबल",
         "కేబుల్", "విద్యుత్ కేబుల్",
+        "கேபிள்", "மின் கேபிள்", "வயரிங்",
     ),
     "drinking water": (
         "packaged drinking water", "drinking water", "bottled water",
         "पेयजल", "पीने का पानी", "बोतलबंद पानी",
         "తాగునీరు", "తాగు నీరు",
+        "குடிநீர்", "பாட்டில் நீர்",
     ),
     "safety footwear": (
         "safety footwear", "safety shoes", "protective footwear", "safety boots",
         "सुरक्षा जूते", "सुरक्षा बूट",
         "భద్రతా బూట్లు", "భద్రతా చెప్పులు",
+        "பாதுகாப்பு காலணி", "பாதுகாப்பு பூட்ஸ்",
     ),
-    "cement": ("portland cement", "cement", "सीमेंट", "सिमेंट", "సిమెంట్"),
+    "cement": ("portland cement", "cement", "सीमेंट", "सिमेंट", "సిమెంట్", "சிமெண்ட்"),
     "office furniture": (
         "office chair", "office seating", "office furniture",
         "कार्यालय फर्नीचर", "कुर्सी",
         "కార్యాలయ ఫర్నిచర్", "కుర్చీ",
+        "அலுவலக தளவாடம்", "நாற்காலி", "மேசை",
     ),
 }
 
@@ -72,8 +77,9 @@ _gloss_vectors: dict[str, list[float]] | None = None
 
 def detect_language(text: str) -> str:
     counts = {
-        "hi": sum(1 for char in text if "\u0900" <= char <= "\u097f"),
-        "te": sum(1 for char in text if "\u0c00" <= char <= "\u0c7f"),
+        "hi": sum(1 for char in text if "\u0900" <= char <= "\u097f"),  # Devanagari
+        "te": sum(1 for char in text if "\u0c00" <= char <= "\u0c7f"),  # Telugu
+        "ta": sum(1 for char in text if "\u0b80" <= char <= "\u0bff"),  # Tamil
     }
     language, count = max(counts.items(), key=lambda pair: pair[1])
     return language if count >= 3 else "en"

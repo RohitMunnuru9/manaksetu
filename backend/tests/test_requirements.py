@@ -28,6 +28,7 @@ def test_structured_requirement_extraction() -> None:
 def test_unicode_language_detection() -> None:
     assert detect_language("औद्योगिक सुरक्षा हेलमेट खरीद") == "hi"
     assert detect_language("పారిశ్రామిక భద్రత హెల్మెట్") == "te"
+    assert detect_language("தொழில்துறை பாதுகாப்பு தலைக்கவசம்") == "ta"
     assert detect_language("industrial safety helmet") == "en"
 
 
@@ -57,3 +58,18 @@ def test_literal_match_is_reported_as_confirmed() -> None:
 
 def test_unrelated_tender_reports_no_product_rather_than_guessing() -> None:
     assert _product("Procurement of artisanal sourdough starter cultures for the canteen.") is None
+
+
+def test_tamil_tender_resolves_its_product_literally():
+    """A Tamil tender must name its product without a translation model.
+
+    The literal term list carries this; the multilingual embedding is only the
+    fallback. Telugu needed an extra scoring fix to clear the relevance floor,
+    so this asserts the literal path rather than assuming Tamil behaves the same.
+    """
+    values = extract_requirements("கட்டுமான தொழிலாளர்களுக்கு தொழில்துறை பாதுகாப்பு தலைக்கவசம் கொள்முதல்")
+    product = next(item for item in values if item.requirement_type == "product")
+    assert product.value == "safety helmet"
+
+    cement = extract_requirements("கட்டுமான பணிகளுக்கு சாதாரண போர்ட்லேண்ட் சிமெண்ட் வழங்கல்")
+    assert next(item.value for item in cement if item.requirement_type == "product") == "cement"
