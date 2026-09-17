@@ -304,3 +304,11 @@ a { color: var(--rust); }
 .read-as { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .read-as span { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; background: #fdfcfa; font-size: 11.5px; color: var(--muted); }
 .read-as strong { color: var(--ink); font-weight: 700; }
+
+/* Interface language switcher. The tender is always read in whatever language it
+   was written in; this only changes the words around it. */
+.langbar { display: inline-flex; align-items: center; gap: 2px; flex: none; margin-left: auto; border: 1px solid var(--line); border-radius: 9px; padding: 3px 5px 3px 8px; background: #fff; }
+@media (min-width: 1024px) { .langbar { margin-left: 12px; } }
+.langbar button { border-radius: 6px; padding: 4px 8px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.langbar button:hover { background: #f3f0ea; color: var(--ink); }
+.langbar button.active { background: var(--navy); color: #fff; }

@@ -65,7 +65,7 @@ Absolute rules:
   CERTIFICATION: MANDATORY. If none does, say certification status is unconfirmed.
 - Do not invent test methods, dates, clauses or legal obligations.
 
-Write 3-5 sentences of plain English. No headings, no bullet points, no preamble."""
+Write 3 short sentences of plain English. No headings, no bullet points, no preamble."""
 
 
 @dataclass
@@ -192,7 +192,7 @@ def explain_analysis(tender_text: str, recommendations: list, missing_requiremen
                 # during a demonstration.
                 "keep_alive": settings.ollama_keep_alive,
                 # Low temperature: this is a summarisation task, not a creative one.
-                "options": {"temperature": 0.2, "num_predict": 320},
+                "options": {"temperature": 0.2, "num_predict": 170},
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},

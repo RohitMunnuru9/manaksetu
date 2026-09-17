@@ -77,6 +77,78 @@ function plainRole(type: string): string {
 const DEMO_OFFICER = { email: "officer@manaksetu.gov.in", password: "ManakSetu@2026" };
 const DEMO_SUPPLIER = { email: "supplier@example.in", password: "ManakSetu@2026" };
 
+
+/* ---------------------------------------------------------------------
+   Interface language. The tender itself is always read in whatever
+   language it was written in -- this only changes the words around it, so
+   an officer can work in their own language.
+   --------------------------------------------------------------------- */
+
+type UiLang = "en" | "hi" | "te";
+
+const UI_LANGS: Array<{ code: UiLang; label: string; native: string }> = [
+  { code: "en", label: "EN", native: "English" },
+  { code: "hi", label: "हि", native: "हिन्दी" },
+  { code: "te", label: "తె", native: "తెలుగు" },
+];
+
+const T: Record<UiLang, Record<string, string>> = {
+  en: {
+    overview: "Overview", analyse: "Analyse a tender", network: "How they connect",
+    standards: "Standards list", reports: "Download report", history: "History",
+    signOutOfficer: "Switch to supplier", signOutSupplier: "Switch to officer",
+    heroTitle: "Procurement decisions, grounded in evidence.",
+    heroLede: "Turn a tender into a list of Indian Standards you can defend — each one traced back to an official source.",
+    newTender: "Analyse a new tender", browse: "Browse standards",
+    whatBuying: "What are you buying?", describe: "Describe the purchase",
+    shortTitle: "Short title", whatBuyingQ: "What are you buying?",
+    typeIt: "Type it", uploadFile: "Upload a file", findStandards: "Find the standards",
+    working: "Working…", step1: "Step 1 of 2", understood: "Here is what we understood",
+    showStandards: "Now show me the standards", thatsWrong: "That is wrong — let me edit",
+    tabResults: "Standards found", tabRead: "What we read", tabGaps: "Things to fix",
+    briefing: "Plain-English summary", decision: "Your decision", approve: "Approve",
+    readAs: "Read as", searchPlaceholder: "Search standards by name…",
+    startNew: "Start a new analysis", verified: "Verified",
+    checking: "Needs checking", example: "Example only",
+  },
+  hi: {
+    overview: "अवलोकन", analyse: "निविदा विश्लेषण", network: "आपसी संबंध",
+    standards: "मानक सूची", reports: "रिपोर्ट डाउनलोड", history: "इतिहास",
+    signOutOfficer: "आपूर्तिकर्ता में बदलें", signOutSupplier: "अधिकारी में बदलें",
+    heroTitle: "साक्ष्य पर आधारित क्रय निर्णय।",
+    heroLede: "निविदा को ऐसे भारतीय मानकों की सूची में बदलें जिनका आप बचाव कर सकें — प्रत्येक आधिकारिक स्रोत से जुड़ा हुआ।",
+    newTender: "नई निविदा का विश्लेषण", browse: "मानक देखें",
+    whatBuying: "आप क्या खरीद रहे हैं?", describe: "खरीद का विवरण दें",
+    shortTitle: "संक्षिप्त शीर्षक", whatBuyingQ: "आप क्या खरीद रहे हैं?",
+    typeIt: "टाइप करें", uploadFile: "फ़ाइल अपलोड करें", findStandards: "मानक खोजें",
+    working: "कार्य जारी…", step1: "चरण 1 / 2", understood: "हमने यह समझा है",
+    showStandards: "अब मानक दिखाएँ", thatsWrong: "यह गलत है — सुधार करें",
+    tabResults: "मिले मानक", tabRead: "हमने क्या पढ़ा", tabGaps: "सुधार योग्य",
+    briefing: "सरल भाषा में सारांश", decision: "आपका निर्णय", approve: "स्वीकृत करें",
+    readAs: "इस भाषा में पढ़ा", searchPlaceholder: "नाम से मानक खोजें…",
+    startNew: "नया विश्लेषण शुरू करें", verified: "सत्यापित",
+    checking: "जाँच आवश्यक", example: "केवल उदाहरण",
+  },
+  te: {
+    overview: "సమగ్ర వీక్షణ", analyse: "టెండర్ విశ్లేషణ", network: "పరస్పర సంబంధాలు",
+    standards: "ప్రమాణాల జాబితా", reports: "నివేదిక డౌన్‌లోడ్", history: "చరిత్ర",
+    signOutOfficer: "సరఫరాదారుగా మారండి", signOutSupplier: "అధికారిగా మారండి",
+    heroTitle: "ఆధారాలపై నిలిచిన కొనుగోలు నిర్ణయాలు.",
+    heroLede: "టెండర్‌ను మీరు సమర్థించగల భారతీయ ప్రమాణాల జాబితాగా మార్చండి — ప్రతి ఒక్కటి అధికారిక మూలానికి అనుసంధానించబడి ఉంటుంది.",
+    newTender: "కొత్త టెండర్ విశ్లేషణ", browse: "ప్రమాణాలు చూడండి",
+    whatBuying: "మీరు ఏమి కొనుగోలు చేస్తున్నారు?", describe: "కొనుగోలు వివరించండి",
+    shortTitle: "సంక్షిప్త శీర్షిక", whatBuyingQ: "మీరు ఏమి కొనుగోలు చేస్తున్నారు?",
+    typeIt: "టైప్ చేయండి", uploadFile: "ఫైల్ అప్‌లోడ్ చేయండి", findStandards: "ప్రమాణాలను కనుగొనండి",
+    working: "పని జరుగుతోంది…", step1: "దశ 1 / 2", understood: "మేము ఇలా అర్థం చేసుకున్నాము",
+    showStandards: "ఇప్పుడు ప్రమాణాలు చూపండి", thatsWrong: "ఇది తప్పు — సవరించనివ్వండి",
+    tabResults: "దొరికిన ప్రమాణాలు", tabRead: "మేము చదివినది", tabGaps: "సరిచేయవలసినవి",
+    briefing: "సరళ భాషలో సారాంశం", decision: "మీ నిర్ణయం", approve: "ఆమోదించండి",
+    readAs: "ఈ భాషలో చదవబడింది", searchPlaceholder: "పేరుతో ప్రమాణాలను వెతకండి…",
+    startNew: "కొత్త విశ్లేషణ ప్రారంభించండి", verified: "ధృవీకరించబడింది",
+    checking: "తనిఖీ అవసరం", example: "ఉదాహరణ మాత్రమే",
+  },
+};
+
 const LANGUAGE_NAME: Record<string, string> = { en: "English", hi: "Hindi", te: "Telugu" };
 
 function confidenceWord(level: string): string {
@@ -426,6 +498,20 @@ export default function Home() {
   const [credentials, setCredentials] = useState({ email: "officer@manaksetu.gov.in", password: "ManakSetu@2026" });
 
   const [view, setView] = useState<View>("overview");
+  // Interface language. Remembered per browser; the tender itself is still read
+  // in whatever language it was actually written in.
+  const [uiLang, setUiLang] = useState<UiLang>("en");
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("manaksetu_ui_lang") as UiLang | null;
+      if (saved && UI_LANGS.some(l => l.code === saved)) setUiLang(saved);
+    } catch { /* private window: English is a fine default */ }
+  }, []);
+  const t = (key: string) => T[uiLang][key] ?? T.en[key] ?? key;
+  const chooseLang = (code: UiLang) => {
+    setUiLang(code);
+    try { window.localStorage.setItem("manaksetu_ui_lang", code); } catch { /* ignore */ }
+  };
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState("");
 
@@ -636,12 +722,12 @@ export default function Home() {
   const highlightTerms = Array.from(new Set(recs.flatMap(r => r.matched_requirements)));
 
   const nav: Array<{ id: View; label: string; icon: React.ElementType; show: boolean; count?: number }> = [
-    { id: "overview", label: "Overview", icon: LayoutDashboard, show: true },
-    { id: "analyse", label: "Analyse a tender", icon: FileSearch, show: true, count: recs.length || undefined },
-    { id: "network", label: "How they connect", icon: Share2, show: true },
-    { id: "standards", label: "Standards list", icon: BookOpenCheck, show: true },
-    { id: "reports", label: "Download report", icon: FileCheck2, show: can(PERMISSIONS.reportExport) },
-    { id: "audit", label: "History", icon: History, show: can(PERMISSIONS.auditRead) },
+    { id: "overview", label: t("overview"), icon: LayoutDashboard, show: true },
+    { id: "analyse", label: t("analyse"), icon: FileSearch, show: true, count: recs.length || undefined },
+    { id: "network", label: t("network"), icon: Share2, show: true },
+    { id: "standards", label: t("standards"), icon: BookOpenCheck, show: true },
+    { id: "reports", label: t("reports"), icon: FileCheck2, show: can(PERMISSIONS.reportExport) },
+    { id: "audit", label: t("history"), icon: History, show: can(PERMISSIONS.auditRead) },
   ];
 
   return (
@@ -681,7 +767,7 @@ export default function Home() {
               } catch { setUser(null); }
             }}
           >
-            <LogOut size={14} /> {user.role === "supplier" ? "Switch to officer" : "Switch to supplier"}
+            <LogOut size={14} /> {user.role === "supplier" ? t("signOutSupplier") : t("signOutOfficer")}
           </button>
         </div>
       </aside>
@@ -694,14 +780,28 @@ export default function Home() {
           <div className="searchbox">
             <Search size={15} />
             <input
-              placeholder="Search standards by name…"
+              placeholder={t("searchPlaceholder")}
               value={standardsQuery}
               onChange={e => { setStandardsQuery(e.target.value); if (view !== "standards") setView("standards"); }}
             />
           </div>
-          <span className="ml-auto hidden text-[11px] text-[var(--faint)] sm:block">
+          <span className="ml-auto hidden text-[11px] text-[var(--faint)] lg:block">
             {verifiedCount} verified · {totalCount} records
           </span>
+          <div className="langbar" role="group" aria-label="Interface language">
+            <Globe2 size={14} className="text-[var(--faint)]" />
+            {UI_LANGS.map(l => (
+              <button
+                key={l.code}
+                className={uiLang === l.code ? "active" : ""}
+                onClick={() => chooseLang(l.code)}
+                title={l.native}
+                aria-pressed={uiLang === l.code}
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
         </header>
 
         <div className="page page-wide">
@@ -709,14 +809,14 @@ export default function Home() {
           {view === "overview" && (
             <>
               <p className="eyebrow">Overview</p>
-              <h1 className="display mt-3">Procurement decisions,<br />grounded in evidence.</h1>
-              <p className="lede">Turn a tender into a list of Indian Standards you can defend — each one traced back to an official source.</p>
+              <h1 className="display mt-3">{t("heroTitle")}</h1>
+              <p className="lede">{t("heroLede")}</p>
 
               <div className="mt-7 flex flex-wrap gap-9">
                 {can(PERMISSIONS.tenderCreate) && (
-                  <button className="btn btn-primary" onClick={startNewAnalysis}><FileSearch size={16} /> Analyse a new tender</button>
+                  <button className="btn btn-primary" onClick={startNewAnalysis}><FileSearch size={16} /> {t("newTender")}</button>
                 )}
-                <button className="btn btn-ghost" onClick={() => setView("standards")}><BookOpenCheck size={16} /> Browse standards</button>
+                <button className="btn btn-ghost" onClick={() => setView("standards")}><BookOpenCheck size={16} /> {t("browse")}</button>
               </div>
 
               <div className="grid-3 mt-8">
@@ -768,11 +868,11 @@ export default function Home() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="eyebrow">Analyse a tender</p>
-                  <h1 className="display mt-3">{analysis ? analysis.tender.title : "What are you buying?"}</h1>
+                  <h1 className="display mt-3">{analysis ? analysis.tender.title : t("whatBuying")}</h1>
                   {analysis && <p className="lede">Reference {analysis.tender.reference} · {new Date(analysis.tender.created_at).toLocaleString()}</p>}
                 </div>
                 {analysis && can(PERMISSIONS.tenderCreate) && (
-                  <button className="btn btn-primary" onClick={startNewAnalysis}>Start a new analysis</button>
+                  <button className="btn btn-primary" onClick={startNewAnalysis}>{t("startNew")}</button>
                 )}
               </div>
 
@@ -782,12 +882,12 @@ export default function Home() {
                 <div className="min-w-0">
                   {can(PERMISSIONS.tenderCreate) && (
                     <div className="card card-pad mb-5">
-                      <h3 className="section-head">Describe the purchase</h3>
+                      <h3 className="section-head">{t("describe")}</h3>
                       <p className="section-sub">A sentence or two is enough. Or upload the tender document.</p>
 
                       <div className="mt-4 flex gap-9">
-                        <button className={`btn btn-sm ${mode === "text" ? "btn-dark" : "btn-ghost"}`} onClick={() => setMode("text")}>Type it</button>
-                        <button className={`btn btn-sm ${mode === "file" ? "btn-dark" : "btn-ghost"}`} onClick={() => setMode("file")}>Upload a file</button>
+                        <button className={`btn btn-sm ${mode === "text" ? "btn-dark" : "btn-ghost"}`} onClick={() => setMode("text")}>{t("typeIt")}</button>
+                        <button className={`btn btn-sm ${mode === "file" ? "btn-dark" : "btn-ghost"}`} onClick={() => setMode("file")}>{t("uploadFile")}</button>
                       </div>
 
                       <form className="mt-4" onSubmit={runAnalysis}>
@@ -809,7 +909,7 @@ export default function Home() {
                         )}
                         {formError && <p className="mt-3 text-[12px] text-[var(--red)]">{formError}</p>}
                         <button className="btn btn-primary mt-4 w-full" type="submit" disabled={submitting || (mode === "file" && !file)}>
-                          {submitting ? <><LoaderCircle className="spin" size={15} /> Working…</> : <>Find the standards <ArrowRight size={15} /></>}
+                          {submitting ? <><LoaderCircle className="spin" size={15} /> {t("working")}</> : <>{t("findStandards")} <ArrowRight size={15} /></>}
                         </button>
                       </form>
                     </div>
@@ -818,12 +918,12 @@ export default function Home() {
                   {/* Step one: what we understood, before what we found. */}
                   {analysis && stage === "review" && (
                     <div className="card card-pad">
-                      <p className="eyebrow">Step 1 of 2</p>
-                      <h3 className="section-head mt-2">Here is what we understood</h3>
+                      <p className="eyebrow">{t("step1")}</p>
+                      <h3 className="section-head mt-2">{t("understood")}</h3>
                       <p className="section-sub">Check this before looking at the standards. If we have read your tender wrongly, the results will be wrong too.</p>
 
                       <div className="read-as">
-                        <span><Globe2 size={14} /> Read as <strong>{LANGUAGE_NAME[analysis.tender.language] ?? analysis.tender.language.toUpperCase()}</strong></span>
+                        <span><Globe2 size={14} /> {t("readAs")} <strong>{LANGUAGE_NAME[analysis.tender.language] ?? analysis.tender.language.toUpperCase()}</strong></span>
                         <span><FileText size={14} /> {analysis.tender.filename ? "Uploaded document" : "Typed description"}</span>
                         {analysis.tender.source_text && <span><Search size={14} /> {analysis.tender.source_text.length.toLocaleString()} characters read</span>}
                       </div>
@@ -863,11 +963,9 @@ export default function Home() {
 
                       <div className="mt-6 flex flex-wrap gap-9">
                         <button className="btn btn-primary" onClick={() => setStage("results")}>
-                          Now show me the standards <ArrowRight size={15} />
+                          {t("showStandards")} <ArrowRight size={15} />
                         </button>
-                        <button className="btn btn-ghost" onClick={() => { setStage("results"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
-                          That is wrong — let me edit
-                        </button>
+                        <button className="btn btn-ghost" onClick={() => { setStage("results"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>{t("thatsWrong")}</button>
                       </div>
                     </div>
                   )}
@@ -875,9 +973,9 @@ export default function Home() {
                   {analysis && stage === "results" && (
                     <div className="card">
                       <div className="tabs">
-                        <button className={tab === "results" ? "active" : ""} onClick={() => setTab("results")}>Standards found<span className="pill">{recs.length}</span></button>
-                        <button className={tab === "details" ? "active" : ""} onClick={() => setTab("details")}>What we read<span className="pill">{details.length}</span></button>
-                        <button className={tab === "gaps" ? "active" : ""} onClick={() => setTab("gaps")}>Things to fix<span className="pill">{gaps.length}</span></button>
+                        <button className={tab === "results" ? "active" : ""} onClick={() => setTab("results")}>{t("tabResults")}<span className="pill">{recs.length}</span></button>
+                        <button className={tab === "details" ? "active" : ""} onClick={() => setTab("details")}>{t("tabRead")}<span className="pill">{details.length}</span></button>
+                        <button className={tab === "gaps" ? "active" : ""} onClick={() => setTab("gaps")}>{t("tabGaps")}<span className="pill">{gaps.length}</span></button>
                       </div>
 
                       <div className="card-pad">
@@ -1007,7 +1105,7 @@ export default function Home() {
 
                   {analysis && (
                     <div className="card card-pad">
-                      <h3 className="section-head">Plain-English summary</h3>
+                      <h3 className="section-head">{t("briefing")}</h3>
                       <p className="section-sub">Written for you from the results on the left.</p>
                       {analysis.officer_summary ? (
                         <>
@@ -1032,13 +1130,13 @@ export default function Home() {
 
                   {analysis && can(PERMISSIONS.reviewSubmit) && (
                     <div className="card card-pad">
-                      <h3 className="section-head">Your decision</h3>
+                      <h3 className="section-head">{t("decision")}</h3>
                       <p className="section-sub">Nothing is final until you approve it.</p>
                       <textarea className="textarea mt-4" style={{ minHeight: 84 }} placeholder="Add a note (optional)" value={reviewNote} onChange={e => setReviewNote(e.target.value)} />
                       {approved ? (
                         <div className="notice green mt-3"><CheckCircle2 size={16} className="mt-0.5 shrink-0" /><span>Approved and recorded in the history.</span></div>
                       ) : (
-                        <button className="btn btn-primary mt-3 w-full" onClick={approve}><CheckCircle2 size={16} /> Approve</button>
+                        <button className="btn btn-primary mt-3 w-full" onClick={approve}><CheckCircle2 size={16} /> {t("approve")}</button>
                       )}
                     </div>
                   )}
