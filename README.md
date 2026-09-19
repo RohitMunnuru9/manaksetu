@@ -140,6 +140,9 @@ prompt.txt              Complete product source of truth
 
 ## Run the demonstration
 
+**Full setup instructions, including prerequisites and troubleshooting, are in
+[RUNNING.md](RUNNING.md).** The short version:
+
 One command, from the repository root:
 
 ```powershell
@@ -259,8 +262,8 @@ docker compose --profile graph --profile ai up --build
 Frontend:
 
 ```bash
-pnpm install
-pnpm dev
+npm install
+npm run dev
 ```
 
 Backend on Windows PowerShell:
@@ -276,8 +279,12 @@ The backend defaults to a local SQLite file when `DATABASE_URL` is absent. Copy 
 
 ## Verify
 
+Building into a separate directory keeps a running dev server intact; building
+over `.next` while `next dev` is serving from it corrupts the cache and the
+site starts returning 500s.
+
 ```bash
-pnpm build
+MANAKSETU_DIST_DIR=.next-verify npm run build
 backend/.venv/Scripts/python.exe -m pytest backend
 ```
 
