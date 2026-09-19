@@ -470,15 +470,6 @@ def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
 @app.post("/api/v1/tenders/analyse", response_model=AnalysisResponse, tags=["tenders"])
 def analyse_text(payload: TenderCreate, db: Session = Depends(get_db), user: User = Depends(require_permission(Permission.TENDER_CREATE))) -> AnalysisResponse:
     tender = Tender(reference=f"MS-{datetime.now(timezone.utc):%Y}-{uuid4().hex[:6].upper()}", title=payload.title, source_text=payload.description, language=payload.language, created_by_id=user.id)
-    if not extraction.text.strip():
-        destination.unlink(missing_ok=True)
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                "No readable text could be taken from this document. "
-                + (extraction.notes[0] if extraction.notes else "")
-            ).strip(),
-        )
     db.add(tender)
     db.flush()
     return run_analysis(db, tender, user.id)
@@ -554,6 +545,18 @@ async def upload_and_analyse(file: UploadFile = File(...), db: Session = Depends
         read_confidence=extraction.ocr_confidence,
         read_notes=extraction.notes or [],
     )
+    if not extraction.text.strip():
+        # Nothing legible came back, so there is nothing to search on. Say so
+        # rather than running retrieval over an empty string and presenting
+        # whatever the catalogue happens to be nearest to.
+        destination.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "No readable text could be taken from this document. "
+                + (extraction.notes[0] if extraction.notes else "")
+            ).strip(),
+        )
     db.add(tender)
     db.flush()
     db.add(AuditLog(actor_id=user.id, action="document.extracted", entity_type="tender", entity_id=str(tender.id), details={"method": extraction.method, "page_count": extraction.page_count, "tables_found": extraction.tables_found, "requires_ocr": extraction.requires_ocr}))
