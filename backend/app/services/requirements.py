@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 
-from .embeddings import cosine_similarity, semantic_index
+from .subject import extract_subject
 
 
 @dataclass
@@ -13,95 +13,10 @@ class RequirementValue:
     needs_confirmation: bool = True
 
 
-# Literal terms, checked first. Indic entries let a tender in any of nine
-# Indian scripts resolve its product without a translation model. These are
-# the common procurement spellings and should be reviewed by a native speaker
-# before the catalogue is used in production.
-PRODUCT_TERMS = {
-    "safety helmet": (
-        "safety helmet", "industrial helmet", "protective helmet", "helmets", "helmet",
-        "head protection", "protective headgear", "headgear", "hard hat",
-        "हेलमेट", "सुरक्षा हेलमेट", "हेल्मेट",
-        "హెల్మెట్", "భద్రతా హెల్మెట్",
-        "தலைக்கவசம்", "பாதுகாப்பு தலைக்கவசம்", "ஹெல்மெட்",
-        "হেলমেট", "নিরাপত্তা হেলমেট",
-        "હેલ્મેટ", "સેફ્ટી હેલ્મેટ",
-        "ਹੈਲਮੇਟ", "ਸੁਰੱਖਿਆ ਹੈਲਮੇਟ",
-        "ಹೆಲ್ಮೆಟ್", "ಸುರಕ್ಷತಾ ಹೆಲ್ಮೆಟ್",
-        "ഹെൽമെറ്റ്", "സുരക്ഷാ ഹെൽമെറ്റ്",
-    ),
-    "electric cable": (
-        "electric cable", "electrical cable", "power cable", "wiring", "cable",
-        "केबल", "विद्युत केबल", "कैबल",
-        "కేబుల్", "విద్యుత్ కేబుల్",
-        "கேபிள்", "மின் கேபிள்", "வயரிங்",
-        "কেবল", "বৈদ্যুতিক তার",
-        "કેબલ", "વાયરિંગ",
-        "ਕੇਬਲ", "ਬਿਜਲੀ ਦੀ ਤਾਰ",
-        "ಕೇಬಲ್", "ವಿದ್ಯುತ್ ಕೇಬಲ್",
-        "കേബിൾ", "വൈദ്യുത കേബിൾ",
-    ),
-    "drinking water": (
-        "packaged drinking water", "drinking water", "bottled water",
-        "पेयजल", "पीने का पानी", "बोतलबंद पानी",
-        "తాగునీరు", "తాగు నీరు",
-        "குடிநீர்", "பாட்டில் நீர்",
-        "পানীয় জল", "খাবার জল",
-        "પીવાનું પાણી",
-        "ਪੀਣ ਵਾਲਾ ਪਾਣੀ",
-        "ಕುಡಿಯುವ ನೀರು",
-        "കുടിവെള്ളം",
-    ),
-    "safety footwear": (
-        "safety footwear", "safety shoes", "protective footwear", "safety boots",
-        "सुरक्षा जूते", "सुरक्षा बूट",
-        "భద్రతా బూట్లు", "భద్రతా చెప్పులు",
-        "பாதுகாப்பு காலணி", "பாதுகாப்பு பூட்ஸ்",
-        "নিরাপত্তা জুতা",
-        "સેફ્ટી શૂઝ", "સુરક્ષા બૂટ",
-        "ਸੇਫਟੀ ਜੁੱਤੇ",
-        "ಸುರಕ್ಷತಾ ಬೂಟು", "ಸುರಕ್ಷತಾ ಶೂ",
-        "സുരക്ഷാ ഷൂ", "സുരക്ഷാ ബൂട്ട്",
-    ),
-    "cement": (
-        "portland cement", "cement", "सीमेंट", "सिमेंट", "సిమెంట్", "சிமெண்ட்",
-        "সিমেন্ট", "સિમેન્ટ", "ਸੀਮਿੰਟ", "ಸಿಮೆಂಟ್", "സിമന്റ്",
-    ),
-    "office furniture": (
-        "office chair", "office seating", "office furniture",
-        "कार्यालय फर्नीचर", "कुर्सी",
-        "కార్యాలయ ఫర్నిచర్", "కుర్చీ",
-        "அலுவலக தளவாடம்", "நாற்காலி", "மேசை",
-        "আসবাবপত্র", "চেয়ার",
-        "ઓફિસ ફર્નિચર", "ખુરશી",
-        "ਦਫ਼ਤਰ ਫਰਨੀਚਰ", "ਕੁਰਸੀ",
-        "ಕಚೇರಿ ಪೀಠೋಪಕರಣ", "ಕುರ್ಚಿ",
-        "ഓഫീസ് ഫർണിച്ചർ", "കസേര",
-    ),
-}
-
-# Glosses used only for semantic product classification, when no literal term
-# matched. Written as descriptions rather than bare labels so the multilingual
-# embedding has enough context to discriminate between categories.
-PRODUCT_GLOSSES = {
-    "safety helmet": "industrial safety helmet worn for head protection by construction and factory workers",
-    "electric cable": "insulated electrical power cable and building wiring conductors",
-    "drinking water": "packaged or bottled drinking water for human consumption",
-    "safety footwear": "occupational safety boots and shoes with protective toecap for workers",
-    "cement": "ordinary portland cement and hydraulic binder for structural concrete",
-    "office furniture": "office chairs, desks and seating furniture for workplaces",
-}
-
-# Below this similarity the tender is treated as having no identifiable product,
-# which is reported honestly rather than guessed at.
-MIN_PRODUCT_SIMILARITY = 0.45
-
-# Beyond this a document is long enough that one passing mention of a product
-# means little on its own.
+# Beyond this a document is long enough that its opening matters far more than
+# its bulk: a tender's subject is stated at the top, while its general
+# conditions repeat unrelated words for pages.
 LONG_TEXT_CHARS = 4_000
-
-_gloss_vectors: dict[str, list[float]] | None = None
-
 
 def detect_language(text: str) -> str:
     counts = {
@@ -118,12 +33,12 @@ def detect_language(text: str) -> str:
     return language if count >= 3 else "en"
 
 
-def extract_requirements(text: str) -> list[RequirementValue]:
+def extract_requirements(text: str, vocabulary=None) -> list[RequirementValue]:
     compact = " ".join(text.split())
     lowered = compact.lower()
     values: list[RequirementValue] = []
 
-    product = _identify_product(compact, lowered)
+    product = _identify_product(compact, vocabulary)
     if product:
         values.append(product)
 
@@ -167,69 +82,29 @@ def extract_requirements(text: str) -> list[RequirementValue]:
     return values
 
 
-def _identify_product(compact: str, lowered: str) -> RequirementValue | None:
-    """Literal term match first, then semantic classification as a fallback.
+def _identify_product(compact: str, vocabulary=None) -> RequirementValue | None:
+    """What the tender is for, taken from the tender.
 
-    The literal path is deterministic and is reported as confirmed. The semantic
-    path infers the product from meaning -- which is what makes a Hindi or
-    Telugu tender resolve without a translation model -- and is always flagged
-    for officer confirmation, because it is an inference rather than a quotation.
+    There is no list of known products here, and deliberately so. The previous
+    implementation chose between six hardcoded categories by counting mentions,
+    which meant a notice for blood bank incubators was reported as "electric
+    cable": the phrase appeared forty-six times in the general conditions while
+    the actual subject was stated once, at the top, where it always is.
+
+    The subject line is the answer. Retrieval then searches the whole catalogue
+    for it, so the range of products the system can handle is the range the
+    catalogue covers -- not a list someone remembered to write down.
     """
-    # Whichever product the document talks about most, not whichever happens to
-    # be listed first. Returning on the first match meant a 233-page concrete
-    # specification that mentions helmets twice and cement fifty-three times was
-    # read as a helmet tender, and that single wrong word then steered the whole
-    # search.
-    tally: list[tuple[int, str, str]] = []
-    for product, terms in PRODUCT_TERMS.items():
-        mentions = sum(lowered.count(term) for term in terms)
-        if mentions:
-            first = next(term for term in terms if term in lowered)
-            tally.append((mentions, product, first))
-    if tally:
-        mentions, product, matched = max(tally, key=lambda row: row[0])
-        # A single passing mention in a long document is a weak signal, so it is
-        # offered for confirmation rather than asserted.
-        confident = mentions > 1 or len(lowered) < LONG_TEXT_CHARS
-        return RequirementValue("product", product, 0.9 if confident else 0.6, _excerpt(compact, matched), not confident)
-
-    label, similarity = _classify_product(compact)
-    if label is None:
+    subject = extract_subject(compact, vocabulary)
+    if not subject.found:
         return None
     return RequirementValue(
         requirement_type="product",
-        value=label,
-        confidence=round(similarity, 2),
-        source_excerpt=compact[:130],
-        needs_confirmation=True,
+        value=subject.text,
+        confidence=0.9 if subject.source == "stated" else 0.6,
+        source_excerpt=subject.excerpt or compact[:160],
+        needs_confirmation=subject.needs_confirmation,
     )
-
-
-def _classify_product(text: str) -> tuple[str | None, float]:
-    """Nearest product gloss by embedding similarity, or (None, 0.0)."""
-    global _gloss_vectors
-    if not text.strip() or not semantic_index.available:
-        return None, 0.0
-
-    if _gloss_vectors is None:
-        labels = list(PRODUCT_GLOSSES)
-        vectors = semantic_index.embed([PRODUCT_GLOSSES[label] for label in labels])
-        if vectors is None:
-            return None, 0.0
-        _gloss_vectors = dict(zip(labels, vectors))
-
-    query = semantic_index.embed_one(text)
-    if query is None:
-        return None, 0.0
-
-    best_label, best_score = None, 0.0
-    for label, vector in _gloss_vectors.items():
-        score = cosine_similarity(query, vector)
-        if score > best_score:
-            best_label, best_score = label, score
-    if best_score < MIN_PRODUCT_SIMILARITY:
-        return None, 0.0
-    return best_label, best_score
 
 
 def _excerpt(text: str, term: str, radius: int = 65) -> str:

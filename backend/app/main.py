@@ -22,7 +22,7 @@ from .services.summary import document_glance
 from .services.traceability import evidence_spans
 from .services.scorecard import build_scorecard
 from .services.drafting import build_clauses, polish_clauses
-from .services.recommendation import apply_graph_context, confidence_level, evaluate_qco, find_candidates, missing_requirements, nearest_records, retrieval_mode
+from .services.recommendation import apply_graph_context, catalogue_vocabulary, confidence_level, evaluate_qco, find_candidates, missing_requirements, nearest_records, retrieval_mode
 from .services.embeddings import semantic_index
 from .services.explanation import explain_analysis, warm_model
 from .services.versions import describe_currency, outdated_citations
@@ -285,7 +285,7 @@ def _currency_fields(standard: Standard) -> dict:
 
 def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> AnalysisResponse:
     tender.language = detect_language(tender.source_text)
-    extracted = extract_requirements(tender.source_text)
+    extracted = extract_requirements(tender.source_text, catalogue_vocabulary(db))
     for item in extracted:
         db.add(TenderRequirement(
             tender_id=tender.id,
