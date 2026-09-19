@@ -1,0 +1,10 @@
+# Only the Next.js dashboard is deployed to Vercel. The analysis service runs
+# elsewhere: it needs a resident 4.7 GB language model, a 225 MB embedding
+# model and a persistent database, none of which fit a serverless function.
+backend/
+docs/
+*.ps1
+*.md
+!README.md
+.pytest-tmp/
+__pycache__/

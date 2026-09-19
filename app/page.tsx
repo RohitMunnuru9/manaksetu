@@ -1002,6 +1002,10 @@ function DocumentPreview({ text, terms }: { text: string; terms: string[] }) {
 
 export default function Home() {
   const [user, setUser] = useState<UserProfile | null>(null);
+  // Distinguishes "the backend refused us" from "the backend is not there at
+  // all". A cloud-hosted dashboard pointed at a stopped API must say so
+  // plainly rather than showing a sign-in form that can never succeed.
+  const [apiReachable, setApiReachable] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
   const [loginError, setLoginError] = useState("");
@@ -1068,8 +1072,13 @@ export default function Home() {
       .then(setUser)
       .catch(() =>
         loginUser(DEMO_OFFICER.email, DEMO_OFFICER.password)
-          .then(setUser)
-          .catch(() => setUser(null)),
+          .then(profile => { setUser(profile); setApiReachable(true); })
+          .catch(error => {
+            setUser(null);
+            // A TypeError from fetch means the request never reached a server;
+            // an HTTP error means it did and said no.
+            setApiReachable(!(error instanceof TypeError));
+          }),
       )
       .finally(() => setAuthLoading(false));
   }, []);
@@ -1206,6 +1215,36 @@ export default function Home() {
         <div className="grid justify-items-center gap-3 text-[var(--muted)]">
           <LoaderCircle className="spin" size={22} />
           <p className="text-xs">Opening your workspace…</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!user && !apiReachable) {
+    return (
+      <main className="offline">
+        <div className="offline-card">
+          <span className="offline-ico"><PlugZap size={26} /></span>
+          <h2>The analysis service is not running</h2>
+          <p>
+            This is the ManakSetu dashboard. Everything it shows comes from an
+            API that does the retrieval, runs the local AI and holds the
+            catalogue of {"2,914"} Indian Standards — and that service cannot be
+            reached right now.
+          </p>
+          <p className="offline-why">
+            The AI runs entirely on local hardware by design, so the analysis
+            service is not hosted in the cloud with this page. Start it, and
+            this dashboard connects on reload.
+          </p>
+          <code className="offline-code">powershell -ExecutionPolicy Bypass -File start-demo.ps1</code>
+          <button className="btn btn-primary mt-5" onClick={() => window.location.reload()}>
+            <LoaderCircle size={15} /> Try again
+          </button>
+          <p className="offline-foot">
+            Expecting a different address? The dashboard talks to{" "}
+            <strong>{process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"}</strong>
+          </p>
         </div>
       </main>
     );

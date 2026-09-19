@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     upload_dir: Path = Path("./data/uploads")
     max_upload_mb: int = 20
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    # Vercel gives every deployment its own subdomain, so the exact host is
+    # not known ahead of time. This matches the project's own deployments
+    # only -- it is a suffix rule, not a wildcard onto the whole internet.
+    cors_origin_regex: str = r"https://[a-z0-9-]+\.vercel\.app"
     demo_user_email: str = "officer@manaksetu.gov.in"
     demo_user_password: str = "ManakSetu@2026"
     # Demonstration accounts are seeded only when this is true. It defaults to
