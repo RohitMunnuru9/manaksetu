@@ -1,9 +1,9 @@
 "use client";
 
 import {
-  ArrowRight, BarChart3, BookOpenCheck, Check, CheckCircle2, ChevronRight, Clock3, FileCheck2,
-  FileSearch, FileText, History, LayoutDashboard, Link2, LoaderCircle, LockKeyhole,
-  Globe2, LogOut, Menu, Search, Share2, ShieldCheck, Sparkles, TriangleAlert, UploadCloud, X,
+  Armchair, ArrowRight, BarChart3, BookOpenCheck, Boxes, Building2, Check, CheckCircle2, ChevronRight, Clock3, Droplets, FileCheck2,
+  FileSearch, FileText, HardHat, History, LayoutDashboard, Link2, LoaderCircle, LockKeyhole,
+  Globe2, LogOut, PlugZap, Search, Share2, ShieldCheck, Sparkles, TriangleAlert, UploadCloud, X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -77,6 +77,25 @@ function plainRole(type: string): string {
 
 // Demonstration accounts. Seeded only where SEED_DEMO_USERS is true, and the
 // API refuses every request without a token regardless.
+// One-tap examples under the hero search: four scripts, four products, so the
+// multilingual pipeline demonstrates itself.
+const TRY_EXAMPLES = [
+  { chip: "Safety helmets", text: "Purchase of 500 industrial safety helmets for construction workers with impact testing and ISI marking." },
+  { chip: "सीमेंट खरीद", text: "निर्माण कार्य के लिए 500 बैग पोर्टलैंड सीमेंट की खरीद, गुणवत्ता परीक्षण प्रमाणपत्र आवश्यक।" },
+  { chip: "తాగునీరు", text: "కార్యాలయానికి ప్యాకేజ్డ్ తాగునీరు సరఫరా, నాణ్యత ధృవీకరణ అవసరం." },
+  { chip: "பாதுகாப்பு காலணி", text: "தொழிற்சாலை தொழிலாளர்களுக்கு 300 ஜோடி பாதுகாப்பு காலணி கொள்முதல், சோதனை சான்றிதழ் தேவை." },
+];
+
+// The category cards: a coloured door into the same pipeline.
+const CAT_CARDS: Array<{ cls: string; icon: React.ElementType; titleKey: string; subKey: string; example?: string }> = [
+  { cls: "cat-coral", icon: HardHat, titleKey: "cat1", subKey: "cat1s", example: "Purchase of 500 industrial safety helmets for construction workers with impact testing and ISI marking." },
+  { cls: "cat-yellow", icon: Building2, titleKey: "cat2", subKey: "cat2s", example: "Supply of ordinary portland cement for construction works, 500 bags, with laboratory test certificates." },
+  { cls: "cat-violet", icon: PlugZap, titleKey: "cat3", subKey: "cat3s", example: "Procurement of PVC insulated copper cables 1.5 sq mm for office wiring, ISI marked, with acceptance testing." },
+  { cls: "cat-teal", icon: Droplets, titleKey: "cat4", subKey: "cat4s", example: "Supply of packaged drinking water for government offices, quality certification required." },
+  { cls: "cat-blue", icon: Armchair, titleKey: "cat5", subKey: "cat5s", example: "Purchase of classroom desks and benches for a government school, 200 sets, with durability testing." },
+  { cls: "cat-pink", icon: Boxes, titleKey: "cat6", subKey: "cat6s" },
+];
+
 const DEMO_OFFICER = { email: "officer@manaksetu.gov.in", password: "ManakSetu@2026" };
 const DEMO_SUPPLIER = { email: "supplier@example.in", password: "ManakSetu@2026" };
 
@@ -138,6 +157,28 @@ const T: Record<UiLang, Record<string, string>> = {
     draftCopy: "Copy", draftCopied: "Copied",
     draftFootnote: "Every standard number in this draft came from retrieval. A model rewrite that invents one is discarded automatically.",
     whereFrom: "Where this comes from in your tender",
+    handWelcome: "Namaste! Let's get you the right standards.",
+    heroQ1: "What are you", heroQ2: "buying today?",
+    heroSubNew: "Tell us in your own words — English, हिन्दी, తెలుగు or தமிழ். We find the Indian Standards that apply, with the proof behind every single one.",
+    heroPlaceholder: "Describe your purchase in your own words…",
+    tryWord: "Try:",
+    cat1: "Safety & PPE", cat1s: "Helmets, boots, gloves.",
+    cat2: "Construction", cat2s: "Cement, steel, concrete.",
+    cat3: "Electrical", cat3s: "Cables, wiring, power.",
+    cat4: "Water & Food", cat4s: "Drinking water, packaging.",
+    cat5: "Office & School", cat5s: "Desks, benches, boards.",
+    cat6: "Everything else", cat6s: "Browse 2,900+ standards.",
+    journeyTitle: "Your analysis journey", journeyEmpty: "Nothing running yet — type what you are buying above and watch this light up.",
+    openIt: "Open it",
+    j1: "Tender read", j2: "Details pulled out", j3: "Standards searched", j4: "Your decision",
+    jDone: "Done", jActive: "In progress", jWait: "Waiting",
+    howTitle: "How it works", howHand: "easy as 1·2·3·4",
+    flow1t: "Describe the purchase", flow1p: "Type a few lines or upload the tender — scanned pages are read automatically.",
+    flow2t: "We understand it", flow2p: "Product, quantity, testing, safety — pulled out and shown to you for confirmation.",
+    flow3t: "We search by meaning", flow3p: "‘Head protection’ finds helmet standards even without the word ‘helmet’ — in four languages.",
+    flow4t: "You approve", flow4p: "Every result shows its proof. Nothing is final until you say so.",
+    footLang: "4 languages", footLocal: "100% local AI — nothing leaves this machine",
+    footZero: "Zero invented standard numbers", footAudit: "Every action audited",
   },
   hi: {
     overview: "अवलोकन", analyse: "निविदा विश्लेषण", network: "आपसी संबंध",
@@ -180,6 +221,28 @@ const T: Record<UiLang, Record<string, string>> = {
     draftCopy: "कॉपी करें", draftCopied: "कॉपी हुआ",
     draftFootnote: "इस मसौदे का हर मानक क्रमांक पुनर्प्राप्ति से आया है। गढ़ा गया क्रमांक स्वतः हटा दिया जाता है।",
     whereFrom: "आपकी निविदा में यह कहाँ से आया",
+    handWelcome: "नमस्ते! आपके लिए सही मानक ढूँढते हैं।",
+    heroQ1: "आज आप", heroQ2: "क्या खरीद रहे हैं?",
+    heroSubNew: "अपने शब्दों में बताइए — English, हिन्दी, తెలుగు या தமிழ். हम लागू भारतीय मानक ढूँढते हैं, हर एक के पीछे प्रमाण के साथ।",
+    heroPlaceholder: "अपनी खरीद अपने शब्दों में लिखिए…",
+    tryWord: "आज़माएँ:",
+    cat1: "सुरक्षा और PPE", cat1s: "हेलमेट, जूते, दस्ताने।",
+    cat2: "निर्माण", cat2s: "सीमेंट, स्टील, कंक्रीट।",
+    cat3: "विद्युत", cat3s: "केबल, वायरिंग, बिजली।",
+    cat4: "जल और खाद्य", cat4s: "पेयजल, पैकेजिंग।",
+    cat5: "कार्यालय व विद्यालय", cat5s: "डेस्क, बेंच, बोर्ड।",
+    cat6: "बाकी सब कुछ", cat6s: "2,900+ मानक देखें।",
+    journeyTitle: "आपकी विश्लेषण यात्रा", journeyEmpty: "अभी कुछ नहीं चल रहा — ऊपर लिखिए कि आप क्या खरीद रहे हैं, और इसे जगमगाते देखिए।",
+    openIt: "खोलें",
+    j1: "निविदा पढ़ी गई", j2: "विवरण निकाले गए", j3: "मानक खोजे गए", j4: "आपका निर्णय",
+    jDone: "पूर्ण", jActive: "जारी", jWait: "प्रतीक्षा में",
+    howTitle: "यह कैसे काम करता है", howHand: "1·2·3·4 जितना आसान",
+    flow1t: "खरीद का विवरण दें", flow1p: "कुछ पंक्तियाँ लिखें या निविदा अपलोड करें — स्कैन पन्ने अपने आप पढ़े जाते हैं।",
+    flow2t: "हम उसे समझते हैं", flow2p: "उत्पाद, मात्रा, परीक्षण, सुरक्षा — निकालकर पुष्टि के लिए आपको दिखाए जाते हैं।",
+    flow3t: "हम अर्थ से खोजते हैं", flow3p: "‘सिर की सुरक्षा’ से हेलमेट मानक मिल जाते हैं, ‘हेलमेट’ शब्द के बिना भी — चार भाषाओं में।",
+    flow4t: "आप स्वीकृति देते हैं", flow4p: "हर परिणाम अपना प्रमाण दिखाता है। आपकी हाँ के बिना कुछ भी अंतिम नहीं।",
+    footLang: "4 भाषाएँ", footLocal: "100% स्थानीय AI — कुछ भी इस मशीन से बाहर नहीं जाता",
+    footZero: "शून्य गढ़े गए मानक क्रमांक", footAudit: "हर कार्रवाई का अभिलेख",
   },
   te: {
     overview: "సమగ్ర వీక్షణ", analyse: "టెండర్ విశ్లేషణ", network: "పరస్పర సంబంధాలు",
@@ -222,6 +285,28 @@ const T: Record<UiLang, Record<string, string>> = {
     draftCopy: "కాపీ", draftCopied: "కాపీ అయింది",
     draftFootnote: "ఈ ముసాయిదాలోని ప్రతి ప్రమాణ సంఖ్య శోధన నుండే వచ్చింది. కల్పించిన సంఖ్యను స్వయంచాలకంగా తొలగిస్తారు.",
     whereFrom: "మీ టెండర్‌లో ఇది ఎక్కడి నుండి వచ్చింది",
+    handWelcome: "నమస్తే! మీకు సరైన ప్రమాణాలు వెతుకుదాం.",
+    heroQ1: "ఈరోజు మీరు", heroQ2: "ఏమి కొంటున్నారు?",
+    heroSubNew: "మీ మాటల్లోనే చెప్పండి — English, हिन्दी, తెలుగు లేదా தமிழ். వర్తించే భారతీయ ప్రమాణాలను, ప్రతి దాని వెనుక ఆధారంతో సహా వెతికిస్తాం.",
+    heroPlaceholder: "మీ కొనుగోలును మీ మాటల్లో రాయండి…",
+    tryWord: "ప్రయత్నించండి:",
+    cat1: "భద్రత & PPE", cat1s: "హెల్మెట్లు, బూట్లు, గ్లోవ్స్.",
+    cat2: "నిర్మాణం", cat2s: "సిమెంట్, స్టీల్, కాంక్రీట్.",
+    cat3: "విద్యుత్", cat3s: "కేబుల్స్, వైరింగ్, విద్యుత్.",
+    cat4: "నీరు & ఆహారం", cat4s: "తాగునీరు, ప్యాకేజింగ్.",
+    cat5: "కార్యాలయం & పాఠశాల", cat5s: "డెస్కులు, బెంచీలు, బోర్డులు.",
+    cat6: "మిగతావన్నీ", cat6s: "2,900+ ప్రమాణాలు చూడండి.",
+    journeyTitle: "మీ విశ్లేషణ ప్రయాణం", journeyEmpty: "ఇంకా ఏమీ నడవడం లేదు — పైన మీరు ఏమి కొంటున్నారో రాయండి, ఇది వెలగడం చూడండి.",
+    openIt: "తెరవండి",
+    j1: "టెండర్ చదవబడింది", j2: "వివరాలు తీయబడ్డాయి", j3: "ప్రమాణాలు వెతకబడ్డాయి", j4: "మీ నిర్ణయం",
+    jDone: "పూర్తి", jActive: "జరుగుతోంది", jWait: "వేచి ఉంది",
+    howTitle: "ఇది ఎలా పనిచేస్తుంది", howHand: "1·2·3·4 అంత సులభం",
+    flow1t: "కొనుగోలును వివరించండి", flow1p: "కొన్ని వాక్యాలు రాయండి లేదా టెండర్ అప్‌లోడ్ చేయండి — స్కాన్ పేజీలు వాటంతటవే చదవబడతాయి.",
+    flow2t: "మేము అర్థం చేసుకుంటాం", flow2p: "ఉత్పత్తి, పరిమాణం, పరీక్షలు, భద్రత — తీసి మీ నిర్ధారణ కోసం చూపిస్తాం.",
+    flow3t: "అర్థంతో వెతుకుతాం", flow3p: "‘తల రక్షణ’ అంటే ‘హెల్మెట్’ పదం లేకుండానే హెల్మెట్ ప్రమాణాలు దొరుకుతాయి — నాలుగు భాషల్లో.",
+    flow4t: "మీరు ఆమోదిస్తారు", flow4p: "ప్రతి ఫలితం తన ఆధారాన్ని చూపుతుంది. మీరు సరే అనే వరకు ఏదీ తుది కాదు.",
+    footLang: "4 భాషలు", footLocal: "100% స్థానిక AI — ఏదీ ఈ యంత్రం బయటకు వెళ్ళదు",
+    footZero: "సున్నా కల్పిత ప్రమాణ సంఖ్యలు", footAudit: "ప్రతి చర్యకు ఆడిట్",
   },
   ta: {
     overview: "மொத்தப் பார்வை", analyse: "டெண்டர் பகுப்பாய்வு", network: "தொடர்புகள்",
@@ -264,6 +349,28 @@ const T: Record<UiLang, Record<string, string>> = {
     draftCopy: "நகலெடு", draftCopied: "நகலானது",
     draftFootnote: "இந்த வரைவின் ஒவ்வொரு தரநிலை எண்ணும் தேடலில் இருந்தே வந்தது. கற்பனை எண் தானாக நீக்கப்படும்.",
     whereFrom: "உங்கள் டெண்டரில் இது எங்கிருந்து வந்தது",
+    handWelcome: "வணக்கம்! உங்களுக்கு சரியான தரநிலைகளைக் கண்டுபிடிப்போம்.",
+    heroQ1: "இன்று நீங்கள்", heroQ2: "என்ன வாங்குகிறீர்கள்?",
+    heroSubNew: "உங்கள் சொற்களிலேயே சொல்லுங்கள் — English, हिन्दी, తెలుగు அல்லது தமிழ். பொருந்தும் இந்தியத் தரநிலைகளை, ஒவ்வொன்றுக்கும் ஆதாரத்துடன் கண்டுபிடிக்கிறோம்.",
+    heroPlaceholder: "உங்கள் கொள்முதலை உங்கள் சொற்களில் எழுதுங்கள்…",
+    tryWord: "முயற்சி:",
+    cat1: "பாதுகாப்பு & PPE", cat1s: "தலைக்கவசம், பூட்ஸ், கையுறை.",
+    cat2: "கட்டுமானம்", cat2s: "சிமெண்ட், எஃகு, காங்கிரீட்.",
+    cat3: "மின்சாரம்", cat3s: "கேபிள், வயரிங், மின்சாரம்.",
+    cat4: "நீர் & உணவு", cat4s: "குடிநீர், பேக்கேஜிங்.",
+    cat5: "அலுவலகம் & பள்ளி", cat5s: "மேசை, பெஞ்ச், பலகை.",
+    cat6: "மற்ற அனைத்தும்", cat6s: "2,900+ தரநிலைகளைப் பார்.",
+    journeyTitle: "உங்கள் பகுப்பாய்வு பயணம்", journeyEmpty: "இன்னும் எதுவும் இல்லை — மேலே நீங்கள் என்ன வாங்குகிறீர்கள் என்று எழுதி, இது ஒளிர்வதைப் பாருங்கள்.",
+    openIt: "திற",
+    j1: "டெண்டர் படிக்கப்பட்டது", j2: "விவரங்கள் எடுக்கப்பட்டன", j3: "தரநிலைகள் தேடப்பட்டன", j4: "உங்கள் முடிவு",
+    jDone: "முடிந்தது", jActive: "நடக்கிறது", jWait: "காத்திருப்பு",
+    howTitle: "இது எப்படி வேலை செய்கிறது", howHand: "1·2·3·4 போல எளிது",
+    flow1t: "கொள்முதலை விவரியுங்கள்", flow1p: "சில வரிகள் எழுதுங்கள் அல்லது டெண்டரைப் பதிவேற்றுங்கள் — ஸ்கேன் பக்கங்கள் தானாகப் படிக்கப்படும்.",
+    flow2t: "நாங்கள் புரிந்துகொள்கிறோம்", flow2p: "பொருள், அளவு, சோதனை, பாதுகாப்பு — எடுத்து உங்கள் உறுதிப்படுத்தலுக்குக் காட்டப்படும்.",
+    flow3t: "பொருளால் தேடுகிறோம்", flow3p: "‘தலை பாதுகாப்பு’ என்றாலே ‘தலைக்கவசம்’ என்ற சொல் இல்லாமலும் தரநிலைகள் கிடைக்கும் — நான்கு மொழிகளில்.",
+    flow4t: "நீங்கள் ஒப்புதல் அளிக்கிறீர்கள்", flow4p: "ஒவ்வொரு முடிவும் தன் ஆதாரத்தைக் காட்டுகிறது. நீங்கள் சரி என்னும் வரை எதுவும் இறுதி இல்லை.",
+    footLang: "4 மொழிகள்", footLocal: "100% உள்ளூர் AI — எதுவும் இந்த கணினியை விட்டு வெளியேறாது",
+    footZero: "பூஜ்ஜியம் கற்பனை தரநிலை எண்கள்", footAudit: "ஒவ்வொரு செயலுக்கும் தணிக்கை",
   },
 };
 
@@ -289,6 +396,60 @@ function Identifier({ standard }: { standard: ApiStandard }) {
   );
 }
 
+/** Numbers that count up when they land -- a line of text becomes a moment. */
+function useCountUp(target: number, ms = 1000): number {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!target) { setValue(0); return; }
+    let frame = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const k = Math.min((now - start) / ms, 1);
+      setValue(Math.round(target * (1 - Math.pow(1 - k, 3))));
+      if (k < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, ms]);
+  return value;
+}
+
+function CountStat({ target, caption, note, tone }: { target: number; caption: string; note?: string; tone?: "rust" | "green" }) {
+  const value = useCountUp(target);
+  return <Stat value={value.toLocaleString("en-IN")} caption={caption} note={note} tone={tone} />;
+}
+
+/** The name is the picture: Setu means bridge. A tender document crosses to a
+    verified standard, and the moving dashes are the analysis in flight. */
+function BridgeScene() {
+  return (
+    <svg viewBox="0 0 520 300" role="img" aria-label="A tender document crossing a bridge to verified Indian Standards">
+      <defs>
+        <linearGradient id="ms-sun" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#f7b32b" /><stop offset="1" stopColor="#f1730f" /></linearGradient>
+        <linearGradient id="ms-arc" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#f1730f" /><stop offset="1" stopColor="#8a63e8" /></linearGradient>
+      </defs>
+      <circle cx="428" cy="58" r="32" fill="url(#ms-sun)" opacity=".9" />
+      <g fill="#f2e8d8"><ellipse cx="120" cy="52" rx="36" ry="12" /><ellipse cx="154" cy="61" rx="24" ry="9" /><ellipse cx="330" cy="38" rx="28" ry="10" /></g>
+      <path d="M0 252 Q130 236 260 252 T520 252 L520 300 L0 300 Z" fill="#e3edfb" />
+      <path d="M0 262 Q170 250 340 262 T520 260 L520 300 L0 300 Z" fill="#d2e2f7" opacity=".8" />
+      <path d="M62 246 Q260 92 458 246" fill="none" stroke="url(#ms-arc)" strokeWidth="11" strokeLinecap="round" />
+      <g stroke="#c9b8f0" strokeWidth="6" strokeLinecap="round"><line x1="140" y1="212" x2="140" y2="252" /><line x1="260" y1="170" x2="260" y2="256" /><line x1="380" y1="212" x2="380" y2="252" /></g>
+      <path className="flow-dash" d="M76 224 Q260 76 444 224" fill="none" stroke="#3b2483" strokeWidth="2.5" opacity=".5" />
+      <g className="float-a">
+        <rect x="30" y="140" width="76" height="96" rx="10" fill="#fff" stroke="#efe4d3" strokeWidth="2.5" />
+        <g stroke="#c9c2df" strokeWidth="4" strokeLinecap="round"><line x1="44" y1="164" x2="92" y2="164" /><line x1="44" y1="182" x2="86" y2="182" /><line x1="44" y1="200" x2="92" y2="200" /><line x1="44" y1="218" x2="74" y2="218" /></g>
+        <circle cx="98" cy="148" r="14" fill="#f1730f" /><path d="M92 148 l4 4 l8 -8" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+      <g className="float-b">
+        <path d="M448 132 l30 12 v26 c0 20 -13 33 -30 39 c-17 -6 -30 -19 -30 -39 v-26 z" fill="#1d8a5a" />
+        <path d="M436 168 l9 9 l18 -18" stroke="#fff" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+      <text x="36" y="128" style={{ fontFamily: "var(--hand)" }} fontSize="19" fill="#6f6694">your tender</text>
+      <text x="398" y="122" style={{ fontFamily: "var(--hand)" }} fontSize="19" fill="#6f6694">IS standards</text>
+    </svg>
+  );
+}
+
 function Stat({ value, caption, note, tone }: { value: string; caption: string; note?: string; tone?: "rust" | "green" }) {
   return (
     <div className="stat">
@@ -299,21 +460,26 @@ function Stat({ value, caption, note, tone }: { value: string; caption: string; 
   );
 }
 
-function Stepper({ analysis, running }: { analysis: AnalysisResult | null; running: boolean }) {
+function Stepper({ analysis, running, t }: { analysis: AnalysisResult | null; running: boolean; t: (key: string) => string }) {
   const done = Boolean(analysis);
   const steps = [
-    { label: "Tender read", done, active: running },
-    { label: "Details pulled out", done: done && analysis!.extracted_requirements.length > 0, active: running },
-    { label: "Standards searched", done: done && analysis!.recommendations.length > 0, active: running },
-    { label: "Your decision", done: false, active: done },
+    { label: t("j1"), icon: FileText, done, active: running },
+    { label: t("j2"), icon: Sparkles, done: done && analysis!.extracted_requirements.length > 0, active: running },
+    { label: t("j3"), icon: Search, done: done && analysis!.recommendations.length > 0, active: running },
+    { label: t("j4"), icon: CheckCircle2, done: false, active: done },
   ];
   return (
-    <div className="stepper">
-      {steps.map((s, i) => (
-        <div key={s.label} className={`step ${s.done ? "done" : s.active ? "active" : ""}`}>
-          <span className="step-dot">{s.done ? <Check size={13} /> : i + 1}</span>
-          <span className="step-label">{s.label}</span>
-          {i < steps.length - 1 && <span className="step-line" />}
+    <div className="journey-track">
+      {steps.map((step, index) => (
+        <div key={index} className={`j-step ${step.done ? "done" : step.active ? "active" : ""}`}>
+          {index < steps.length - 1 && <span className="j-line" />}
+          <span className="j-dot">{step.done ? <Check size={19} /> : <step.icon size={18} />}</span>
+          <span className="j-body">
+            <strong>{step.label}</strong>
+            <span className={`j-pill ${step.done ? "done" : step.active ? "active" : "wait"}`}>
+              {step.done ? t("jDone") : step.active ? t("jActive") : t("jWait")}
+            </span>
+          </span>
         </div>
       ))}
     </div>
@@ -741,7 +907,11 @@ export default function Home() {
     if (!user) return;
     if (view === "standards") getStandards(standardsQuery).then(setStandards).catch(() => notify("Could not load the standards list"));
     if (view === "audit" && can(PERMISSIONS.auditRead)) getAuditHistory().then(setAudit).catch(() => notify("Could not load the history"));
-    if (view === "overview") getDashboardStats().then(setStats).catch(() => undefined);
+    if (view === "overview") {
+      getDashboardStats().then(setStats).catch(() => undefined);
+      // The ticker on the landing page scrolls real catalogue records.
+      if (!standards.length) getStandards("").then(setStandards).catch(() => undefined);
+    }
     if (view === "network") {
       // Follow the current analysis unless the officer pinned a record by hand.
       // Previously the first record it ever showed stuck forever, so analysing
@@ -790,6 +960,28 @@ export default function Home() {
     setForm({ title: "", description: "", language: "en" });
     setView("analyse");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const [heroQuery, setHeroQuery] = useState("");
+
+  // The hero search IS the product: type anything, in any of the four
+  // languages, and the full analysis pipeline runs on it.
+  const heroAnalyse = async (description: string, title?: string) => {
+    const text = description.trim();
+    if (!text || submitting) return;
+    startNewAnalysis();
+    setMode("text");
+    const payload = { title: (title ?? text).slice(0, 80), description: text, language: "en" };
+    setForm(payload);
+    setSubmitting(true); setFormError("");
+    try {
+      const result = await analyseTender(payload);
+      setAnalysis(result); setApproved(false); setTab("results"); setStage("review"); setView("analyse");
+      notify(result.recommendations.length ? `Found ${result.recommendations.length} possible standards` : "No matching standards found");
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Could not analyse that. Please try again.");
+      setView("analyse");
+    } finally { setSubmitting(false); }
   };
 
   const runAnalysis = async (e: React.FormEvent) => {
@@ -886,63 +1078,22 @@ export default function Home() {
   ];
 
   return (
-    <div className="shell">
-      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
-        <div className="brand">
-          <h1>ManakSetu</h1>
-          <span>Verified standards intelligence</span>
+    <div className="app">
+      <header className="topnav">
+        <div className="topnav-brand">
+          <h1>Manak<em>Setu</em></h1>
+          <small>Verified standards intelligence</small>
         </div>
-        <nav className="nav">
+        <nav className="topnav-links" aria-label="Main">
           {nav.filter(n => n.show).map(n => (
-            <button key={n.id} className={view === n.id ? "active" : ""} onClick={() => { setView(n.id); setSidebarOpen(false); }}>
-              <n.icon size={17} />
+            <button key={n.id} className={view === n.id ? "active" : ""} onClick={() => setView(n.id)}>
+              <n.icon size={15} />
               <span>{n.label}</span>
               {n.count ? <span className="nav-count">{n.count}</span> : null}
             </button>
           ))}
         </nav>
-        <div className="sidebar-foot">
-          <p className="tagline">Standards<br />for a safer<br />tomorrow</p>
-          <button className="who" onClick={() => notify(`Signed in as ${user.full_name}`)}>
-            <span className="avatar">{user.full_name.split(" ").map(p => p[0]).join("").slice(0, 2)}</span>
-            <span className="min-w-0 flex-1">
-              <strong className="truncate">{user.full_name}</strong>
-              <small>{user.role.replaceAll("_", " ")}</small>
-            </span>
-          </button>
-          <button
-            className="btn btn-sm mt-2 w-full text-white/60 hover:text-white"
-            onClick={async () => {
-              const next = user.role === "supplier" ? DEMO_OFFICER : DEMO_SUPPLIER;
-              logout();
-              try {
-                setUser(await loginUser(next.email, next.password));
-                startNewAnalysis();
-                notify(next === DEMO_SUPPLIER ? "Now signed in as a supplier — review and export are refused" : "Back to the procurement officer");
-              } catch { setUser(null); }
-            }}
-          >
-            <LogOut size={14} /> {user.role === "supplier" ? t("signOutSupplier") : t("signOutOfficer")}
-          </button>
-        </div>
-      </aside>
-
-      {sidebarOpen && <button className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close menu" />}
-
-      <div className="main">
-        <header className="topbar">
-          <button className="icon-btn lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open menu"><Menu size={19} /></button>
-          <div className="searchbox">
-            <Search size={15} />
-            <input
-              placeholder={t("searchPlaceholder")}
-              value={standardsQuery}
-              onChange={e => { setStandardsQuery(e.target.value); if (view !== "standards") setView("standards"); }}
-            />
-          </div>
-          <span className="ml-auto hidden text-[11px] text-[var(--faint)] lg:block">
-            {verifiedCount} verified · {totalCount} records
-          </span>
+        <div className="topnav-right">
           <div className="langbar" role="group" aria-label="Interface language">
             <Globe2 size={14} className="text-[var(--faint)]" />
             {UI_LANGS.map(l => (
@@ -957,63 +1108,141 @@ export default function Home() {
               </button>
             ))}
           </div>
-        </header>
+          <button
+            className="profile-chip"
+            title={user.role === "supplier" ? t("signOutSupplier") : t("signOutOfficer")}
+            onClick={async () => {
+              const next = user.role === "supplier" ? DEMO_OFFICER : DEMO_SUPPLIER;
+              logout();
+              try {
+                setUser(await loginUser(next.email, next.password));
+                startNewAnalysis();
+                notify(next === DEMO_SUPPLIER ? "Now signed in as a supplier — review and export are refused" : "Back to the procurement officer");
+              } catch { setUser(null); }
+            }}
+          >
+            <span className="avatar">{user.full_name.split(" ").map(p => p[0]).join("").slice(0, 2)}</span>
+            <span className="min-w-0">
+              <strong>{user.full_name}</strong>
+              <small>{user.role.replaceAll("_", " ")}</small>
+            </span>
+          </button>
+        </div>
+      </header>
 
+      <div className="main">
         <div className="page page-wide">
           {/* ---------------- Overview ---------------- */}
           {view === "overview" && (
             <>
-              <p className="eyebrow">Overview</p>
-              <h1 className="display mt-3">{t("heroTitle")}</h1>
-              <p className="lede">{t("heroLede")}</p>
+              <section className="hero">
+                <div>
+                  <span className="hand-note">{t("handWelcome")}</span>
+                  <h1>{t("heroQ1")} <span className="spark">{t("heroQ2")}</span></h1>
+                  <p className="hero-sub">{t("heroSubNew")}</p>
+                  {can(PERMISSIONS.tenderCreate) && (
+                    <>
+                      <form className="hero-search" onSubmit={e => { e.preventDefault(); heroAnalyse(heroQuery); }}>
+                        <Search size={18} className="shrink-0 text-[var(--faint)]" />
+                        <input
+                          value={heroQuery}
+                          onChange={e => setHeroQuery(e.target.value)}
+                          placeholder={t("heroPlaceholder")}
+                          aria-label={t("heroPlaceholder")}
+                        />
+                        <button className="go" type="submit" disabled={submitting} aria-label={t("findStandards")}>
+                          {submitting ? <LoaderCircle className="spin" size={19} /> : <ArrowRight size={20} />}
+                        </button>
+                      </form>
+                      <div className="try-row">
+                        <span className="try-word">{t("tryWord")}</span>
+                        {TRY_EXAMPLES.map(example => (
+                          <button key={example.chip} className="try-chip" onClick={() => heroAnalyse(example.text, example.chip)}>
+                            “{example.chip}”
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="hero-art"><BridgeScene /></div>
+              </section>
 
-              <div className="mt-7 flex flex-wrap gap-9">
-                {can(PERMISSIONS.tenderCreate) && (
-                  <button className="btn btn-primary" onClick={startNewAnalysis}><FileSearch size={16} /> {t("newTender")}</button>
-                )}
-                <button className="btn btn-ghost" onClick={() => setView("standards")}><BookOpenCheck size={16} /> {t("browse")}</button>
+              <div className="cat-grid">
+                {CAT_CARDS.map((card, index) => (
+                  <button
+                    key={card.titleKey}
+                    className={`cat-card ${card.cls}`}
+                    style={{ animationDelay: `${index * 70}ms` }}
+                    onClick={() => card.example ? heroAnalyse(card.example, t(card.titleKey)) : setView("standards")}
+                  >
+                    <span className="cat-ico"><card.icon size={23} /></span>
+                    <strong>{t(card.titleKey)} <ChevronRight size={15} /></strong>
+                    <span>{t(card.subKey)}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="journey anim-in">
+                <div className="journey-head">
+                  <h3><Sparkles size={19} /> {t("journeyTitle")}</h3>
+                  {analysis && <span className="hand-note">{analysis.tender.title}</span>}
+                  <p>{analysis ? `${analysis.tender.reference} · ${new Date(analysis.tender.created_at).toLocaleDateString()}` : t("journeyEmpty")}</p>
+                </div>
+                <Stepper analysis={analysis} running={submitting} t={t} />
+                <div className="journey-cta">
+                  {analysis && <button className="btn btn-primary btn-sm" onClick={() => setView("analyse")}>{t("openIt")} <ArrowRight size={14} /></button>}
+                  {can(PERMISSIONS.auditRead) && <button className="btn btn-ghost btn-sm" onClick={() => setView("audit")}><History size={14} /> {t("history")}</button>}
+                </div>
+              </div>
+
+              <div className="mt-10 flex flex-wrap items-baseline gap-4">
+                <h3 className="section-head m-0">{t("howTitle")}</h3>
+                <span className="hand-note">{t("howHand")}</span>
+              </div>
+              <div className="flow">
+                {[
+                  { icon: FileText, title: t("flow1t"), text: t("flow1p") },
+                  { icon: Sparkles, title: t("flow2t"), text: t("flow2p") },
+                  { icon: Search, title: t("flow3t"), text: t("flow3p") },
+                  { icon: CheckCircle2, title: t("flow4t"), text: t("flow4p") },
+                ].map((step, index) => (
+                  <div key={step.title} className="flow-card" style={{ animationDelay: `${index * 90}ms` }}>
+                    <span className="flow-num">{index + 1}</span>
+                    <span className="flow-ico"><step.icon size={22} /></span>
+                    <strong>{step.title}</strong>
+                    <p>{step.text}</p>
+                    <span className="flow-arrow"><ArrowRight size={20} /></span>
+                  </div>
+                ))}
               </div>
 
               <div className="grid-3 mt-8">
-                <Stat value={String(totalCount)} caption="Standards in the catalogue" note={`${verifiedCount} checked by a person; the rest show their source and say they still need checking.`} />
-                <Stat value="Zero" caption="Invented standard numbers" tone="green" note="Numbers only ever come from the catalogue. The AI is not allowed to write one." />
-                <Stat value={String(stats?.total_tenders ?? 0)} caption="Tenders analysed" tone="rust" note="Every analysis is recorded in the history, with who did what and when." />
+                <CountStat target={totalCount} caption={t("statCatalogue")} note={t("statCatalogueNote")} />
+                <Stat value="0" caption={t("statInvented")} tone="green" note={t("statInventedNote")} />
+                <CountStat target={stats?.total_tenders ?? 0} caption={t("statTenders")} tone="rust" note={t("statTendersNote")} />
               </div>
 
-              <div className="card card-pad mt-6">
-                <h3 className="section-head">How this works</h3>
-                <p className="section-sub">Four steps, and you decide at the end.</p>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  {[
-                    ["1. You describe the purchase", "Type a few lines, or upload the tender document. Scanned pages are read automatically."],
-                    ["2. We work out what you need", "The product, where it will be used, quantities, testing and safety requirements."],
-                    ["3. We search by meaning", "Not just keywords — 'head protection' finds helmet standards even without the word 'helmet'."],
-                    ["4. You check and approve", "Every result shows where it came from. Nothing is final until you say so."],
-                  ].map(([h, p]) => (
-                    <div key={h} className="rounded-xl border border-[var(--line)] bg-[#fdfcfa] p-4">
-                      <strong className="serif text-[14px]">{h}</strong>
-                      <p className="mt-1.5 text-[12.5px] leading-relaxed text-[var(--muted)]">{p}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {analysis && (
-                <div className="card mt-6">
-                  <div className="card-head flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="eyebrow">Most recent</p>
-                      <h3 className="section-head mt-1 truncate">{analysis.tender.title}</h3>
-                    </div>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setView("analyse")}>Open <ArrowRight size={14} /></button>
-                  </div>
-                  <div className="card-pad grid gap-4 sm:grid-cols-3">
-                    <div><p className="cap text-[10px] font-bold uppercase tracking-wider text-[var(--faint)]">Product</p><p className="mt-1 font-semibold">{product?.value ?? "Not identified"}</p></div>
-                    <div><p className="cap text-[10px] font-bold uppercase tracking-wider text-[var(--faint)]">Standards found</p><p className="mt-1 font-semibold">{recs.length}</p></div>
-                    <div><p className="cap text-[10px] font-bold uppercase tracking-wider text-[var(--faint)]">Things to fix</p><p className="mt-1 font-semibold">{gaps.length}</p></div>
+              {standards.length > 3 && (
+                <div className="ticker-wrap" aria-hidden="true">
+                  <div className="ticker">
+                    {[...standards.slice(0, 24), ...standards.slice(0, 24)].map((record, index) => (
+                      <span key={`${record.id}-${index}`}>
+                        <b>{record.standard_number ?? record.catalogue_ref}</b>
+                        {record.official_title.slice(0, 44)}{record.official_title.length > 44 ? "…" : ""}
+                      </span>
+                    ))}
                   </div>
                 </div>
               )}
+
+              <div className="footstrip">
+                <span className="hand-note">ManakSetu</span>
+                <span><Globe2 size={15} /> {t("footLang")}</span>
+                <span><LockKeyhole size={15} /> {t("footLocal")}</span>
+                <span><ShieldCheck size={15} /> {t("footZero")}</span>
+                <span><History size={15} /> {t("footAudit")}</span>
+              </div>
             </>
           )}
 
@@ -1031,7 +1260,7 @@ export default function Home() {
                 )}
               </div>
 
-              <div className="card card-pad mt-6"><Stepper analysis={analysis} running={submitting} /></div>
+              <div className="journey mt-6" style={{ padding: "20px 24px" }}><Stepper analysis={analysis} running={submitting} t={t} /></div>
 
               <div className="grid-2 mt-5">
                 <div className="min-w-0">
@@ -1382,6 +1611,14 @@ export default function Home() {
               <p className="eyebrow">Standards list</p>
               <h1 className="display mt-3">Everything in the catalogue</h1>
               <p className="lede">{totalCount.toLocaleString("en-IN")} records, harvested from the official BIS catalogue. {verifiedCount} checked by a person; the rest carry their official source and say they still need checking. The list shows the first 50 matches — search to narrow it.</p>
+              <div className="searchbox mt-5" style={{ maxWidth: 560 }}>
+                <Search size={15} />
+                <input
+                  placeholder={t("searchPlaceholder")}
+                  value={standardsQuery}
+                  onChange={e => setStandardsQuery(e.target.value)}
+                />
+              </div>
               <div className="card card-pad mt-6">
                 {standards.map(s => (
                   <div className="result" key={s.id} style={{ cursor: "default" }}>
