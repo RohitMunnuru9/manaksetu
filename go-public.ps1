@@ -97,8 +97,12 @@ function Start-Ngrok {
 }
 
 function Start-Quick {
-    $log = Join-Path $env:TEMP "manaksetu-tunnel-$Port.log"
-    Remove-Item $log -ErrorAction SilentlyContinue
+    # A fresh log file every time. Re-using one path meant that when a dying
+    # cloudflared still held the handle, Remove-Item silently failed and the
+    # old address was read back out -- so a rebuilt tunnel was reported as
+    # "restored at the same address" while its real address had changed, and
+    # the supervisor then health-checked a URL that no longer existed.
+    $log = Join-Path $env:TEMP ("manaksetu-tunnel-{0}-{1}.log" -f $Port, [guid]::NewGuid().ToString("N").Substring(0, 8))
     $script:Proc = Start-Process -FilePath $cloudflared `
         -ArgumentList "tunnel","--url","http://localhost:$Port","--no-autoupdate" `
         -RedirectStandardError $log -WindowStyle Hidden -PassThru
@@ -107,7 +111,11 @@ function Start-Quick {
         Start-Sleep -Seconds 2
         if (Test-Path $log) {
             $m = Select-String -Path $log -Pattern "https://[a-z0-9-]+\.trycloudflare\.com" -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($m) { $script:Url = $m.Matches[0].Value; return $script:Url }
+            if ($m) {
+                $script:Url = $m.Matches[0].Value
+                $script:LogPath = $log
+                return $script:Url
+            }
         }
     }
     return $null
@@ -175,6 +183,9 @@ try {
         if ($script:Proc -and -not $script:Proc.HasExited) {
             Stop-Process -Id $script:Proc.Id -Force -ErrorAction SilentlyContinue
         }
+        # Give the process time to release its handles before the replacement
+        # starts, and clear any tunnel orphaned by an earlier crash.
+        Start-Sleep -Seconds 2
         $new = Start-Public
         $failures = 0
         if ($new) {
