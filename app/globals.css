@@ -406,13 +406,15 @@ a { color: var(--rust); }
   background: rgba(255, 252, 246, .92); backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
-.topnav-brand { display: flex; align-items: baseline; gap: 8px; margin-right: 8px; white-space: nowrap; }
+.topnav-brand { display: flex; align-items: baseline; gap: 8px; margin-right: 4px; flex: none; white-space: nowrap; }
 .topnav-brand h1 { margin: 0; font-size: 22px; font-weight: 900; color: var(--navy); }
 .topnav-brand h1 em { font-style: normal; color: var(--rust); }
 .topnav-brand small { display: none; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
 @media (min-width: 1200px) { .topnav-brand small { display: inline; } }
-.topnav-links { display: flex; gap: 2px; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
-.topnav-links::-webkit-scrollbar { display: none; }
+/* Never scrolls. Below the breakpoint the labels go and the icons remain, so
+   every destination stays reachable instead of the later ones sliding out of
+   a container the user cannot see is scrollable. */
+.topnav-links { display: flex; gap: 2px; flex: none; }
 .topnav-links button {
   display: inline-flex; align-items: center; gap: 7px;
   border-radius: 999px; padding: 9px 14px;
@@ -674,3 +676,31 @@ a { color: var(--rust); }
 .offline-code { display: block; margin: 16px 0 0; border-radius: 12px; padding: 12px 14px; background: #f7f2e9; font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--ink); word-break: break-all; }
 .offline-foot { margin-top: 18px !important; font-size: 11.5px !important; color: var(--faint) !important; }
 .offline-foot strong { font-family: ui-monospace, Consolas, monospace; color: var(--muted); }
+
+/* ---- Top bar at laptop and phone widths ----
+   The bar held four navigation pills, a language picker and a profile chip.
+   On a 1366-wide laptop the browser pane is narrower than that, and the nav
+   was a scroll container: "Analyse a tender" and "Standards list" were simply
+   cut off with nothing to indicate they existed. Labels now collapse before
+   anything is lost. */
+@media (max-width: 1080px) {
+  .topnav { padding: 10px 14px; gap: 6px; }
+  .nav-label { display: none; }
+  .topnav-links button,
+  .topnav-more { padding: 9px 11px; gap: 0; }
+  .langmenu-btn { padding: 8px 11px; gap: 4px; }
+  /* The count badge still matters with no label beside it. */
+  .topnav-links .nav-count { margin-left: 4px; }
+}
+
+@media (max-width: 560px) {
+  .topnav-brand h1 { font-size: 18px; }
+  .topnav { padding: 8px 10px; }
+  .topnav-links button,
+  .topnav-more { padding: 8px 9px; }
+}
+
+/* Wide enough for words: show them. */
+@media (min-width: 1081px) {
+  .nav-label { display: inline; }
+}

@@ -176,7 +176,7 @@ const T: Record<UiLang, Record<string, string>> = {
     whereFrom: "Where this comes from in your tender",
     handWelcome: "Namaste! Let's get you the right standards.",
     heroQ1: "What are you", heroQ2: "buying today?",
-    heroSubNew: "Tell us in your own words — English, हिन्दी, తెలుగు or தமிழ். We find the Indian Standards that apply, with the proof behind every single one.",
+    heroSubNew: "Tell us in your own words — in any of ten Indian languages. We find the Indian Standards that apply, with the proof behind every single one.",
     heroPlaceholder: "Describe your purchase in your own words…",
     tryWord: "Try:",
     cat1: "Safety & PPE", cat1s: "Helmets, boots, gloves.",
@@ -192,9 +192,9 @@ const T: Record<UiLang, Record<string, string>> = {
     howTitle: "How it works", howHand: "easy as 1·2·3·4",
     flow1t: "Describe the purchase", flow1p: "Type a few lines or upload the tender — scanned pages are read automatically.",
     flow2t: "We understand it", flow2p: "Product, quantity, testing, safety — pulled out and shown to you for confirmation.",
-    flow3t: "We search by meaning", flow3p: "‘Head protection’ finds helmet standards even without the word ‘helmet’ — in four languages.",
+    flow3t: "We search by meaning", flow3p: "‘Head protection’ finds helmet standards even without the word ‘helmet’ — in ten Indian languages.",
     flow4t: "You approve", flow4p: "Every result shows its proof. Nothing is final until you say so.",
-    footLang: "4 languages", footLocal: "100% local AI — nothing leaves this machine",
+    footLang: "10 languages", footLocal: "100% local AI — nothing leaves this machine",
     footZero: "Zero invented standard numbers", footAudit: "Every action audited",
     more: "More", moreNet: "Animated knowledge graph", moreAna: "Deep analytics & currency watch",
     moreRep: "Download report", moreHis: "History & audit trail",
@@ -260,7 +260,7 @@ const T: Record<UiLang, Record<string, string>> = {
     flow2t: "हम उसे समझते हैं", flow2p: "उत्पाद, मात्रा, परीक्षण, सुरक्षा — निकालकर पुष्टि के लिए आपको दिखाए जाते हैं।",
     flow3t: "हम अर्थ से खोजते हैं", flow3p: "‘सिर की सुरक्षा’ से हेलमेट मानक मिल जाते हैं, ‘हेलमेट’ शब्द के बिना भी — चार भाषाओं में।",
     flow4t: "आप स्वीकृति देते हैं", flow4p: "हर परिणाम अपना प्रमाण दिखाता है। आपकी हाँ के बिना कुछ भी अंतिम नहीं।",
-    footLang: "4 भाषाएँ", footLocal: "100% स्थानीय AI — कुछ भी इस मशीन से बाहर नहीं जाता",
+    footLang: "10 भाषाएँ", footLocal: "100% स्थानीय AI — कुछ भी इस मशीन से बाहर नहीं जाता",
     footZero: "शून्य गढ़े गए मानक क्रमांक", footAudit: "हर कार्रवाई का अभिलेख",
     more: "और", moreNet: "सजीव ज्ञान ग्राफ़", moreAna: "गहन विश्लेषिकी और वैधता निगरानी",
     moreRep: "रिपोर्ट डाउनलोड", moreHis: "इतिहास और ऑडिट",
@@ -326,7 +326,7 @@ const T: Record<UiLang, Record<string, string>> = {
     flow2t: "మేము అర్థం చేసుకుంటాం", flow2p: "ఉత్పత్తి, పరిమాణం, పరీక్షలు, భద్రత — తీసి మీ నిర్ధారణ కోసం చూపిస్తాం.",
     flow3t: "అర్థంతో వెతుకుతాం", flow3p: "‘తల రక్షణ’ అంటే ‘హెల్మెట్’ పదం లేకుండానే హెల్మెట్ ప్రమాణాలు దొరుకుతాయి — నాలుగు భాషల్లో.",
     flow4t: "మీరు ఆమోదిస్తారు", flow4p: "ప్రతి ఫలితం తన ఆధారాన్ని చూపుతుంది. మీరు సరే అనే వరకు ఏదీ తుది కాదు.",
-    footLang: "4 భాషలు", footLocal: "100% స్థానిక AI — ఏదీ ఈ యంత్రం బయటకు వెళ్ళదు",
+    footLang: "10 భాషలు", footLocal: "100% స్థానిక AI — ఏదీ ఈ యంత్రం బయటకు వెళ్ళదు",
     footZero: "సున్నా కల్పిత ప్రమాణ సంఖ్యలు", footAudit: "ప్రతి చర్యకు ఆడిట్",
     more: "మరిన్ని", moreNet: "సజీవ నాలెడ్జ్ గ్రాఫ్", moreAna: "లోతైన విశ్లేషణలు & చెల్లుబాటు పర్యవేక్షణ",
     moreRep: "నివేదిక డౌన్‌లోడ్", moreHis: "చరిత్ర & ఆడిట్",
@@ -392,7 +392,7 @@ const T: Record<UiLang, Record<string, string>> = {
     flow2t: "நாங்கள் புரிந்துகொள்கிறோம்", flow2p: "பொருள், அளவு, சோதனை, பாதுகாப்பு — எடுத்து உங்கள் உறுதிப்படுத்தலுக்குக் காட்டப்படும்.",
     flow3t: "பொருளால் தேடுகிறோம்", flow3p: "‘தலை பாதுகாப்பு’ என்றாலே ‘தலைக்கவசம்’ என்ற சொல் இல்லாமலும் தரநிலைகள் கிடைக்கும் — நான்கு மொழிகளில்.",
     flow4t: "நீங்கள் ஒப்புதல் அளிக்கிறீர்கள்", flow4p: "ஒவ்வொரு முடிவும் தன் ஆதாரத்தைக் காட்டுகிறது. நீங்கள் சரி என்னும் வரை எதுவும் இறுதி இல்லை.",
-    footLang: "4 மொழிகள்", footLocal: "100% உள்ளூர் AI — எதுவும் இந்த கணினியை விட்டு வெளியேறாது",
+    footLang: "10 மொழிகள்", footLocal: "100% உள்ளூர் AI — எதுவும் இந்த கணினியை விட்டு வெளியேறாது",
     footZero: "பூஜ்ஜியம் கற்பனை தரநிலை எண்கள்", footAudit: "ஒவ்வொரு செயலுக்கும் தணிக்கை",
     more: "மேலும்", moreNet: "அசைவூட்டப்பட்ட அறிவு வரைபடம்", moreAna: "ஆழ்ந்த பகுப்பாய்வு & செல்லுபடி கண்காணிப்பு",
     moreRep: "அறிக்கை பதிவிறக்கம்", moreHis: "வரலாறு & தணிக்கை",
@@ -1317,9 +1317,15 @@ export default function Home() {
         </div>
         <nav className="topnav-links" aria-label="Main">
           {nav.filter(n => n.show && PRIMARY_VIEWS.includes(n.id)).map(n => (
-            <button key={n.id} className={view === n.id ? "active" : ""} onClick={() => { setView(n.id); setMoreOpen(false); }}>
-              <n.icon size={15} />
-              <span>{n.label}</span>
+            <button
+              key={n.id}
+              className={view === n.id ? "active" : ""}
+              onClick={() => { setView(n.id); setMoreOpen(false); }}
+              title={n.label}
+              aria-label={n.label}
+            >
+              <n.icon size={16} />
+              <span className="nav-label">{n.label}</span>
               {n.count ? <span className="nav-count">{n.count}</span> : null}
             </button>
           ))}
@@ -1334,9 +1340,10 @@ export default function Home() {
             onClick={() => { setMoreOpen(open => !open); setLangOpen(false); }}
             aria-expanded={moreOpen}
             aria-haspopup="menu"
+            title={t("more")}
           >
-            <Sparkles size={15} />
-            <span>{t("more")}</span>
+            <Sparkles size={16} />
+            <span className="nav-label">{t("more")}</span>
             <ChevronDown size={13} style={{ transform: moreOpen ? "rotate(180deg)" : undefined, transition: "transform .15s" }} />
           </button>
           {moreOpen && (
@@ -1361,9 +1368,10 @@ export default function Home() {
               aria-expanded={langOpen}
               aria-haspopup="menu"
               aria-label="Interface language"
+              title="Interface language"
             >
-              <Globe2 size={15} />
-              <span>{UI_LANGS.find(l => l.code === uiLang)?.native}</span>
+              <Globe2 size={16} />
+              <span className="nav-label">{UI_LANGS.find(l => l.code === uiLang)?.native}</span>
               <ChevronDown size={13} style={{ transform: langOpen ? "rotate(180deg)" : undefined, transition: "transform .15s" }} />
             </button>
             {langOpen && (
