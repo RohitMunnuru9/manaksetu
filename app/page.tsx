@@ -1381,7 +1381,7 @@ export default function Home() {
             <>
               <p className="eyebrow">Standards list</p>
               <h1 className="display mt-3">Everything in the catalogue</h1>
-              <p className="lede">{totalCount} records. {verifiedCount} has been checked by a person; the others show where they came from and say they still need checking.</p>
+              <p className="lede">{totalCount.toLocaleString("en-IN")} records, harvested from the official BIS catalogue. {verifiedCount} checked by a person; the rest carry their official source and say they still need checking. The list shows the first 50 matches — search to narrow it.</p>
               <div className="card card-pad mt-6">
                 {standards.map(s => (
                   <div className="result" key={s.id} style={{ cursor: "default" }}>
