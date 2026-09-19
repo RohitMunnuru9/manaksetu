@@ -182,9 +182,10 @@ a { color: var(--rust); }
 .tag.red   { background: var(--red-soft); color: var(--red); }
 
 /* ---------- Detail panel ---------- */
-.scrim { position: fixed; inset: 0; z-index: 60; background: rgba(16,26,46,.42); backdrop-filter: blur(2px); animation: fade .16s ease; }
+/* The detail panel is a modal: it covers the top bar (60) as well. */
+.scrim { position: fixed; inset: 0; z-index: 70; background: rgba(16,26,46,.42); backdrop-filter: blur(2px); animation: fade .16s ease; }
 .panel {
-  position: fixed; inset: 0 0 0 auto; z-index: 61; width: min(560px, 100%);
+  position: fixed; inset: 0 0 0 auto; z-index: 71; width: min(560px, 100%);
   display: flex; flex-direction: column; background: var(--cream);
   box-shadow: -18px 0 50px rgba(16,26,46,.2); animation: slide .22s cubic-bezier(.2,.8,.3,1);
 }
@@ -400,7 +401,12 @@ a { color: var(--rust); }
 
 /* ---- Top navigation ---- */
 .topnav {
-  position: sticky; top: 0; z-index: 40;
+  /* Above .menu-scrim (45). The bar is a stacking context, so a dropdown
+     inside it can never rise above a sibling of the bar however high its own
+     z-index is: the whole bar stacks as one. With the bar at 40 the scrim
+     covered its own menus, and every click on a language or a More entry hit
+     the scrim instead of the item -- the menus looked dead. */
+  position: sticky; top: 0; z-index: 60;
   display: flex; align-items: center; gap: 10px;
   padding: 10px 18px;
   background: rgba(255, 252, 246, .92); backdrop-filter: blur(10px);
@@ -595,6 +601,8 @@ a { color: var(--rust); }
 
 /* ---- Dropdown menus: language picker and the More menu ---- */
 .menu-anchor { position: relative; }
+/* Catches a click anywhere off the menu. It must sit below the bar that owns
+   the menu, and above everything else on the page. */
 .menu-scrim { position: fixed; inset: 0; z-index: 45; background: transparent; cursor: default; }
 .menu-pop {
   position: absolute; top: calc(100% + 8px); right: 0; z-index: 50;
