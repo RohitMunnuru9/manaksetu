@@ -1729,6 +1729,16 @@ export default function Home() {
                     <div className="card card-pad">
                       <h3 className="section-head">{t("briefing")}</h3>
                       <p className="section-sub">Written for you from the results on the left.</p>
+                      {analysis.officer_glance && analysis.officer_glance.length > 0 && (
+                        <dl className="glance mt-4">
+                          {analysis.officer_glance.map(point => (
+                            <div className={`glance-row ${point.tone}`} key={point.label}>
+                              <dt>{point.label}</dt>
+                              <dd>{point.value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
                       {analysis.officer_summary ? (
                         <>
                           <p className="mt-4 text-[13px] leading-[1.7] text-[var(--muted)]">{analysis.officer_summary}</p>

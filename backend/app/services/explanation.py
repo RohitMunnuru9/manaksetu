@@ -48,15 +48,25 @@ CERTIFICATION_CLAIMS = (
     "legally required",
 )
 
-SYSTEM_PROMPT = """You are assisting an Indian government procurement officer.
+SYSTEM_PROMPT = """You are assisting an Indian government procurement officer who has just
+uploaded a tender document. Explain the document to them in simple, warm,
+plain English, as a knowledgeable colleague would.
 
-You will be given a tender description and a list of candidate records that a
-retrieval system has already found. Write a short briefing about those records.
+Cover, in this order, as flowing sentences:
+1. One or two sentences on what this document is and what is being purchased
+   (use the DOCUMENT PROFILE - product, quantity, where it will be used).
+2. Two or three sentences on the requirements the document itself contains:
+   testing, marking, warranty, conditions, any standards it already cites.
+3. Two or three sentences on the candidate records found for it and how
+   trustworthy each is (verified / imported / unverified).
+4. One closing sentence on what is missing or should be confirmed before the
+   tender is published.
 
 Absolute rules:
 - Use ONLY the records supplied. Never mention a standard that is not listed.
-- NEVER write a standard number that does not appear verbatim in the records.
-  Do not complete, correct, guess or recall any IS number from memory.
+- NEVER write a standard number that does not appear verbatim in the records
+  or in the DOCUMENT PROFILE's "already cites" line. Do not complete, correct,
+  guess or recall any IS number from memory.
 - Records marked UNVERIFIED have no standard number. Refer to them by their
   title or internal reference, and say they need verification before use.
 - Records marked IMPORTED have a real number but nobody has confirmed it. You may
@@ -65,7 +75,8 @@ Absolute rules:
   CERTIFICATION: MANDATORY. If none does, say certification status is unconfirmed.
 - Do not invent test methods, dates, clauses or legal obligations.
 
-Write 3 short sentences of plain English. No headings, no bullet points, no preamble."""
+Six to eight short sentences of plain English. No headings, no bullet points,
+no preamble, no sentence numbering."""
 
 
 @dataclass
@@ -165,19 +176,62 @@ def warm_model() -> bool:
         return False
 
 
-def explain_analysis(tender_text: str, recommendations: list, missing_requirements: list[str]) -> ExplanationResult:
+def build_profile(requirements: list, language: str, filename: str | None, text_length: int) -> tuple[str, list[str]]:
+    """A structured digest of what extraction found, so the model explains the
+    document rather than the first page it happens to see. Returns the text and
+    the identifiers the document itself cites, which the model may repeat."""
+    grouped: dict[str, list] = {}
+    for item in requirements or []:
+        grouped.setdefault(item.requirement_type, []).append(item)
+
+    def first(key: str) -> str | None:
+        items = grouped.get(key)
+        return items[0].value if items else None
+
+    shown_name = re.sub(r"^[0-9a-f]{32}_", "", filename) if filename else "typed description"
+    lines = [f"- Source: {shown_name}, {text_length:,} characters, language: {language}"]
+    if first("product"):
+        lines.append(f"- Product being purchased: {first('product')}")
+    if first("quantity"):
+        lines.append(f"- Quantity: {first('quantity')}")
+    if first("intended_use"):
+        lines.append(f"- Where it will be used: {first('intended_use')}")
+    for key, label in (("testing", "Testing it asks for"), ("marking", "Marking it asks for"),
+                       ("warranty", "Warranty wording"), ("environment", "Operating conditions"),
+                       ("safety", "Safety wording")):
+        if first(key):
+            lines.append(f"- {label}: {first(key)}")
+    cited = [item.value for item in grouped.get("existing_standard_reference", [])]
+    if cited:
+        lines.append(f"- Standards the document already cites: {', '.join(cited[:8])}")
+    return "\n".join(lines), cited
+
+
+def explain_analysis(
+    tender_text: str,
+    recommendations: list,
+    missing_requirements: list[str],
+    requirements: list | None = None,
+    language: str = "en",
+    filename: str | None = None,
+) -> ExplanationResult:
     """Produce an officer-facing briefing, or nothing at all."""
     settings = get_settings()
     if not settings.enable_llm_explanations or not recommendations:
         return ExplanationResult(status="disabled" if not settings.enable_llm_explanations else "no_candidates")
 
     evidence, allowed, mandatory = build_evidence_block(recommendations)
+    profile, cited = build_profile(requirements or [], language, filename, len(tender_text))
+    # Numbers the document itself cites are quotations, not inventions: the
+    # model may repeat them when describing the document.
+    allowed = allowed + cited
     gaps = "\n".join(f"- {item}" for item in missing_requirements) or "- none detected"
     prompt = (
-        f"TENDER DESCRIPTION:\n{tender_text.strip()[:1500]}\n\n"
-        f"CANDIDATE RECORDS (the only standards you may mention):\n{evidence}\n\n"
+        f"DOCUMENT PROFILE (what our extraction found):\n{profile}\n\n"
+        f"OPENING OF THE DOCUMENT:\n{' '.join(tender_text.split())[:900]}\n\n"
+        f"CANDIDATE RECORDS (the only standards you may recommend):\n{evidence}\n\n"
         f"GAPS DETECTED IN THE TENDER:\n{gaps}\n\n"
-        "Write the briefing now."
+        "Write the explanation now."
     )
 
     try:
@@ -192,7 +246,7 @@ def explain_analysis(tender_text: str, recommendations: list, missing_requiremen
                 # during a demonstration.
                 "keep_alive": settings.ollama_keep_alive,
                 # Low temperature: this is a summarisation task, not a creative one.
-                "options": {"temperature": 0.2, "num_predict": 170},
+                "options": {"temperature": 0.25, "num_predict": 320},
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},

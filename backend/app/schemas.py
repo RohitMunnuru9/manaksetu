@@ -148,6 +148,14 @@ class ScorecardRead(BaseModel):
     fixes: list[str] = Field(default_factory=list)
 
 
+class GlancePoint(BaseModel):
+    """One deterministic fact about the uploaded document. Assembled from
+    extraction output only, so it renders instantly and cannot hallucinate."""
+    label: str
+    value: str
+    tone: str = "plain"
+
+
 class AnalysisResponse(BaseModel):
     tender: TenderRead
     recommendations: list[RecommendationRead]
@@ -165,6 +173,9 @@ class AnalysisResponse(BaseModel):
     retrieval_mode: str = "lexical"
     embedding_model: str | None = None
     scorecard: ScorecardRead | None = None
+    # The document at a glance: instant, deterministic, shown while the model
+    # briefing is still being written.
+    officer_glance: list[GlancePoint] = Field(default_factory=list)
     # Optional prose briefing from the local model. Never a source of fact: it
     # is discarded entirely if it mentions an identifier that was not retrieved.
     officer_summary: str | None = None

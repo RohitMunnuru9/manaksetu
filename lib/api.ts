@@ -59,6 +59,7 @@ export type AnalysisResult = {
   nearest_records: Array<{ standard: ApiStandard; similarity: number }>;
   retrieval_mode: "hybrid" | "lexical";
   embedding_model: string | null;
+  officer_glance: Array<{ label: string; value: string; tone: string }>;
   scorecard: { score: number; grade: string; rows: Array<{ key: string; label: string; weight: number; satisfied: boolean; evidence: string | null; fix: string | null }>; fixes: string[] } | null;
   officer_summary: string | null;
   officer_summary_status: string;

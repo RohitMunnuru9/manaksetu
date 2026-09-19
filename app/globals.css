@@ -630,3 +630,19 @@ a { color: var(--rust); }
   .net-flow, .net-halo { animation: none; }
   .net-edge, .net-node, .menu-pop { animation: none; }
 }
+
+/* ---- The document at a glance: instant, deterministic summary rows ---- */
+.glance { margin: 0; border: 1.5px solid var(--line); border-radius: 16px; overflow: hidden; }
+.glance-row { display: grid; grid-template-columns: 128px 1fr; gap: 10px; padding: 9px 13px; border-bottom: 1px solid #f4ede1; animation: pop-in .4s ease backwards; }
+.glance-row:nth-child(1) { animation-delay: 0ms; } .glance-row:nth-child(2) { animation-delay: 50ms; }
+.glance-row:nth-child(3) { animation-delay: 100ms; } .glance-row:nth-child(4) { animation-delay: 150ms; }
+.glance-row:nth-child(5) { animation-delay: 200ms; } .glance-row:nth-child(6) { animation-delay: 250ms; }
+.glance-row:nth-child(n+7) { animation-delay: 300ms; }
+.glance-row:last-child { border-bottom: 0; }
+.glance-row dt { font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); padding-top: 2px; }
+.glance-row dd { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink); }
+.glance-row.good dd { color: #14683f; }
+.glance-row.warn dd { color: #8a5f1a; }
+.glance-row.good { background: #f4fbf7; }
+.glance-row.warn { background: #fdf8ec; }
+@media (max-width: 560px) { .glance-row { grid-template-columns: 1fr; gap: 2px; } }

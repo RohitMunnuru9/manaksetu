@@ -15,9 +15,10 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .database import Base, SessionLocal, engine, get_db
 from .models import AuditLog, ProductCategory, QualityControlOrder, Recommendation, ReviewDecision, Standard, StandardRelationship, StandardStatus, Tender, TenderRequirement, User, VerificationStatus
-from .schemas import AnalyticsResponse, DraftResponse, EvidenceSpanRead, ScorecardRead, ScoreRowRead, SectorCount, TopStandard, WatchItem, AmendmentRead, AnalysisResponse, CategoryRead, NearestRecord, AuditRead, BriefingResponse, NetworkEdge, NetworkNode, NetworkResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
+from .schemas import GlancePoint, AnalyticsResponse, DraftResponse, EvidenceSpanRead, ScorecardRead, ScoreRowRead, SectorCount, TopStandard, WatchItem, AmendmentRead, AnalysisResponse, CategoryRead, NearestRecord, AuditRead, BriefingResponse, NetworkEdge, NetworkNode, NetworkResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
 from .security import Permission, create_access_token, get_current_user, permissions_for, require_permission, verify_password
 from .seed import seed_demo_data
+from .services.summary import document_glance
 from .services.traceability import evidence_spans
 from .services.scorecard import build_scorecard
 from .services.drafting import build_clauses, polish_clauses
@@ -347,6 +348,7 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
         for item in nearest_records(db, tender.source_text)
     ]
     gaps = missing_requirements(tender.source_text)
+    outdated = outdated_citations(db, tender.source_text)
     # The prose briefing is deliberately NOT generated here. Local generation
     # takes tens of seconds, and an officer should see evidence immediately
     # rather than wait on a description of it. The dashboard requests the
@@ -356,14 +358,30 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
         recommendations=response_items,
         extracted_requirements=extracted,
         missing_requirements=gaps,
-        outdated_citations=[OutdatedCitation(**item) for item in outdated_citations(db, tender.source_text)],
+        outdated_citations=[OutdatedCitation(**item) for item in outdated],
         guardrail_message=guardrail,
         nearest_records=nearest,
         retrieval_mode=retrieval_mode(),
         embedding_model=semantic_index.model_name,
         scorecard=_scorecard_read(tender.source_text, extracted),
+        officer_glance=_glance_points(tender, extracted, response_items, gaps, outdated),
         officer_summary_status="pending" if settings.enable_llm_explanations else "disabled",
     )
+
+
+def _glance_points(tender, requirements: list, recommendations: list, missing: list[str], outdated: list) -> list[GlancePoint]:
+    return [
+        GlancePoint(label=point.label, value=point.value, tone=point.tone)
+        for point in document_glance(
+            language=tender.language,
+            filename=tender.filename,
+            text_length=len(tender.source_text or ""),
+            requirements=requirements,
+            recommendations=recommendations,
+            missing=missing,
+            outdated_count=len(outdated),
+        )
+    ]
 
 
 def _scorecard_read(text: str, requirements: list) -> ScorecardRead:
@@ -406,16 +424,19 @@ def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
         ))
     guardrail = None if recommendations else "No verified recommendation found. Expert review is required."
     extracted = list(db.scalars(select(TenderRequirement).where(TenderRequirement.tender_id == tender.id)).all())
+    saved_gaps = missing_requirements(tender.source_text)
+    saved_outdated = outdated_citations(db, tender.source_text)
     return AnalysisResponse(
         tender=TenderRead.model_validate(tender),
         recommendations=recommendations,
         extracted_requirements=extracted,
-        missing_requirements=missing_requirements(tender.source_text),
-        outdated_citations=[OutdatedCitation(**item) for item in outdated_citations(db, tender.source_text)],
+        missing_requirements=saved_gaps,
+        outdated_citations=[OutdatedCitation(**item) for item in saved_outdated],
         guardrail_message=guardrail,
         retrieval_mode=retrieval_mode(),
         embedding_model=semantic_index.model_name,
         scorecard=_scorecard_read(tender.source_text, extracted),
+        officer_glance=_glance_points(tender, extracted, recommendations, saved_gaps, saved_outdated),
         # Marked pending, not generated, so that reopening a saved analysis
         # requests the briefing the same way a fresh one does.
         officer_summary_status="pending" if (settings.enable_llm_explanations and recommendations) else "disabled",
@@ -507,7 +528,14 @@ def tender_briefing(tender_id: int, db: Session = Depends(get_db), _: User = Dep
     if not tender:
         raise HTTPException(status_code=404, detail="Tender not found")
     analysis = saved_analysis(db, tender)
-    summary = explain_analysis(tender.source_text, analysis.recommendations, analysis.missing_requirements)
+    summary = explain_analysis(
+        tender.source_text,
+        analysis.recommendations,
+        analysis.missing_requirements,
+        requirements=analysis.extracted_requirements,
+        language=tender.language,
+        filename=tender.filename,
+    )
     return BriefingResponse(
         officer_summary=summary.text,
         officer_summary_status=summary.status,
