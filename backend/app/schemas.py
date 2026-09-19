@@ -82,6 +82,15 @@ class OutdatedCitation(BaseModel):
     message: str | None = None
 
 
+class EvidenceSpanRead(BaseModel):
+    """A passage of the officer's own tender that drove a match. String-matched
+    against the stored text, never paraphrased, so highlighting cannot lie."""
+    text: str
+    start: int
+    end: int
+    terms: list[str] = Field(default_factory=list)
+
+
 class RecommendationRead(BaseModel):
     standard: StandardRead
     standard_type: str
@@ -103,6 +112,8 @@ class RecommendationRead(BaseModel):
     superseded_by: str | None = None
     amendments: list[AmendmentRead] = Field(default_factory=list)
     currency_warning: str | None = None
+    # Clause-level traceability: where in the tender this match came from.
+    evidence_spans: list[EvidenceSpanRead] = Field(default_factory=list)
 
 
 class NearestRecord(BaseModel):
@@ -118,6 +129,23 @@ class ExtractedRequirement(BaseModel):
     confidence: float
     source_excerpt: str
     needs_confirmation: bool
+
+
+class ScoreRowRead(BaseModel):
+    key: str
+    label: str
+    weight: int
+    satisfied: bool
+    evidence: str | None = None
+    fix: str | None = None
+
+
+class ScorecardRead(BaseModel):
+    """Deterministic completeness score for the specification document itself."""
+    score: int
+    grade: str
+    rows: list[ScoreRowRead] = Field(default_factory=list)
+    fixes: list[str] = Field(default_factory=list)
 
 
 class AnalysisResponse(BaseModel):
@@ -136,6 +164,7 @@ class AnalysisResponse(BaseModel):
     # never claims semantic retrieval that did not actually run.
     retrieval_mode: str = "lexical"
     embedding_model: str | None = None
+    scorecard: ScorecardRead | None = None
     # Optional prose briefing from the local model. Never a source of fact: it
     # is discarded entirely if it mentions an identifier that was not retrieved.
     officer_summary: str | None = None
@@ -215,3 +244,44 @@ class CategoryRead(BaseModel):
     description: str = ""
     record_count: int = 0
     verified_count: int = 0
+
+
+class DraftResponse(BaseModel):
+    """Specification clauses grounded in retrieved standards only."""
+    clauses: str
+    source: str = "deterministic"
+    identifiers_used: list[str] = Field(default_factory=list)
+    note: str = ""
+
+
+class TopStandard(BaseModel):
+    identifier: str
+    title: str
+    count: int
+
+
+class SectorCount(BaseModel):
+    name: str
+    count: int
+
+
+class WatchItem(BaseModel):
+    """A standard in active use whose currency needs attention."""
+    standard_id: int
+    identifier: str
+    title: str
+    issue: str
+    detail: str
+
+
+class AnalyticsResponse(BaseModel):
+    total_tenders: int
+    total_standards: int
+    verified_standards: int
+    pending_standards: int
+    demo_records: int
+    tenders_by_language: dict[str, int] = Field(default_factory=dict)
+    top_standards: list[TopStandard] = Field(default_factory=list)
+    top_sectors: list[SectorCount] = Field(default_factory=list)
+    watch: list[WatchItem] = Field(default_factory=list)
+    expiring_within_180_days: int = 0

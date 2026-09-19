@@ -31,6 +31,7 @@ export type ApiRecommendation = {
   superseded_by: string | null;
   amendments: Array<{ amendment_number: string; issued_date: string | null; summary: string; official_source_url: string | null }>;
   currency_warning: string | null;
+  evidence_spans: Array<{ text: string; start: number; end: number; terms: string[] }>;
 };
 
 export type AnalysisResult = {
@@ -58,6 +59,7 @@ export type AnalysisResult = {
   nearest_records: Array<{ standard: ApiStandard; similarity: number }>;
   retrieval_mode: "hybrid" | "lexical";
   embedding_model: string | null;
+  scorecard: { score: number; grade: string; rows: Array<{ key: string; label: string; weight: number; satisfied: boolean; evidence: string | null; fix: string | null }>; fixes: string[] } | null;
   officer_summary: string | null;
   officer_summary_status: string;
   officer_summary_model: string | null;
@@ -163,6 +165,16 @@ async function getJson<T>(path: string): Promise<T> {
   return response.json();
 }
 
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw await apiError(response, "The request could not be completed.");
+  return response.json();
+}
+
 export const getLatestAnalysis = async (): Promise<AnalysisResult | null> => {
   const tenders = await getJson<TenderSummary[]>("/tenders");
   return tenders.length ? getJson<AnalysisResult>(`/tenders/${tenders[0].id}`) : null;
@@ -191,3 +203,33 @@ export const getCategories = () => getJson<ApiCategory[]>("/categories");
 export const getStandards = (query = "") => getJson<ApiStandard[]>(`/standards${query ? `?q=${encodeURIComponent(query)}` : ""}`);
 export const getAuditHistory = () => getJson<AuditEntry[]>("/audit");
 export const getDashboardStats = () => getJson<DashboardStats>("/dashboard");
+
+// ---- Clause-level traceability ----------------------------------------------
+export type EvidenceSpan = { text: string; start: number; end: number; terms: string[] };
+
+// ---- Specification scorecard ------------------------------------------------
+export type ScoreRow = { key: string; label: string; weight: number; satisfied: boolean; evidence: string | null; fix: string | null };
+export type Scorecard = { score: number; grade: string; rows: ScoreRow[]; fixes: string[] };
+
+// ---- Clause drafting --------------------------------------------------------
+export type DraftClauses = { clauses: string; source: string; identifiers_used: string[]; note: string };
+export const getDraft = (tenderId: number) =>
+  postJson<DraftClauses>(`/tenders/${tenderId}/draft`, {});
+
+// ---- Analytics + currency watch ---------------------------------------------
+export type TopStandard = { identifier: string; title: string; count: number };
+export type SectorCount = { name: string; count: number };
+export type WatchItem = { standard_id: number; identifier: string; title: string; issue: string; detail: string };
+export type Analytics = {
+  total_tenders: number;
+  total_standards: number;
+  verified_standards: number;
+  pending_standards: number;
+  demo_records: number;
+  tenders_by_language: Record<string, number>;
+  top_standards: TopStandard[];
+  top_sectors: SectorCount[];
+  watch: WatchItem[];
+  expiring_within_180_days: number;
+};
+export const getAnalytics = () => getJson<Analytics>("/analytics/overview");

@@ -75,6 +75,11 @@ class Standard(Base):
     # catalogue is small enough that cosine similarity runs in-process; moving
     # this to a pgvector column is the production upgrade path.
     embedding: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
+    # From the official BIS catalogue: how long the published edition remains
+    # valid before review, and which BIS sector lists it. Only harvested
+    # records carry these; curated records leave them null.
+    valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
+    bis_sector: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
     # Set when this record has been replaced. Combined with `status`, this is
     # what lets the system warn that a tender is citing an outdated standard.
     superseded_by_id: Mapped[int | None] = mapped_column(ForeignKey("standards.id"), nullable=True)

@@ -2,7 +2,8 @@ import re
 from dataclasses import dataclass, field
 from datetime import date
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
+from sqlalchemy.orm import defer
 from sqlalchemy.orm import Session
 
 from ..models import QualityControlOrder, Standard, StandardRelationship, VerificationStatus
@@ -99,6 +100,30 @@ RELATIONSHIP_TYPES = {
 }
 
 
+# In-process cache of catalogue vectors. With a harvested catalogue of a few
+# thousand records, deserialising every embedding from its JSON column on every
+# analysis is the dominant cost; the vectors only change at seed or import, so
+# they are loaded once and the (count, max id) stamp detects a new import.
+_vector_cache: dict[int, list[float]] = {}
+_vector_stamp: tuple | None = None
+
+
+def catalogue_vectors(db: Session) -> dict[int, list[float]]:
+    global _vector_stamp
+    stamp = tuple(
+        db.execute(
+            select(func.count(Standard.id), func.max(Standard.id)).where(Standard.embedding.isnot(None))
+        ).one()
+    )
+    if stamp != _vector_stamp:
+        _vector_cache.clear()
+        rows = db.execute(select(Standard.id, Standard.embedding).where(Standard.embedding.isnot(None)))
+        for standard_id, vector in rows:
+            _vector_cache[standard_id] = vector
+        _vector_stamp = stamp
+    return _vector_cache
+
+
 @dataclass
 class RankedStandard:
     standard: Standard
@@ -136,7 +161,7 @@ def _lexical_candidates(db: Session, terms: list[str]) -> list[Standard]:
         return []
     clauses = [Standard.official_title.ilike(f"%{term}%") for term in terms]
     clauses += [Standard.scope_summary.ilike(f"%{term}%") for term in terms]
-    return list(db.scalars(select(Standard).where(or_(*clauses))).all())
+    return list(db.scalars(select(Standard).options(defer(Standard.embedding)).where(or_(*clauses))).all())
 
 
 def _score(standard: Standard, lexical: float, semantic: float) -> tuple[float, dict[str, float]]:
@@ -203,10 +228,12 @@ def find_candidates(db: Session, text: str, limit: int = 5, augment: str = "") -
         else None
     )
 
+    vectors = catalogue_vectors(db)
     pool: dict[int, Standard] = {item.id: item for item in _lexical_candidates(db, terms)}
     if query_vector is not None:
         # Semantic recall must consider records that share no literal token.
-        for standard in db.scalars(select(Standard).where(Standard.embedding.isnot(None))).all():
+        scan = select(Standard).options(defer(Standard.embedding)).where(Standard.embedding.isnot(None))
+        for standard in db.scalars(scan).all():
             pool.setdefault(standard.id, standard)
 
     ranked: list[RankedStandard] = []
@@ -214,9 +241,10 @@ def find_candidates(db: Session, text: str, limit: int = 5, augment: str = "") -
         searchable = f"{standard.official_title} {standard.scope_summary}".lower()
         matched = [term for term in terms if term in searchable]
         lexical = min(len(matched) / max(len(terms), 1), 1.0) if terms else 0.0
-        semantic = cosine_similarity(query_vector, standard.embedding) if query_vector is not None else 0.0
-        if augment_vector is not None:
-            semantic = max(semantic, cosine_similarity(augment_vector, standard.embedding))
+        vector = vectors.get(standard.id)
+        semantic = cosine_similarity(query_vector, vector) if query_vector is not None and vector else 0.0
+        if augment_vector is not None and vector:
+            semantic = max(semantic, cosine_similarity(augment_vector, vector))
         score, breakdown = _score(standard, lexical, semantic)
         ranked.append(RankedStandard(
             standard=standard,
@@ -232,7 +260,11 @@ def find_candidates(db: Session, text: str, limit: int = 5, augment: str = "") -
     # never outrank a real standard however well its wording happens to match --
     # an officer reading the list top-down should meet real identifiers first.
     ranked.sort(key=lambda item: (_tier_rank(item.standard), item.score), reverse=True)
-    ranked = [item for item in ranked if _is_relevant(item, query, query_vector is not None)]
+    ranked = [
+        item
+        for item in ranked
+        if _is_relevant(item, query, query_vector is not None, item.standard.id in vectors)
+    ]
     return ranked[:limit]
 
 
@@ -250,9 +282,14 @@ def nearest_records(db: Session, text: str, limit: int = 3) -> list[RankedStanda
     query_vector = semantic_index.embed_one(text)
     if query_vector is None:
         return []
+    vectors = catalogue_vectors(db)
     scored: list[RankedStandard] = []
-    for standard in db.scalars(select(Standard).where(Standard.embedding.isnot(None))).all():
-        similarity = cosine_similarity(query_vector, standard.embedding)
+    scan = select(Standard).options(defer(Standard.embedding)).where(Standard.embedding.isnot(None))
+    for standard in db.scalars(scan).all():
+        vector = vectors.get(standard.id)
+        if not vector:
+            continue
+        similarity = cosine_similarity(query_vector, vector)
         scored.append(RankedStandard(
             standard=standard,
             score=round(similarity, 2),
@@ -275,7 +312,7 @@ def _tier_rank(standard: Standard) -> int:
     return 1 if standard.standard_number else 0
 
 
-def _is_relevant(item: RankedStandard, query: str, semantic_ran: bool) -> bool:
+def _is_relevant(item: RankedStandard, query: str, semantic_ran: bool, has_vector: bool) -> bool:
     """Keep a candidate only on real evidence, not incidental word overlap."""
     # An explicit IS number in the tender text always retrieves that record.
     if item.standard.standard_number and item.standard.standard_number.lower() in query.lower():
@@ -283,8 +320,9 @@ def _is_relevant(item: RankedStandard, query: str, semantic_ran: bool) -> bool:
     # The semantic floor only applies where a vector exists to judge. A record
     # that has not been embedded yet -- newly imported, or seeded while the
     # model was unavailable -- must still be reachable by keyword, otherwise it
-    # would be silently invisible to every search.
-    if semantic_ran and item.standard.embedding:
+    # would be silently invisible to every search. Vector presence comes from
+    # the cache rather than the deferred column, so this stays one query.
+    if semantic_ran and has_vector:
         return item.semantic_score >= MIN_SEMANTIC_RELEVANCE
     return bool(item.matched_terms)
 

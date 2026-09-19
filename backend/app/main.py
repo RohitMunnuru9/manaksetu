@@ -15,13 +15,17 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .database import Base, SessionLocal, engine, get_db
 from .models import AuditLog, ProductCategory, QualityControlOrder, Recommendation, ReviewDecision, Standard, StandardRelationship, StandardStatus, Tender, TenderRequirement, User, VerificationStatus
-from .schemas import AmendmentRead, AnalysisResponse, CategoryRead, NearestRecord, AuditRead, BriefingResponse, NetworkEdge, NetworkNode, NetworkResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
+from .schemas import AnalyticsResponse, DraftResponse, EvidenceSpanRead, ScorecardRead, ScoreRowRead, SectorCount, TopStandard, WatchItem, AmendmentRead, AnalysisResponse, CategoryRead, NearestRecord, AuditRead, BriefingResponse, NetworkEdge, NetworkNode, NetworkResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
 from .security import Permission, create_access_token, get_current_user, permissions_for, require_permission, verify_password
 from .seed import seed_demo_data
+from .services.traceability import evidence_spans
+from .services.scorecard import build_scorecard
+from .services.drafting import build_clauses, polish_clauses
 from .services.recommendation import apply_graph_context, confidence_level, evaluate_qco, find_candidates, missing_requirements, nearest_records, retrieval_mode
 from .services.embeddings import semantic_index
 from .services.explanation import explain_analysis, warm_model
 from .services.versions import describe_currency, outdated_citations
+from .bis_import import import_bis_harvest
 from .services.documents import extract_document
 from .services.reports import build_docx, build_json, build_pdf, build_xlsx
 from .services.requirements import detect_language, extract_requirements
@@ -29,12 +33,30 @@ from .services.requirements import detect_language, extract_requirements
 settings = get_settings()
 
 
+def _add_missing_columns() -> None:
+    """Tiny dev migration: create_all never alters an existing table, and the
+    demo runs on a SQLite file that predates the harvested-catalogue columns."""
+    from sqlalchemy import inspect, text as sql_text
+
+    inspector = inspect(engine)
+    if "standards" not in inspector.get_table_names():
+        return
+    present = {column["name"] for column in inspector.get_columns("standards")}
+    wanted = {"valid_until": "DATE", "bis_sector": "VARCHAR(200)"}
+    with engine.begin() as connection:
+        for name, ddl in wanted.items():
+            if name not in present:
+                connection.execute(sql_text(f"ALTER TABLE standards ADD COLUMN {name} {ddl}"))
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _add_missing_columns()
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
     with SessionLocal() as db:
         seed_demo_data(db)
+        import_bis_harvest(db)
     # Load the language model off the startup path, so the API is serving
     # immediately and the first analysis does not pay the cold-start cost.
     Thread(target=warm_model, daemon=True).start()
@@ -93,7 +115,7 @@ def list_standards(q: str | None = None, db: Session = Depends(get_db), _: User 
 _EDGE_WORDS = {
     "tested_by": ("Tested by", "test"),
     "safety": ("Safety rules", "safety"),
-    "terminology": ("Definitions", "safety"),
+    "terminology": ("Definitions", "terminology"),
     "references": ("References", "standard"),
     "installation": ("Installation", "safety"),
 }
@@ -308,6 +330,10 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
             warning=warning,
             relation_note=candidate.relation_note,
             score_breakdown=candidate.breakdown,
+            evidence_spans=[
+                EvidenceSpanRead(text=span.text, start=span.start, end=span.end, terms=span.terms)
+                for span in evidence_spans(tender.source_text, candidate.matched_terms)
+            ],
             **_currency_fields(standard),
         ))
     tender.status = "review_required"
@@ -335,7 +361,18 @@ def run_analysis(db: Session, tender: Tender, actor_id: int | None = None) -> An
         nearest_records=nearest,
         retrieval_mode=retrieval_mode(),
         embedding_model=semantic_index.model_name,
+        scorecard=_scorecard_read(tender.source_text, extracted),
         officer_summary_status="pending" if settings.enable_llm_explanations else "disabled",
+    )
+
+
+def _scorecard_read(text: str, requirements: list) -> ScorecardRead:
+    card = build_scorecard(text, requirements)
+    return ScorecardRead(
+        score=card.score,
+        grade=card.grade,
+        rows=[ScoreRowRead(key=r.key, label=r.label, weight=r.weight, satisfied=r.satisfied, evidence=r.evidence, fix=r.fix) for r in card.rows],
+        fixes=card.fixes,
     )
 
 
@@ -361,6 +398,10 @@ def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
             warning=None if verified else _tier_warning(item.standard),
             relation_note=item.relation_note,
             score_breakdown=item.score_breakdown or {},
+            evidence_spans=[
+                EvidenceSpanRead(text=span.text, start=span.start, end=span.end, terms=span.terms)
+                for span in evidence_spans(tender.source_text, item.matched_requirements or [])
+            ],
             **_currency_fields(item.standard),
         ))
     guardrail = None if recommendations else "No verified recommendation found. Expert review is required."
@@ -374,6 +415,7 @@ def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
         guardrail_message=guardrail,
         retrieval_mode=retrieval_mode(),
         embedding_model=semantic_index.model_name,
+        scorecard=_scorecard_read(tender.source_text, extracted),
         # Marked pending, not generated, so that reopening a saved analysis
         # requests the briefing the same way a fresh one does.
         officer_summary_status="pending" if (settings.enable_llm_explanations and recommendations) else "disabled",
@@ -470,6 +512,109 @@ def tender_briefing(tender_id: int, db: Session = Depends(get_db), _: User = Dep
         officer_summary=summary.text,
         officer_summary_status=summary.status,
         officer_summary_model=summary.model,
+    )
+
+
+@app.post("/api/v1/tenders/{tender_id}/draft", response_model=DraftResponse, tags=["tenders"])
+def draft_specification(tender_id: int, db: Session = Depends(get_db), user: User = Depends(require_permission(Permission.TENDER_CREATE))) -> DraftResponse:
+    """Draft tender clauses from the saved analysis.
+
+    The deterministic template is the text of record: it cites only retrieved
+    records that carry a real standard number. The local model may rewrite it
+    for fluency, but the rewrite is discarded the moment it mentions an
+    identifier retrieval did not supply -- same guarantee as the briefing.
+    """
+    tender = db.get(Tender, tender_id)
+    if not tender:
+        raise HTTPException(status_code=404, detail="Tender not found")
+    analysis = saved_analysis(db, tender)
+    requirements = {item.requirement_type: item.value for item in analysis.extracted_requirements}
+    draft = build_clauses(
+        analysis.recommendations,
+        product=requirements.get("product"),
+        quantity=requirements.get("quantity"),
+    )
+    certification = any(item.certification_required for item in analysis.recommendations)
+    draft = polish_clauses(draft, certification)
+    db.add(AuditLog(actor_id=user.id, action="tender.draft.generated", entity_type="tender", entity_id=str(tender.id), details={"source": draft.source, "identifiers": draft.identifiers_used}))
+    db.commit()
+    return DraftResponse(clauses=draft.clauses, source=draft.source, identifiers_used=draft.identifiers_used, note=draft.note)
+
+
+@app.get("/api/v1/analytics/overview", response_model=AnalyticsResponse, tags=["analytics"])
+def analytics_overview(db: Session = Depends(get_db), _: User = Depends(require_permission(Permission.TENDER_READ))) -> AnalyticsResponse:
+    """Aggregates across every analysis, plus the currency watchlist.
+
+    The watchlist is the amendment-watch feature: every standard that a saved
+    recommendation actually relies on is checked against what the catalogue
+    knows about its currency -- supersession, non-current status, or an official
+    validity date inside the next 180 days. Deterministic, like everything else
+    that carries a legal implication.
+    """
+    from datetime import date, timedelta
+
+    total_tenders = db.scalar(select(func.count(Tender.id))) or 0
+    tier_counts = dict(
+        db.execute(select(Standard.verification_status, func.count(Standard.id)).group_by(Standard.verification_status)).all()
+    )
+    languages = dict(db.execute(select(Tender.language, func.count(Tender.id)).group_by(Tender.language)).all())
+
+    top_rows = db.execute(
+        select(Standard.id, Standard.standard_number, Standard.catalogue_ref, Standard.official_title, func.count(Recommendation.id).label("uses"))
+        .join(Recommendation, Recommendation.standard_id == Standard.id)
+        .group_by(Standard.id)
+        .order_by(func.count(Recommendation.id).desc())
+        .limit(8)
+    ).all()
+    top = [
+        TopStandard(identifier=number or ref or "internal", title=title, count=uses)
+        for _sid, number, ref, title, uses in top_rows
+    ]
+
+    sector_rows = db.execute(
+        select(Standard.bis_sector, func.count(Standard.id))
+        .where(Standard.bis_sector.isnot(None))
+        .group_by(Standard.bis_sector)
+        .order_by(func.count(Standard.id).desc())
+        .limit(10)
+    ).all()
+
+    horizon = date.today() + timedelta(days=180)
+    expiring = db.scalar(
+        select(func.count(Standard.id)).where(Standard.valid_until.isnot(None), Standard.valid_until <= horizon)
+    ) or 0
+
+    # Currency watch over standards a recommendation actually relies on.
+    relied = db.scalars(
+        select(Standard)
+        .join(Recommendation, Recommendation.standard_id == Standard.id)
+        .where(Standard.standard_number.isnot(None))
+        .distinct()
+    ).all()
+    watch: list[WatchItem] = []
+    for standard in relied:
+        if standard.superseded_by_id and standard.superseded_by is not None:
+            replacement = standard.superseded_by.standard_number or standard.superseded_by.catalogue_ref or "a newer record"
+            watch.append(WatchItem(standard_id=standard.id, identifier=standard.standard_number, title=standard.official_title,
+                                   issue="superseded", detail=f"Replaced by {replacement}. Tenders citing it need updating."))
+        elif standard.status not in (StandardStatus.current,):
+            watch.append(WatchItem(standard_id=standard.id, identifier=standard.standard_number, title=standard.official_title,
+                                   issue=standard.status.value, detail="Not confirmed current. Verify the edition before contract award."))
+        elif standard.valid_until is not None and standard.valid_until <= horizon:
+            watch.append(WatchItem(standard_id=standard.id, identifier=standard.standard_number, title=standard.official_title,
+                                   issue="review due", detail=f"Official validity runs to {standard.valid_until.isoformat()}. Recheck before then."))
+
+    return AnalyticsResponse(
+        total_tenders=total_tenders,
+        total_standards=sum(tier_counts.values()),
+        verified_standards=tier_counts.get(VerificationStatus.verified, 0),
+        pending_standards=tier_counts.get(VerificationStatus.pending, 0),
+        demo_records=tier_counts.get(VerificationStatus.demo, 0),
+        tenders_by_language=languages,
+        top_standards=top,
+        top_sectors=[SectorCount(name=name, count=count) for name, count in sector_rows],
+        watch=watch[:20],
+        expiring_within_180_days=expiring,
     )
 
 

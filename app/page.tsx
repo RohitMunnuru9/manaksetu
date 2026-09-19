@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  ArrowRight, BookOpenCheck, Check, CheckCircle2, ChevronRight, Clock3, FileCheck2,
+  ArrowRight, BarChart3, BookOpenCheck, Check, CheckCircle2, ChevronRight, Clock3, FileCheck2,
   FileSearch, FileText, History, LayoutDashboard, Link2, LoaderCircle, LockKeyhole,
   Globe2, LogOut, Menu, Search, Share2, ShieldCheck, Sparkles, TriangleAlert, UploadCloud, X,
 } from "lucide-react";
@@ -13,8 +13,11 @@ import {
   type AnalysisResult, type ApiCategory, type ApiRecommendation, type ApiStandard, type AuditEntry,
   type DashboardStats, type StandardNetwork, type UserProfile,
 } from "@/lib/api";
+import { AnalyticsView } from "./components/analytics";
+import { ScorecardPanel } from "./components/scorecard";
+import { DraftPanel } from "./components/draft";
 
-type View = "overview" | "analyse" | "network" | "standards" | "reports" | "audit";
+type View = "overview" | "analyse" | "network" | "standards" | "analytics" | "reports" | "audit";
 
 /* ---------------------------------------------------------------------
    Plain-language helpers.
@@ -111,6 +114,30 @@ const T: Record<UiLang, Record<string, string>> = {
     readAs: "Read as", searchPlaceholder: "Search standards by name…",
     startNew: "Start a new analysis", verified: "Verified",
     checking: "Needs checking", example: "Example only",
+    analytics: "Analytics",
+    statCatalogue: "Standards in the catalogue", statCatalogueNote: "Harvested from the official BIS catalogue service.",
+    statTenders: "Tenders analysed", statTendersNote: "Every analysis is kept in the history.",
+    statInvented: "Invented standard numbers", statInventedNote: "Numbers only ever come from the catalogue. The AI cannot write one.",
+    statExpiring: "Validity ends within 180 days", statExpiringNote: "Official BIS validity dates, checked automatically.",
+    evidenceMix: "Where the evidence stands", evidenceMixLede: "Every record wears its tier. Nothing is presented as more certain than it is.",
+    topStandards: "Most relied-on standards", topStandardsLede: "Across every analysis saved on this system.",
+    langMix: "Tenders by language", langMixLede: "Analyses run in the language the tender arrived in.",
+    topSectors: "Largest BIS sectors in the catalogue",
+    watchTitle: "Currency watch", watchLede: "Standards your analyses rely on that need attention — superseded, unconfirmed, or approaching their validity date.",
+    watchClear: "Nothing needs attention. Every standard in use is current.",
+    watchStandard: "Standard", watchIssue: "Issue", watchDetail: "What to do",
+    tabScore: "Spec scorecard", tabDraft: "Draft clauses",
+    scoreExplain: "How complete this specification document is, judged by fixed rules — the same document always scores the same. It measures the paperwork, not the product.",
+    scoreFootnote: "Scored deterministically against a fixed checklist. No AI is involved in this score.",
+    gradeReady: "ready", gradeNeedsWork: "needs work", gradeIncomplete: "incomplete",
+    draftButton: "Draft the clauses", draftWorking: "Drafting…",
+    draftHint: "Builds standards, certification and testing clauses from the retrieved records only.",
+    draftFailed: "Drafting failed — is the API running?",
+    draftNothing: "No record with a real standard number was retrieved, so no clause can honestly be drafted.",
+    draftSourceRules: "Rule-built text", draftSourceModel: "Polished by the local model",
+    draftCopy: "Copy", draftCopied: "Copied",
+    draftFootnote: "Every standard number in this draft came from retrieval. A model rewrite that invents one is discarded automatically.",
+    whereFrom: "Where this comes from in your tender",
   },
   hi: {
     overview: "अवलोकन", analyse: "निविदा विश्लेषण", network: "आपसी संबंध",
@@ -129,6 +156,30 @@ const T: Record<UiLang, Record<string, string>> = {
     readAs: "इस भाषा में पढ़ा", searchPlaceholder: "नाम से मानक खोजें…",
     startNew: "नया विश्लेषण शुरू करें", verified: "सत्यापित",
     checking: "जाँच आवश्यक", example: "केवल उदाहरण",
+    analytics: "विश्लेषिकी",
+    statCatalogue: "सूची में मानक", statCatalogueNote: "आधिकारिक BIS सूची सेवा से लिए गए।",
+    statTenders: "विश्लेषित निविदाएँ", statTendersNote: "हर विश्लेषण इतिहास में सुरक्षित रहता है।",
+    statInvented: "गढ़े गए मानक क्रमांक", statInventedNote: "क्रमांक केवल सूची से आते हैं। AI इन्हें लिख नहीं सकता।",
+    statExpiring: "180 दिनों में वैधता समाप्त", statExpiringNote: "आधिकारिक BIS वैधता तिथियाँ, स्वतः जाँची गईं।",
+    evidenceMix: "साक्ष्य की स्थिति", evidenceMixLede: "हर रिकॉर्ड अपना स्तर दिखाता है। कुछ भी वास्तविकता से अधिक निश्चित नहीं दिखाया जाता।",
+    topStandards: "सबसे अधिक उपयोग हुए मानक", topStandardsLede: "इस प्रणाली पर सहेजे गए सभी विश्लेषणों में।",
+    langMix: "भाषा के अनुसार निविदाएँ", langMixLede: "निविदा जिस भाषा में आई, उसी में विश्लेषण हुआ।",
+    topSectors: "सूची के सबसे बड़े BIS क्षेत्र",
+    watchTitle: "वैधता निगरानी", watchLede: "आपके विश्लेषण जिन मानकों पर आधारित हैं, उनमें से जिन पर ध्यान चाहिए — प्रतिस्थापित, अपुष्ट, या वैधता समाप्ति के निकट।",
+    watchClear: "किसी पर ध्यान की आवश्यकता नहीं। उपयोग में हर मानक वर्तमान है।",
+    watchStandard: "मानक", watchIssue: "समस्या", watchDetail: "क्या करें",
+    tabScore: "विनिर्देश स्कोरकार्ड", tabDraft: "मसौदा खंड",
+    scoreExplain: "यह विनिर्देश दस्तावेज़ कितना पूर्ण है, निश्चित नियमों से आँका गया — एक ही दस्तावेज़ का स्कोर हमेशा एक ही रहता है। यह कागज़ात मापता है, उत्पाद नहीं।",
+    scoreFootnote: "एक निश्चित जाँच-सूची के विरुद्ध नियमबद्ध स्कोर। इसमें कोई AI शामिल नहीं।",
+    gradeReady: "तैयार", gradeNeedsWork: "सुधार चाहिए", gradeIncomplete: "अपूर्ण",
+    draftButton: "खंडों का मसौदा बनाएँ", draftWorking: "मसौदा बन रहा है…",
+    draftHint: "केवल प्राप्त रिकॉर्डों से मानक, प्रमाणन और परीक्षण खंड बनाता है।",
+    draftFailed: "मसौदा विफल — क्या API चल रहा है?",
+    draftNothing: "वास्तविक मानक क्रमांक वाला कोई रिकॉर्ड नहीं मिला, इसलिए ईमानदारी से कोई खंड नहीं बनाया जा सकता।",
+    draftSourceRules: "नियम-निर्मित पाठ", draftSourceModel: "स्थानीय मॉडल द्वारा परिष्कृत",
+    draftCopy: "कॉपी करें", draftCopied: "कॉपी हुआ",
+    draftFootnote: "इस मसौदे का हर मानक क्रमांक पुनर्प्राप्ति से आया है। गढ़ा गया क्रमांक स्वतः हटा दिया जाता है।",
+    whereFrom: "आपकी निविदा में यह कहाँ से आया",
   },
   te: {
     overview: "సమగ్ర వీక్షణ", analyse: "టెండర్ విశ్లేషణ", network: "పరస్పర సంబంధాలు",
@@ -147,6 +198,30 @@ const T: Record<UiLang, Record<string, string>> = {
     readAs: "ఈ భాషలో చదవబడింది", searchPlaceholder: "పేరుతో ప్రమాణాలను వెతకండి…",
     startNew: "కొత్త విశ్లేషణ ప్రారంభించండి", verified: "ధృవీకరించబడింది",
     checking: "తనిఖీ అవసరం", example: "ఉదాహరణ మాత్రమే",
+    analytics: "విశ్లేషణలు",
+    statCatalogue: "జాబితాలోని ప్రమాణాలు", statCatalogueNote: "అధికారిక BIS జాబితా సేవ నుండి సేకరించబడ్డాయి.",
+    statTenders: "విశ్లేషించిన టెండర్లు", statTendersNote: "ప్రతి విశ్లేషణ చరిత్రలో భద్రంగా ఉంటుంది.",
+    statInvented: "కల్పించిన ప్రమాణ సంఖ్యలు", statInventedNote: "సంఖ్యలు జాబితా నుండే వస్తాయి. AI వాటిని రాయలేదు.",
+    statExpiring: "180 రోజుల్లో చెల్లుబాటు ముగుస్తుంది", statExpiringNote: "అధికారిక BIS చెల్లుబాటు తేదీలు, స్వయంచాలకంగా తనిఖీ.",
+    evidenceMix: "ఆధారాల స్థితి", evidenceMixLede: "ప్రతి రికార్డు తన స్థాయిని చూపుతుంది. ఏదీ వాస్తవం కంటే ఎక్కువ ఖచ్చితంగా చూపబడదు.",
+    topStandards: "అత్యధికంగా ఆధారపడిన ప్రమాణాలు", topStandardsLede: "ఈ వ్యవస్థలో భద్రపరచిన అన్ని విశ్లేషణలలో.",
+    langMix: "భాష వారీగా టెండర్లు", langMixLede: "టెండర్ వచ్చిన భాషలోనే విశ్లేషణ జరిగింది.",
+    topSectors: "జాబితాలో అతిపెద్ద BIS రంగాలు",
+    watchTitle: "చెల్లుబాటు పర్యవేక్షణ", watchLede: "మీ విశ్లేషణలు ఆధారపడిన ప్రమాణాలలో శ్రద్ధ అవసరమైనవి — భర్తీ అయినవి, నిర్ధారించనివి, లేదా చెల్లుబాటు ముగింపుకు చేరువైనవి.",
+    watchClear: "దేనికీ శ్రద్ధ అవసరం లేదు. వాడుకలో ఉన్న ప్రతి ప్రమాణం ప్రస్తుతమే.",
+    watchStandard: "ప్రమాణం", watchIssue: "సమస్య", watchDetail: "ఏమి చేయాలి",
+    tabScore: "స్పెక్ స్కోర్‌కార్డ్", tabDraft: "ముసాయిదా నిబంధనలు",
+    scoreExplain: "ఈ వివరణ పత్రం ఎంత పూర్తిగా ఉందో, స్థిర నియమాలతో అంచనా — ఒకే పత్రానికి ఎప్పుడూ ఒకే స్కోరు వస్తుంది. ఇది పత్రాన్ని కొలుస్తుంది, ఉత్పత్తిని కాదు.",
+    scoreFootnote: "స్థిర తనిఖీ జాబితాతో నియమబద్ధంగా స్కోరు. ఇందులో AI లేదు.",
+    gradeReady: "సిద్ధం", gradeNeedsWork: "మెరుగుదల అవసరం", gradeIncomplete: "అసంపూర్ణం",
+    draftButton: "నిబంధనల ముసాయిదా రూపొందించు", draftWorking: "రూపొందుతోంది…",
+    draftHint: "పొందిన రికార్డుల నుండే ప్రమాణాలు, ధృవీకరణ, పరీక్ష నిబంధనలను రూపొందిస్తుంది.",
+    draftFailed: "ముసాయిదా విఫలమైంది — API నడుస్తోందా?",
+    draftNothing: "నిజమైన ప్రమాణ సంఖ్య ఉన్న రికార్డు దొరకలేదు, కాబట్టి నిజాయితీగా నిబంధన రాయలేము.",
+    draftSourceRules: "నియమాలతో రూపొందిన పాఠ్యం", draftSourceModel: "స్థానిక మోడల్ మెరుగుపరిచింది",
+    draftCopy: "కాపీ", draftCopied: "కాపీ అయింది",
+    draftFootnote: "ఈ ముసాయిదాలోని ప్రతి ప్రమాణ సంఖ్య శోధన నుండే వచ్చింది. కల్పించిన సంఖ్యను స్వయంచాలకంగా తొలగిస్తారు.",
+    whereFrom: "మీ టెండర్‌లో ఇది ఎక్కడి నుండి వచ్చింది",
   },
   ta: {
     overview: "மொத்தப் பார்வை", analyse: "டெண்டர் பகுப்பாய்வு", network: "தொடர்புகள்",
@@ -165,6 +240,30 @@ const T: Record<UiLang, Record<string, string>> = {
     readAs: "இந்த மொழியில் படிக்கப்பட்டது", searchPlaceholder: "பெயரால் தரநிலைகளைத் தேடு…",
     startNew: "புதிய பகுப்பாய்வைத் தொடங்கு", verified: "சரிபார்க்கப்பட்டது",
     checking: "சரிபார்ப்பு தேவை", example: "எடுத்துக்காட்டு மட்டும்",
+    analytics: "பகுப்பாய்வுகள்",
+    statCatalogue: "பட்டியலில் உள்ள தரநிலைகள்", statCatalogueNote: "அதிகாரப்பூர்வ BIS பட்டியல் சேவையிலிருந்து பெறப்பட்டவை.",
+    statTenders: "பகுப்பாய்வு செய்த டெண்டர்கள்", statTendersNote: "ஒவ்வொரு பகுப்பாய்வும் வரலாற்றில் பாதுகாக்கப்படுகிறது.",
+    statInvented: "கற்பனை தரநிலை எண்கள்", statInventedNote: "எண்கள் பட்டியலிலிருந்தே வரும். AI அவற்றை எழுத முடியாது.",
+    statExpiring: "180 நாட்களில் செல்லுபடி முடிவு", statExpiringNote: "அதிகாரப்பூர்வ BIS செல்லுபடி தேதிகள், தானாகச் சரிபார்க்கப்பட்டவை.",
+    evidenceMix: "ஆதாரங்களின் நிலை", evidenceMixLede: "ஒவ்வொரு பதிவும் தன் நிலையைக் காட்டுகிறது. எதுவும் உண்மையை விட உறுதியாகக் காட்டப்படாது.",
+    topStandards: "அதிகம் நம்பப்பட்ட தரநிலைகள்", topStandardsLede: "இந்த அமைப்பில் சேமித்த எல்லா பகுப்பாய்வுகளிலும்.",
+    langMix: "மொழி வாரியாக டெண்டர்கள்", langMixLede: "டெண்டர் வந்த மொழியிலேயே பகுப்பாய்வு நடந்தது.",
+    topSectors: "பட்டியலின் பெரிய BIS துறைகள்",
+    watchTitle: "செல்லுபடி கண்காணிப்பு", watchLede: "உங்கள் பகுப்பாய்வுகள் சார்ந்த தரநிலைகளில் கவனம் தேவையானவை — மாற்றப்பட்டவை, உறுதிப்படுத்தாதவை, அல்லது செல்லுபடி முடிவை நெருங்குபவை.",
+    watchClear: "எதற்கும் கவனம் தேவையில்லை. பயன்பாட்டில் உள்ள ஒவ்வொரு தரநிலையும் நடப்பில் உள்ளது.",
+    watchStandard: "தரநிலை", watchIssue: "சிக்கல்", watchDetail: "என்ன செய்வது",
+    tabScore: "விவரக்குறிப்பு மதிப்பீடு", tabDraft: "வரைவு பிரிவுகள்",
+    scoreExplain: "இந்த விவரக்குறிப்பு ஆவணம் எவ்வளவு முழுமையானது, நிலையான விதிகளால் மதிப்பிடப்பட்டது — ஒரே ஆவணத்திற்கு எப்போதும் ஒரே மதிப்பெண். இது ஆவணத்தை அளக்கிறது, பொருளை அல்ல.",
+    scoreFootnote: "நிலையான சரிபார்ப்புப் பட்டியலுக்கு எதிராக விதிமுறையாக மதிப்பிடப்பட்டது. இதில் AI இல்லை.",
+    gradeReady: "தயார்", gradeNeedsWork: "மேம்பாடு தேவை", gradeIncomplete: "முழுமையற்றது",
+    draftButton: "பிரிவுகளை வரைவு செய்", draftWorking: "வரைவாகிறது…",
+    draftHint: "பெறப்பட்ட பதிவுகளிலிருந்து மட்டுமே தரநிலை, சான்றிதழ், சோதனை பிரிவுகளை உருவாக்கும்.",
+    draftFailed: "வரைவு தோல்வி — API இயங்குகிறதா?",
+    draftNothing: "உண்மையான தரநிலை எண் உள்ள பதிவு கிடைக்கவில்லை, எனவே நேர்மையாக பிரிவு எழுத முடியாது.",
+    draftSourceRules: "விதிகளால் உருவான உரை", draftSourceModel: "உள்ளூர் மாடலால் மெருகூட்டப்பட்டது",
+    draftCopy: "நகலெடு", draftCopied: "நகலானது",
+    draftFootnote: "இந்த வரைவின் ஒவ்வொரு தரநிலை எண்ணும் தேடலில் இருந்தே வந்தது. கற்பனை எண் தானாக நீக்கப்படும்.",
+    whereFrom: "உங்கள் டெண்டரில் இது எங்கிருந்து வந்தது",
   },
 };
 
@@ -245,6 +344,24 @@ function ResultRow({ item, onOpen }: { item: ApiRecommendation; onOpen: () => vo
 }
 
 /** The drill-down. Everything about one result, in one place. */
+function HighlightedSpan({ text, terms }: { text: string; terms: string[] }) {
+  // Split on the matched terms and wrap them, so the officer sees at a glance
+  // which of their own words carried the match. Pure string work on the span
+  // the backend located in the stored document -- nothing is paraphrased.
+  if (!terms.length) return <>{text}</>;
+  const escaped = terms.map(term => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const parts = text.split(new RegExp(`(${escaped.join("|")})`, "gi"));
+  return (
+    <>
+      {parts.map((part, index) =>
+        terms.some(term => part.toLowerCase() === term.toLowerCase())
+          ? <mark key={index}>{part}</mark>
+          : <span key={index}>{part}</span>
+      )}
+    </>
+  );
+}
+
 function DetailPanel({ item, onClose }: { item: ApiRecommendation; onClose: () => void }) {
   const tier = tierOf(item.standard);
   const relation = plainRelation(item.relation_note);
@@ -278,6 +395,19 @@ function DetailPanel({ item, onClose }: { item: ApiRecommendation; onClose: () =
               <dt>How well it matches</dt>
               <dd>{Math.round(item.confidence_score * 100)}% — {confidenceWord(item.confidence_level)}</dd>
             </div>
+            {item.evidence_spans && item.evidence_spans.length > 0 && (
+              <div className="field">
+                <dt>Where this comes from in your tender</dt>
+                <dd>
+                  {item.evidence_spans.map(span => (
+                    <blockquote className="evidence-quote" key={span.start}>
+                      <HighlightedSpan text={span.text} terms={span.terms} />
+                      <div className="evidence-terms">matched: {span.terms.join(", ")}</div>
+                    </blockquote>
+                  ))}
+                </dd>
+              </div>
+            )}
             <div className="field">
               <dt>Why it came up</dt>
               <dd>{relation ? `${relation}. It was included because the main standard depends on it, not because of how the tender is worded.` : item.reason_for_recommendation}</dd>
@@ -388,6 +518,11 @@ function NodeGlyph({ kind, x, y, colour }: { kind: string; x: number; y: number;
   if (kind === "revision") {
     return <g transform={`translate(${x - 7},${y - 7})`}><path d="M12.5 7a5.5 5.5 0 1 1-1.8-4" {...common} /><path d="M11 1v3.2H7.8" {...common} /></g>;
   }
+  if (kind === "terminology") {
+    // An open book: definitions, not protections. Sharing the safety shield made
+    // two different relationships look identical on the diagram.
+    return <g transform={`translate(${x - 7},${y - 7})`}><path d="M7 2.5C5.8 1.6 4 1.2 1.5 1.2v10.6c2.5 0 4.3.4 5.5 1.3 1.2-.9 3-1.3 5.5-1.3V1.2C10 1.2 8.2 1.6 7 2.5z" {...common} /><path d="M7 2.5v10.6" {...common} /></g>;
+  }
   if (kind === "safety") {
     return <g transform={`translate(${x - 7},${y - 7})`}><path d="M7 1l5 2v4.5c0 3.2-2.1 5.4-5 6.3-2.9-.9-5-3.1-5-6.3V3z" {...common} /></g>;
   }
@@ -402,7 +537,7 @@ function NetworkGraph({ data, onPick }: { data: StandardNetwork; onPick: (id: st
   // Position by meaning rather than by index: what the standard depends on sits
   // to the right, what governs it to the left, other versions of it above and
   // below. The arrangement is deterministic, so the picture never reshuffles.
-  const RIGHT = ["test", "safety"];
+  const RIGHT = ["test", "safety", "terminology"];
   const LEFT = ["regulatory"];
   const right = others.filter(n => RIGHT.includes(n.kind));
   const left = others.filter(n => LEFT.includes(n.kind));
@@ -536,7 +671,7 @@ export default function Home() {
 
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [openResult, setOpenResult] = useState<ApiRecommendation | null>(null);
-  const [tab, setTab] = useState<"results" | "details" | "gaps">("results");
+  const [tab, setTab] = useState<"results" | "details" | "gaps" | "draft">("results");
   // After an analysis the officer is shown what was understood before what was
   // found. Dumping every result at once gave them no way to catch a
   // misreading of their own tender before acting on it.
@@ -745,6 +880,7 @@ export default function Home() {
     { id: "analyse", label: t("analyse"), icon: FileSearch, show: true, count: recs.length || undefined },
     { id: "network", label: t("network"), icon: Share2, show: true },
     { id: "standards", label: t("standards"), icon: BookOpenCheck, show: true },
+    { id: "analytics", label: t("analytics"), icon: BarChart3, show: true },
     { id: "reports", label: t("reports"), icon: FileCheck2, show: can(PERMISSIONS.reportExport) },
     { id: "audit", label: t("history"), icon: History, show: can(PERMISSIONS.auditRead) },
   ];
@@ -994,7 +1130,8 @@ export default function Home() {
                       <div className="tabs">
                         <button className={tab === "results" ? "active" : ""} onClick={() => setTab("results")}>{t("tabResults")}<span className="pill">{recs.length}</span></button>
                         <button className={tab === "details" ? "active" : ""} onClick={() => setTab("details")}>{t("tabRead")}<span className="pill">{details.length}</span></button>
-                        <button className={tab === "gaps" ? "active" : ""} onClick={() => setTab("gaps")}>{t("tabGaps")}<span className="pill">{gaps.length}</span></button>
+                        <button className={tab === "gaps" ? "active" : ""} onClick={() => setTab("gaps")}>{analysis?.scorecard ? t("tabScore") : t("tabGaps")}<span className="pill">{analysis?.scorecard ? `${analysis.scorecard.score}` : gaps.length}</span></button>
+                        <button className={tab === "draft" ? "active" : ""} onClick={() => setTab("draft")}>{t("tabDraft")}</button>
                       </div>
 
                       <div className="card-pad">
@@ -1092,16 +1229,24 @@ export default function Home() {
                         )}
 
                         {tab === "gaps" && (
-                          <>
-                            <p className="section-sub mb-4">Your tender does not mention these. Adding them makes it harder to dispute later.</p>
-                            {gaps.map(g => (
-                              <div className="rowcard" key={g}>
-                                <span className="ico warn"><TriangleAlert size={17} /></span>
-                                <div className="min-w-0 flex-1"><dd className="font-semibold">{g}</dd></div>
-                              </div>
-                            ))}
-                            {!gaps.length && <div className="empty"><strong>Nothing missing</strong><span>Your tender already covers the usual points.</span></div>}
-                          </>
+                          analysis?.scorecard ? (
+                            <ScorecardPanel card={analysis.scorecard} t={t} />
+                          ) : (
+                            <>
+                              <p className="section-sub mb-4">Your tender does not mention these. Adding them makes it harder to dispute later.</p>
+                              {gaps.map(g => (
+                                <div className="rowcard" key={g}>
+                                  <span className="ico warn"><TriangleAlert size={17} /></span>
+                                  <div className="min-w-0 flex-1"><dd className="font-semibold">{g}</dd></div>
+                                </div>
+                              ))}
+                              {!gaps.length && <div className="empty"><strong>Nothing missing</strong><span>Your tender already covers the usual points.</span></div>}
+                            </>
+                          )
+                        )}
+
+                        {tab === "draft" && analysis && (
+                          <DraftPanel tenderId={analysis.tender.id} t={t} />
                         )}
                       </div>
                     </div>
@@ -1262,6 +1407,16 @@ export default function Home() {
           )}
 
           {/* ---------------- Reports ---------------- */}
+          {view === "analytics" && (
+            <section className="anim-in">
+              <p className="eyebrow">{t("analytics")}</p>
+              <h1 className="display mt-3">{t("watchTitle")} &amp; {t("analytics").toLowerCase()}</h1>
+              <div className="mt-6">
+                <AnalyticsView t={t} />
+              </div>
+            </section>
+          )}
+
           {view === "reports" && (
             <>
               <p className="eyebrow">Download report</p>
