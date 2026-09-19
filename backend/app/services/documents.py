@@ -44,9 +44,18 @@ logger = logging.getLogger(__name__)
 # read in full.
 MAX_TABLE_PAGES = 25
 
-# Retrieval only needs enough text to establish what is being bought, and the
-# embedding model truncates far below this in any case.
-MAX_TEXT_CHARS = 120_000
+# Real tenders are long. The civil specification used to develop this runs to
+# 467,000 characters, and a 120,000 ceiling kept only its opening quarter --
+# the site investigation -- while every mention of the concrete it was actually
+# specifying fell outside. Term counting reads the whole of what is kept, so
+# the ceiling decides what the system is able to notice at all.
+MAX_TEXT_CHARS = 600_000
+
+# Where even that is exceeded, the document is sampled rather than cut off, so
+# its later sections are represented. Chunks are taken at even intervals and
+# joined; the marker makes the gap visible to anyone reading the stored text.
+SAMPLE_CHUNKS = 24
+SAMPLE_MARKER = "\n\n[… a section of this document was not included …]\n\n"
 
 # Tesseract wants roughly 300 DPI. A PDF page is 72 DPI by default, so the
 # page is rendered at a little over four times scale before recognition.
@@ -134,6 +143,24 @@ class ExtractionResult:
     quality: str = "digital"
     # Plain sentences for the officer about how this document was read.
     notes: list[str] = field(default_factory=list)
+
+
+def _fit(text: str) -> tuple[str, bool]:
+    """Bring `text` within the ceiling. Returns the text and whether sampling
+    was needed.
+
+    Taking the first N characters answers "what does this document open with",
+    which for a tender is its title page and its conditions of contract. Taking
+    slices from end to end answers "what is this document about", which is the
+    question being asked.
+    """
+    if len(text) <= MAX_TEXT_CHARS:
+        return text, False
+
+    span = MAX_TEXT_CHARS // SAMPLE_CHUNKS
+    step = len(text) // SAMPLE_CHUNKS
+    pieces = [text[start : start + span] for start in range(0, len(text), step)][:SAMPLE_CHUNKS]
+    return SAMPLE_MARKER.join(pieces), True
 
 
 def extract_document(path: Path, content_type: str) -> ExtractionResult:
@@ -290,9 +317,14 @@ def _extract_pdf(path: Path) -> ExtractionResult:
     text = "\n\n".join(part for part in page_texts if part)
     if tables:
         text = f"{text}\n\nExtracted tables:\n" + "\n".join(tables)
-    if len(text) > MAX_TEXT_CHARS:
-        logger.info("Document text truncated from %d to %d characters.", len(text), MAX_TEXT_CHARS)
-        text = text[:MAX_TEXT_CHARS]
+    original_length = len(text)
+    text, sampled = _fit(text)
+    if sampled:
+        logger.info("Sampled %d characters across a %d character document.", len(text), original_length)
+        notes.append(
+            f"This document is {original_length:,} characters long. Passages were read from "
+            "across the whole of it rather than only the beginning."
+        )
 
     confidence = sum(confidences) / len(confidences) if confidences else None
     page_count = len(page_texts)

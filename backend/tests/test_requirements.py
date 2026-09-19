@@ -114,8 +114,11 @@ def test_long_document_without_a_subject_line_prefers_distinctive_words() -> Non
         + "The contractor and the engineer shall agree the specification. " * 120
         + "Ordinary portland cement shall be used throughout. " * 60
     )
+    # Reality, not invention: no published standard is titled "contractor" or
+    # "engineer", so those carry no weight at all and are dropped outright.
+    # That presence test, rather than the ranking, is what removes paperwork.
     vocabulary = _Vocabulary(
-        {"contractor": 400, "engineer": 380, "specification": 500, "shall": 600, "cement": 20, "portland": 12},
+        {"specification": 500, "cement": 20, "portland": 12},
         total=1000,
     )
     product = _product(text, vocabulary)

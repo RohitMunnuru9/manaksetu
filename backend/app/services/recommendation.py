@@ -26,6 +26,12 @@ TOKEN_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9-]{2,}")
 # frequent are kept and the long tail dropped.
 MAX_QUERY_TERMS = 80
 
+# How hard to lean on distinctiveness once boilerplate has been dropped. At 1.0
+# a rare word beats a frequent one outright, which made a concrete
+# specification retrieve seismic standards. Well below 1 the ranking stays
+# frequency-led and distinctiveness only settles ties.
+DISTINCTIVENESS_DAMPING = 0.25
+
 # Above this length a document is summarised by its repeated words rather than
 # read from the top. The embedding model only sees its first few hundred tokens,
 # which on a 233-page tender is the cover page and proprietary notice -- that
@@ -161,13 +167,39 @@ class RankedStandard:
     breakdown: dict[str, float] = field(default_factory=dict)
 
 
-def extract_terms(text: str) -> list[str]:
-    """The words worth searching on, most frequent first, capped."""
+def extract_terms(text: str, vocabulary: "CatalogueVocabulary | None" = None) -> list[str]:
+    """The words worth searching on.
+
+    Repetition alone is the wrong ranking for a tender. A forty-nine page
+    notice devotes two pages to what is being bought and forty-seven to
+    conditions of contract, so "contractor", "bidder" and "specification"
+    always outrank the goods -- and they describe every tender equally, which
+    means they distinguish none of them. A coal company's notice for blood bank
+    incubators retrieved mining standards for exactly this reason.
+
+    Where the catalogue's word statistics are available, each term is weighted
+    by how rare it is across the titles of published standards. A word naming
+    fifty standards identifies goods; a word naming five hundred identifies
+    paperwork; a word naming none is not worth searching on at all.
+    """
     counts: dict[str, int] = {}
     for match in TOKEN_RE.finditer(text):
         word = match.group(0).lower()
         if word not in STOP_WORDS:
             counts[word] = counts.get(word, 0) + 1
+    if not counts:
+        return []
+
+    if vocabulary is not None:
+        scored = {
+            word: count * (vocabulary.weight(word) ** DISTINCTIVENESS_DAMPING)
+            for word, count in counts.items()
+            if vocabulary.weight(word) > 0
+        }
+        if scored:
+            ranked = sorted(scored, key=lambda w: (-scored[w], w))[:MAX_QUERY_TERMS]
+            return sorted(ranked)
+
     if len(counts) <= MAX_QUERY_TERMS:
         return sorted(counts)
     # Frequency first, then alphabetically so the result is stable run to run.
@@ -215,6 +247,21 @@ def _score(standard: Standard, lexical: float, semantic: float) -> tuple[float, 
     return round(score, 2), breakdown
 
 
+def _ranked_for_meaning(text: str, terms: list[str], vocabulary: "CatalogueVocabulary | None") -> list[str]:
+    """`terms` sorted most distinctive first, for the embedding to read."""
+    if vocabulary is None:
+        return terms
+    counts: dict[str, int] = {}
+    for match in TOKEN_RE.finditer(text):
+        word = match.group(0).lower()
+        if word in terms:
+            counts[word] = counts.get(word, 0) + 1
+    return sorted(
+        terms,
+        key=lambda w: -(counts.get(w, 1) * (vocabulary.weight(w) ** DISTINCTIVENESS_DAMPING)),
+    )
+
+
 def find_candidates(db: Session, text: str, limit: int = 5, augment: str = "") -> list[RankedStandard]:
     """Hybrid retrieval: lexical overlap unioned with semantic similarity.
 
@@ -231,12 +278,17 @@ def find_candidates(db: Session, text: str, limit: int = 5, augment: str = "") -
     loosening the floor for everyone.
     """
     query = f"{text} {augment}".strip() if augment else text
-    terms = extract_terms(query)
+    vocabulary = catalogue_vocabulary(db)
+    terms = extract_terms(query, vocabulary)
     # Short text is its own best summary. A long document is not: embed what it
     # repeats, plus anything the extractor recognised, instead of its opening page.
     semantic_query = query
     if len(query) > LONG_DOCUMENT_CHARS:
-        semantic_query = " ".join(terms)
+        # Embedding a whole tender embeds its conditions of contract. The
+        # distinctive terms are a far better description of what it is for, and
+        # the model only reads the first few hundred tokens in any case, so the
+        # strongest ones are put first.
+        semantic_query = " ".join(_ranked_for_meaning(query, terms, vocabulary))
         if augment:
             semantic_query = f"{augment} {semantic_query}"
     query_vector = semantic_index.embed_one(semantic_query) if semantic_index.available else None

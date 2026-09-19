@@ -192,8 +192,11 @@ def _dominant_subject(text: str, vocabulary=None) -> Subject:
         # each by how rare it is across the catalogue's titles favours the
         # words that actually identify goods: a term naming fifty standards
         # says far more than one naming five hundred.
+        # Same reasoning as retrieval: dropping words the catalogue never uses
+        # is what removes the paperwork; ranking the survivors is frequency's
+        # job, with distinctiveness only breaking ties.
         scored = {
-            word: count * vocabulary.weight(word)
+            word: count * (vocabulary.weight(word) ** 0.25)
             for word, count in counts.items()
             if count >= 3 and vocabulary.weight(word) > 0
         }
