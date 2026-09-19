@@ -148,6 +148,13 @@ class Tender(Base):
     filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(40), default="received")
     language: Mapped[str] = mapped_column(String(20), default="en")
+    # How the text was obtained, and how far it can be trusted. A scan or a
+    # handwritten page yields text that looks no different from a digital
+    # one, so this has to travel with it or the officer cannot tell.
+    read_method: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    read_quality: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    read_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    read_notes: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     recommendations: Mapped[list[Recommendation]] = relationship(back_populates="tender", cascade="all, delete-orphan")

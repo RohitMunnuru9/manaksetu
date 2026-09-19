@@ -27,9 +27,13 @@ from .services.embeddings import semantic_index
 from .services.explanation import explain_analysis, warm_model
 from .services.versions import describe_currency, outdated_citations
 from .bis_import import import_bis_harvest
-from .services.documents import extract_document
+from .services.documents import DocumentUnreadable, extract_document
 from .services.reports import build_docx, build_json, build_pdf, build_xlsx
 from .services.requirements import detect_language, extract_requirements
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -48,6 +52,19 @@ def _add_missing_columns() -> None:
         for name, ddl in wanted.items():
             if name not in present:
                 connection.execute(sql_text(f"ALTER TABLE standards ADD COLUMN {name} {ddl}"))
+
+    if "tenders" in inspector.get_table_names():
+        present = {column["name"] for column in inspector.get_columns("tenders")}
+        tender_columns = {
+            "read_method": "VARCHAR(40)",
+            "read_quality": "VARCHAR(20)",
+            "read_confidence": "FLOAT",
+            "read_notes": "JSON",
+        }
+        with engine.begin() as connection:
+            for name, ddl in tender_columns.items():
+                if name not in present:
+                    connection.execute(sql_text(f"ALTER TABLE tenders ADD COLUMN {name} {ddl}"))
 
 
 @asynccontextmanager
@@ -453,6 +470,15 @@ def saved_analysis(db: Session, tender: Tender) -> AnalysisResponse:
 @app.post("/api/v1/tenders/analyse", response_model=AnalysisResponse, tags=["tenders"])
 def analyse_text(payload: TenderCreate, db: Session = Depends(get_db), user: User = Depends(require_permission(Permission.TENDER_CREATE))) -> AnalysisResponse:
     tender = Tender(reference=f"MS-{datetime.now(timezone.utc):%Y}-{uuid4().hex[:6].upper()}", title=payload.title, source_text=payload.description, language=payload.language, created_by_id=user.id)
+    if not extraction.text.strip():
+        destination.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "No readable text could be taken from this document. "
+                + (extraction.notes[0] if extraction.notes else "")
+            ).strip(),
+        )
     db.add(tender)
     db.flush()
     return run_analysis(db, tender, user.id)
@@ -504,9 +530,18 @@ async def upload_and_analyse(file: UploadFile = File(...), db: Session = Depends
     destination, content_type = await save_upload(file)
     try:
         extraction = extract_document(destination, content_type)
-    except Exception as exc:
+    except DocumentUnreadable as exc:
+        # These carry a sentence written for the officer; pass it through
+        # unchanged rather than wrapping it in machine wording.
         destination.unlink(missing_ok=True)
-        raise HTTPException(status_code=422, detail=f"Document extraction failed: {exc}") from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - anything unforeseen
+        destination.unlink(missing_ok=True)
+        logger.exception("Unexpected failure reading %s", file.filename)
+        raise HTTPException(
+            status_code=422,
+            detail="This file could not be read. If it is a scan or a photograph, make sure the page is flat and in focus.",
+        ) from exc
     tender = Tender(
         reference=f"MS-{datetime.now(timezone.utc):%Y}-{uuid4().hex[:6].upper()}",
         title=Path(file.filename or "Untitled tender").stem,
@@ -514,6 +549,10 @@ async def upload_and_analyse(file: UploadFile = File(...), db: Session = Depends
         source_text=extraction.text,
         status="ocr_required" if extraction.requires_ocr else "extracted",
         created_by_id=user.id,
+        read_method=extraction.method,
+        read_quality=extraction.quality,
+        read_confidence=extraction.ocr_confidence,
+        read_notes=extraction.notes or [],
     )
     db.add(tender)
     db.flush()

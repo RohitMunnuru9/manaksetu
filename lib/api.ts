@@ -44,6 +44,10 @@ export type AnalysisResult = {
     filename: string | null;
     created_at: string;
     source_text: string;
+    read_method: string | null;
+    read_quality: string | null;
+    read_confidence: number | null;
+    read_notes: string[];
   };
   recommendations: ApiRecommendation[];
   extracted_requirements: Array<{

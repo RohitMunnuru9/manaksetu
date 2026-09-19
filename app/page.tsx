@@ -3,7 +3,7 @@
 import {
   Armchair, ArrowRight, BarChart3, BookOpenCheck, Boxes, Building2, Check, CheckCircle2, ChevronDown, ChevronRight, Clock3, Droplets, FileCheck2,
   FileSearch, FileText, HardHat, History, LayoutDashboard, Link2, LoaderCircle, LockKeyhole,
-  Globe2, LogOut, PlugZap, Search, Share2, ShieldCheck, Sparkles, TriangleAlert, UploadCloud, X,
+  Globe2, LogOut, PlugZap, ScanLine, Search, Share2, ShieldCheck, Sparkles, TriangleAlert, UploadCloud, X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -1780,6 +1780,19 @@ export default function Home() {
                     <div className="card card-pad">
                       <h3 className="section-head">{t("briefing")}</h3>
                       <p className="section-sub">Written for you from the results on the left.</p>
+                      {analysis.tender.read_quality && analysis.tender.read_quality !== "digital" && (
+                        <div className={`notice ${analysis.tender.read_quality === "good" ? "plain" : analysis.tender.read_quality === "low" ? "amber" : "red"} mt-4`}>
+                          {analysis.tender.read_quality === "good"
+                            ? <ScanLine size={16} className="mt-0.5 shrink-0" />
+                            : <TriangleAlert size={16} className="mt-0.5 shrink-0" />}
+                          <span>
+                            {analysis.tender.read_notes?.[0]}
+                            {analysis.tender.read_notes && analysis.tender.read_notes.length > 1 && (
+                              <> {analysis.tender.read_notes.slice(1).join(" ")}</>
+                            )}
+                          </span>
+                        </div>
+                      )}
                       {analysis.officer_glance && analysis.officer_glance.length > 0 && (
                         <dl className="glance mt-4">
                           {analysis.officer_glance.map(point => (

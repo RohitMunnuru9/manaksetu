@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .models import StandardStatus, VerificationStatus
 
@@ -50,6 +50,19 @@ class TenderRead(BaseModel):
     # The text as the system read it, so an officer can see exactly what was
     # analysed -- including what OCR made of a scanned page.
     source_text: str = ""
+    # How that text was obtained: "pymupdf" for a real text layer, or one of
+    # the recognition methods, with a confidence and plain-English notes.
+    read_method: str | None = None
+    read_quality: str | None = None
+    read_confidence: float | None = None
+    # Tenders analysed before this field existed have NULL here, so the column
+    # must be allowed to be null and normalised to an empty list on the way out.
+    read_notes: list[str] | None = Field(default=None)
+
+    @field_validator("read_notes", mode="before")
+    @classmethod
+    def _notes_never_null(cls, value):
+        return value or []
 
 
 class StandardRead(BaseModel):
