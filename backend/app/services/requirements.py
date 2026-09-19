@@ -13,8 +13,8 @@ class RequirementValue:
     needs_confirmation: bool = True
 
 
-# Literal terms, checked first. Indic entries let a Hindi, Telugu or Tamil tender
-# resolve its product without a translation model. These transliterations are
+# Literal terms, checked first. Indic entries let a tender in any of nine
+# Indian scripts resolve its product without a translation model. These are
 # the common procurement spellings and should be reviewed by a native speaker
 # before the catalogue is used in production.
 PRODUCT_TERMS = {
@@ -24,31 +24,59 @@ PRODUCT_TERMS = {
         "हेलमेट", "सुरक्षा हेलमेट", "हेल्मेट",
         "హెల్మెట్", "భద్రతా హెల్మెట్",
         "தலைக்கவசம்", "பாதுகாப்பு தலைக்கவசம்", "ஹெல்மெட்",
+        "হেলমেট", "নিরাপত্তা হেলমেট",
+        "હેલ્મેટ", "સેફ્ટી હેલ્મેટ",
+        "ਹੈਲਮੇਟ", "ਸੁਰੱਖਿਆ ਹੈਲਮੇਟ",
+        "ಹೆಲ್ಮೆಟ್", "ಸುರಕ್ಷತಾ ಹೆಲ್ಮೆಟ್",
+        "ഹെൽമെറ്റ്", "സുരക്ഷാ ഹെൽമെറ്റ്",
     ),
     "electric cable": (
         "electric cable", "electrical cable", "power cable", "wiring", "cable",
         "केबल", "विद्युत केबल", "कैबल",
         "కేబుల్", "విద్యుత్ కేబుల్",
         "கேபிள்", "மின் கேபிள்", "வயரிங்",
+        "কেবল", "বৈদ্যুতিক তার",
+        "કેબલ", "વાયરિંગ",
+        "ਕੇਬਲ", "ਬਿਜਲੀ ਦੀ ਤਾਰ",
+        "ಕೇಬಲ್", "ವಿದ್ಯುತ್ ಕೇಬಲ್",
+        "കേബിൾ", "വൈദ്യുത കേബിൾ",
     ),
     "drinking water": (
         "packaged drinking water", "drinking water", "bottled water",
         "पेयजल", "पीने का पानी", "बोतलबंद पानी",
         "తాగునీరు", "తాగు నీరు",
         "குடிநீர்", "பாட்டில் நீர்",
+        "পানীয় জল", "খাবার জল",
+        "પીવાનું પાણી",
+        "ਪੀਣ ਵਾਲਾ ਪਾਣੀ",
+        "ಕುಡಿಯುವ ನೀರು",
+        "കുടിവെള്ളം",
     ),
     "safety footwear": (
         "safety footwear", "safety shoes", "protective footwear", "safety boots",
         "सुरक्षा जूते", "सुरक्षा बूट",
         "భద్రతా బూట్లు", "భద్రతా చెప్పులు",
         "பாதுகாப்பு காலணி", "பாதுகாப்பு பூட்ஸ்",
+        "নিরাপত্তা জুতা",
+        "સેફ્ટી શૂઝ", "સુરક્ષા બૂટ",
+        "ਸੇਫਟੀ ਜੁੱਤੇ",
+        "ಸುರಕ್ಷತಾ ಬೂಟು", "ಸುರಕ್ಷತಾ ಶೂ",
+        "സുരക്ഷാ ഷൂ", "സുരക്ഷാ ബൂട്ട്",
     ),
-    "cement": ("portland cement", "cement", "सीमेंट", "सिमेंट", "సిమెంట్", "சிமெண்ட்"),
+    "cement": (
+        "portland cement", "cement", "सीमेंट", "सिमेंट", "సిమెంట్", "சிமெண்ட்",
+        "সিমেন্ট", "સિમેન્ટ", "ਸੀਮਿੰਟ", "ಸಿಮೆಂಟ್", "സിമന്റ്",
+    ),
     "office furniture": (
         "office chair", "office seating", "office furniture",
         "कार्यालय फर्नीचर", "कुर्सी",
         "కార్యాలయ ఫర్నిచర్", "కుర్చీ",
         "அலுவலக தளவாடம்", "நாற்காலி", "மேசை",
+        "আসবাবপত্র", "চেয়ার",
+        "ઓફિસ ફર્નિચર", "ખુરશી",
+        "ਦਫ਼ਤਰ ਫਰਨੀਚਰ", "ਕੁਰਸੀ",
+        "ಕಚೇರಿ ಪೀಠೋಪಕರಣ", "ಕುರ್ಚಿ",
+        "ഓഫീസ് ഫർണിച്ചർ", "കസേര",
     ),
 }
 
@@ -77,9 +105,14 @@ _gloss_vectors: dict[str, list[float]] | None = None
 
 def detect_language(text: str) -> str:
     counts = {
-        "hi": sum(1 for char in text if "\u0900" <= char <= "\u097f"),  # Devanagari
+        "hi": sum(1 for char in text if "\u0900" <= char <= "\u097f"),  # Devanagari (Hindi/Marathi)
         "te": sum(1 for char in text if "\u0c00" <= char <= "\u0c7f"),  # Telugu
         "ta": sum(1 for char in text if "\u0b80" <= char <= "\u0bff"),  # Tamil
+        "bn": sum(1 for char in text if "\u0980" <= char <= "\u09ff"),  # Bengali
+        "gu": sum(1 for char in text if "\u0a80" <= char <= "\u0aff"),  # Gujarati
+        "pa": sum(1 for char in text if "\u0a00" <= char <= "\u0a7f"),  # Gurmukhi (Punjabi)
+        "kn": sum(1 for char in text if "\u0c80" <= char <= "\u0cff"),  # Kannada
+        "ml": sum(1 for char in text if "\u0d00" <= char <= "\u0d7f"),  # Malayalam
     }
     language, count = max(counts.items(), key=lambda pair: pair[1])
     return language if count >= 3 else "en"

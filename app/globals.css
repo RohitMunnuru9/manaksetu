@@ -580,3 +580,53 @@ a { color: var(--rust); }
   .ticker, .flow-arrow, .float-a, .float-b, .flow-dash, .j-step.active .j-dot { animation: none; }
   .cat-card, .flow-card, .anim-in { animation: none; }
 }
+
+/* ---- Dropdown menus: language picker and the More menu ---- */
+.menu-anchor { position: relative; }
+.menu-scrim { position: fixed; inset: 0; z-index: 45; background: transparent; cursor: default; }
+.menu-pop {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 50;
+  min-width: 240px; max-height: 70vh; overflow-y: auto;
+  border: 1.5px solid var(--line); border-radius: 18px; padding: 6px;
+  background: #fff; box-shadow: var(--shadow-lift);
+  animation: pop-in .18s ease;
+}
+.topnav-links .menu-pop { right: auto; left: 0; }
+.menu-pop button {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  border-radius: 12px; padding: 9px 11px; text-align: left;
+  font-size: 13px; color: var(--ink);
+}
+.menu-pop button:hover { background: #f8f2e7; }
+.menu-pop button.active { background: var(--rust-soft); }
+.menu-pop button strong { display: block; font-size: 12.5px; font-weight: 800; line-height: 1.2; }
+.menu-pop button small { display: block; font-size: 10.5px; color: var(--faint); line-height: 1.35; margin-top: 1px; }
+.menu-ico { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 10px; background: #f4ecdf; color: var(--navy); }
+.menu-pop button.active .menu-ico { background: var(--rust); color: #fff; }
+.langmenu-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1.5px solid var(--line); border-radius: 999px; padding: 8px 14px;
+  background: #fff; font-size: 12.5px; font-weight: 700; color: var(--ink);
+  box-shadow: var(--shadow-soft);
+}
+.langmenu-btn:hover { border-color: var(--rust); }
+.langmenu-code { font-size: 13px; font-weight: 800; }
+.lang-pop { min-width: 190px; }
+
+/* ---- Knowledge graph, alive ---- */
+.net-edge { animation: fade-in .5s ease backwards; }
+@keyframes fade-in { from { opacity: 0; } }
+.net-flow {
+  stroke: var(--navy); stroke-width: 2; opacity: .45;
+  stroke-dasharray: 4 14; stroke-linecap: round;
+  animation: dashmove 1.2s linear infinite;
+}
+.net-node { animation: node-pop .5s cubic-bezier(.34,1.4,.5,1) backwards; transform-box: fill-box; transform-origin: center; cursor: pointer; }
+@keyframes node-pop { from { opacity: 0; transform: scale(.6); } }
+.net-halo { transform-box: fill-box; transform-origin: center; animation: halo 2.6s ease-out infinite; }
+@keyframes halo { 0% { transform: scale(.92); opacity: .16; } 60% { transform: scale(1.14); opacity: .05; } 100% { transform: scale(.92); opacity: .16; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .net-flow, .net-halo { animation: none; }
+  .net-edge, .net-node, .menu-pop { animation: none; }
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  Armchair, ArrowRight, BarChart3, BookOpenCheck, Boxes, Building2, Check, CheckCircle2, ChevronRight, Clock3, Droplets, FileCheck2,
+  Armchair, ArrowRight, BarChart3, BookOpenCheck, Boxes, Building2, Check, CheckCircle2, ChevronDown, ChevronRight, Clock3, Droplets, FileCheck2,
   FileSearch, FileText, HardHat, History, LayoutDashboard, Link2, LoaderCircle, LockKeyhole,
   Globe2, LogOut, PlugZap, Search, Share2, ShieldCheck, Sparkles, TriangleAlert, UploadCloud, X,
 } from "lucide-react";
@@ -96,6 +96,15 @@ const CAT_CARDS: Array<{ cls: string; icon: React.ElementType; titleKey: string;
   { cls: "cat-pink", icon: Boxes, titleKey: "cat6", subKey: "cat6s" },
 ];
 
+// What lives in the topnav directly; everything else sits behind "More".
+const PRIMARY_VIEWS: View[] = ["overview", "analyse", "standards"];
+const MORE_DESC: Record<string, string> = {
+  network: "moreNet",
+  analytics: "moreAna",
+  reports: "moreRep",
+  audit: "moreHis",
+};
+
 const DEMO_OFFICER = { email: "officer@manaksetu.gov.in", password: "ManakSetu@2026" };
 const DEMO_SUPPLIER = { email: "supplier@example.in", password: "ManakSetu@2026" };
 
@@ -106,15 +115,23 @@ const DEMO_SUPPLIER = { email: "supplier@example.in", password: "ManakSetu@2026"
    an officer can work in their own language.
    --------------------------------------------------------------------- */
 
-type UiLang = "en" | "hi" | "te" | "ta";
+type UiLang = "en" | "hi" | "te" | "ta" | "bn" | "mr" | "gu" | "pa" | "kn" | "ml";
 
 const UI_LANGS: Array<{ code: UiLang; label: string; native: string }> = [
   { code: "en", label: "EN", native: "English" },
   { code: "hi", label: "हि", native: "हिन्दी" },
   { code: "te", label: "తె", native: "తెలుగు" },
   { code: "ta", label: "த", native: "தமிழ்" },
+  { code: "bn", label: "বা", native: "বাংলা" },
+  { code: "mr", label: "म", native: "मराठी" },
+  { code: "gu", label: "ગુ", native: "ગુજરાતી" },
+  { code: "pa", label: "ਪੰ", native: "ਪੰਜਾਬੀ" },
+  { code: "kn", label: "ಕ", native: "ಕನ್ನಡ" },
+  { code: "ml", label: "മ", native: "മലയാളം" },
 ];
 
+// The first four languages are complete; the remaining six cover the landing
+// and navigation layer, and t() falls back to English for anything else.
 const T: Record<UiLang, Record<string, string>> = {
   en: {
     overview: "Overview", analyse: "Analyse a tender", network: "How they connect",
@@ -179,6 +196,8 @@ const T: Record<UiLang, Record<string, string>> = {
     flow4t: "You approve", flow4p: "Every result shows its proof. Nothing is final until you say so.",
     footLang: "4 languages", footLocal: "100% local AI — nothing leaves this machine",
     footZero: "Zero invented standard numbers", footAudit: "Every action audited",
+    more: "More", moreNet: "Animated knowledge graph", moreAna: "Deep analytics & currency watch",
+    moreRep: "Download report", moreHis: "History & audit trail",
   },
   hi: {
     overview: "अवलोकन", analyse: "निविदा विश्लेषण", network: "आपसी संबंध",
@@ -243,6 +262,8 @@ const T: Record<UiLang, Record<string, string>> = {
     flow4t: "आप स्वीकृति देते हैं", flow4p: "हर परिणाम अपना प्रमाण दिखाता है। आपकी हाँ के बिना कुछ भी अंतिम नहीं।",
     footLang: "4 भाषाएँ", footLocal: "100% स्थानीय AI — कुछ भी इस मशीन से बाहर नहीं जाता",
     footZero: "शून्य गढ़े गए मानक क्रमांक", footAudit: "हर कार्रवाई का अभिलेख",
+    more: "और", moreNet: "सजीव ज्ञान ग्राफ़", moreAna: "गहन विश्लेषिकी और वैधता निगरानी",
+    moreRep: "रिपोर्ट डाउनलोड", moreHis: "इतिहास और ऑडिट",
   },
   te: {
     overview: "సమగ్ర వీక్షణ", analyse: "టెండర్ విశ్లేషణ", network: "పరస్పర సంబంధాలు",
@@ -307,6 +328,8 @@ const T: Record<UiLang, Record<string, string>> = {
     flow4t: "మీరు ఆమోదిస్తారు", flow4p: "ప్రతి ఫలితం తన ఆధారాన్ని చూపుతుంది. మీరు సరే అనే వరకు ఏదీ తుది కాదు.",
     footLang: "4 భాషలు", footLocal: "100% స్థానిక AI — ఏదీ ఈ యంత్రం బయటకు వెళ్ళదు",
     footZero: "సున్నా కల్పిత ప్రమాణ సంఖ్యలు", footAudit: "ప్రతి చర్యకు ఆడిట్",
+    more: "మరిన్ని", moreNet: "సజీవ నాలెడ్జ్ గ్రాఫ్", moreAna: "లోతైన విశ్లేషణలు & చెల్లుబాటు పర్యవేక్షణ",
+    moreRep: "నివేదిక డౌన్‌లోడ్", moreHis: "చరిత్ర & ఆడిట్",
   },
   ta: {
     overview: "மொத்தப் பார்வை", analyse: "டெண்டர் பகுப்பாய்வு", network: "தொடர்புகள்",
@@ -371,10 +394,174 @@ const T: Record<UiLang, Record<string, string>> = {
     flow4t: "நீங்கள் ஒப்புதல் அளிக்கிறீர்கள்", flow4p: "ஒவ்வொரு முடிவும் தன் ஆதாரத்தைக் காட்டுகிறது. நீங்கள் சரி என்னும் வரை எதுவும் இறுதி இல்லை.",
     footLang: "4 மொழிகள்", footLocal: "100% உள்ளூர் AI — எதுவும் இந்த கணினியை விட்டு வெளியேறாது",
     footZero: "பூஜ்ஜியம் கற்பனை தரநிலை எண்கள்", footAudit: "ஒவ்வொரு செயலுக்கும் தணிக்கை",
+    more: "மேலும்", moreNet: "அசைவூட்டப்பட்ட அறிவு வரைபடம்", moreAna: "ஆழ்ந்த பகுப்பாய்வு & செல்லுபடி கண்காணிப்பு",
+    moreRep: "அறிக்கை பதிவிறக்கம்", moreHis: "வரலாறு & தணிக்கை",
+  },
+  bn: {
+    overview: "সারসংক্ষেপ", analyse: "টেন্ডার বিশ্লেষণ", network: "সংযোগ", standards: "মানের তালিকা",
+    analytics: "বিশ্লেষণ", reports: "রিপোর্ট ডাউনলোড", history: "ইতিহাস",
+    handWelcome: "নমস্কার! আপনার জন্য সঠিক মান খুঁজে দিই।",
+    heroQ1: "আজ আপনি", heroQ2: "কী কিনছেন?",
+    heroSubNew: "নিজের ভাষায় লিখুন — যে কোনও ভারতীয় ভাষায়। প্রযোজ্য ভারতীয় মান খুঁজে দিই, প্রতিটির পেছনে প্রমাণসহ।",
+    heroPlaceholder: "আপনার কেনাকাটা নিজের ভাষায় লিখুন…", tryWord: "চেষ্টা করুন:",
+    cat1: "নিরাপত্তা ও PPE", cat1s: "হেলমেট, জুতা, দস্তানা।", cat2: "নির্মাণ", cat2s: "সিমেন্ট, স্টিল, কংক্রিট।",
+    cat3: "বৈদ্যুতিক", cat3s: "কেবল, ওয়্যারিং।", cat4: "জল ও খাদ্য", cat4s: "পানীয় জল, প্যাকেজিং।",
+    cat5: "অফিস ও স্কুল", cat5s: "ডেস্ক, বেঞ্চ, বোর্ড।", cat6: "অন্য সবকিছু", cat6s: "২,৯০০+ মান দেখুন।",
+    journeyTitle: "আপনার বিশ্লেষণ যাত্রা", journeyEmpty: "এখনও কিছু চলছে না — উপরে লিখুন আপনি কী কিনছেন।",
+    openIt: "খুলুন", j1: "টেন্ডার পড়া হয়েছে", j2: "বিবরণ বের করা হয়েছে", j3: "মান খোঁজা হয়েছে", j4: "আপনার সিদ্ধান্ত",
+    jDone: "সম্পন্ন", jActive: "চলছে", jWait: "অপেক্ষায়",
+    howTitle: "এটি কীভাবে কাজ করে", howHand: "১·২·৩·৪ এর মতো সহজ",
+    flow1t: "কেনাকাটা বর্ণনা করুন", flow1p: "কয়েক লাইন লিখুন বা টেন্ডার আপলোড করুন — স্ক্যান পাতাও পড়া হয়।",
+    flow2t: "আমরা বুঝে নিই", flow2p: "পণ্য, পরিমাণ, পরীক্ষা, নিরাপত্তা — বের করে আপনার নিশ্চিতকরণের জন্য দেখাই।",
+    flow3t: "অর্থ দিয়ে খুঁজি", flow3p: "‘মাথার সুরক্ষা’ লিখলেই হেলমেটের মান পাওয়া যায় — বহু ভাষায়।",
+    flow4t: "আপনি অনুমোদন করেন", flow4p: "প্রতিটি ফলাফল তার প্রমাণ দেখায়। আপনার সম্মতি ছাড়া কিছুই চূড়ান্ত নয়।",
+    statCatalogue: "তালিকায় মান", statInvented: "বানানো মান নম্বর", statTenders: "বিশ্লেষিত টেন্ডার",
+    footLang: "১০টি ভাষা", footLocal: "১০০% স্থানীয় AI — কিছুই এই মেশিনের বাইরে যায় না",
+    footZero: "শূন্য বানানো মান নম্বর", footAudit: "প্রতিটি কাজের নিরীক্ষা",
+    more: "আরও", moreNet: "সজীব জ্ঞান গ্রাফ", moreAna: "গভীর বিশ্লেষণ ও বৈধতা নজরদারি",
+    moreRep: "রিপোর্ট ডাউনলোড", moreHis: "ইতিহাস ও নিরীক্ষা",
+    newTender: "নতুন টেন্ডার বিশ্লেষণ", browse: "মান দেখুন", findStandards: "মান খুঁজুন",
+    working: "কাজ চলছে…", startNew: "নতুন বিশ্লেষণ শুরু করুন", searchPlaceholder: "নাম দিয়ে মান খুঁজুন…",
+    verified: "যাচাইকৃত", checking: "যাচাই প্রয়োজন", example: "শুধু উদাহরণ",
+  },
+  mr: {
+    overview: "आढावा", analyse: "निविदा विश्लेषण", network: "जोडण्या", standards: "मानक यादी",
+    analytics: "विश्लेषण", reports: "अहवाल डाउनलोड", history: "इतिहास",
+    handWelcome: "नमस्कार! तुमच्यासाठी योग्य मानके शोधूया.",
+    heroQ1: "आज तुम्ही", heroQ2: "काय खरेदी करत आहात?",
+    heroSubNew: "तुमच्या शब्दांत सांगा — कोणत्याही भारतीय भाषेत. लागू होणारी भारतीय मानके शोधतो, प्रत्येकामागे पुराव्यासह.",
+    heroPlaceholder: "तुमची खरेदी तुमच्या शब्दांत लिहा…", tryWord: "करून पाहा:",
+    cat1: "सुरक्षा व PPE", cat1s: "हेल्मेट, बूट, हातमोजे.", cat2: "बांधकाम", cat2s: "सिमेंट, स्टील, काँक्रीट.",
+    cat3: "विद्युत", cat3s: "केबल, वायरिंग.", cat4: "पाणी व अन्न", cat4s: "पिण्याचे पाणी, पॅकेजिंग.",
+    cat5: "कार्यालय व शाळा", cat5s: "डेस्क, बाक, फळे.", cat6: "इतर सर्व", cat6s: "२,९००+ मानके पाहा.",
+    journeyTitle: "तुमचा विश्लेषण प्रवास", journeyEmpty: "अजून काही सुरू नाही — वर लिहा तुम्ही काय खरेदी करत आहात.",
+    openIt: "उघडा", j1: "निविदा वाचली", j2: "तपशील काढले", j3: "मानके शोधली", j4: "तुमचा निर्णय",
+    jDone: "पूर्ण", jActive: "सुरू आहे", jWait: "प्रतीक्षेत",
+    howTitle: "हे कसे चालते", howHand: "१·२·३·४ इतके सोपे",
+    flow1t: "खरेदीचे वर्णन करा", flow1p: "काही ओळी लिहा किंवा निविदा अपलोड करा — स्कॅन पानेही वाचली जातात.",
+    flow2t: "आम्ही समजून घेतो", flow2p: "उत्पादन, प्रमाण, चाचणी, सुरक्षा — काढून तुमच्या पुष्टीसाठी दाखवतो.",
+    flow3t: "अर्थाने शोधतो", flow3p: "‘डोक्याचे संरक्षण’ लिहिले तरी हेल्मेटची मानके सापडतात — अनेक भाषांत.",
+    flow4t: "तुम्ही मंजुरी देता", flow4p: "प्रत्येक निकाल त्याचा पुरावा दाखवतो. तुमच्या होकाराशिवाय काहीही अंतिम नाही.",
+    statCatalogue: "यादीतील मानके", statInvented: "रचलेले मानक क्रमांक", statTenders: "विश्लेषित निविदा",
+    footLang: "१० भाषा", footLocal: "१००% स्थानिक AI — काहीही या मशीनबाहेर जात नाही",
+    footZero: "शून्य रचलेले मानक क्रमांक", footAudit: "प्रत्येक कृतीची नोंद",
+    more: "आणखी", moreNet: "सजीव ज्ञान आलेख", moreAna: "सखोल विश्लेषण व वैधता देखरेख",
+    moreRep: "अहवाल डाउनलोड", moreHis: "इतिहास व लेखापरीक्षण",
+    newTender: "नवीन निविदा विश्लेषण", browse: "मानके पाहा", findStandards: "मानके शोधा",
+    working: "काम सुरू…", startNew: "नवीन विश्लेषण सुरू करा", searchPlaceholder: "नावाने मानके शोधा…",
+    verified: "पडताळलेले", checking: "तपासणी आवश्यक", example: "केवळ उदाहरण",
+  },
+  gu: {
+    overview: "ઝાંખી", analyse: "ટેન્ડર વિશ્લેષણ", network: "જોડાણો", standards: "માનક યાદી",
+    analytics: "વિશ્લેષણ", reports: "રિપોર્ટ ડાઉનલોડ", history: "ઇતિહાસ",
+    handWelcome: "નમસ્તે! તમારા માટે યોગ્ય માનકો શોધીએ.",
+    heroQ1: "આજે તમે", heroQ2: "શું ખરીદો છો?",
+    heroSubNew: "તમારા શબ્દોમાં કહો — કોઈપણ ભારતીય ભાષામાં. લાગુ પડતાં ભારતીય માનકો શોધીએ છીએ, દરેકની પાછળ પુરાવા સાથે.",
+    heroPlaceholder: "તમારી ખરીદી તમારા શબ્દોમાં લખો…", tryWord: "અજમાવો:",
+    cat1: "સલામતી અને PPE", cat1s: "હેલ્મેટ, બૂટ, મોજાં.", cat2: "બાંધકામ", cat2s: "સિમેન્ટ, સ્ટીલ, કોંક્રીટ.",
+    cat3: "વિદ્યુત", cat3s: "કેબલ, વાયરિંગ.", cat4: "પાણી અને ખોરાક", cat4s: "પીવાનું પાણી, પેકેજિંગ.",
+    cat5: "ઓફિસ અને શાળા", cat5s: "ડેસ્ક, બેન્ચ, બોર્ડ.", cat6: "બાકી બધું", cat6s: "૨,૯૦૦+ માનકો જુઓ.",
+    journeyTitle: "તમારી વિશ્લેષણ યાત્રા", journeyEmpty: "હજી કંઈ ચાલી રહ્યું નથી — ઉપર લખો કે તમે શું ખરીદો છો.",
+    openIt: "ખોલો", j1: "ટેન્ડર વંચાયું", j2: "વિગતો કઢાઈ", j3: "માનકો શોધાયાં", j4: "તમારો નિર્ણય",
+    jDone: "પૂર્ણ", jActive: "ચાલુ છે", jWait: "રાહમાં",
+    howTitle: "આ કેવી રીતે કામ કરે છે", howHand: "૧·૨·૩·૪ જેટલું સરળ",
+    flow1t: "ખરીદીનું વર્ણન કરો", flow1p: "થોડી લીટીઓ લખો કે ટેન્ડર અપલોડ કરો — સ્કેન પાનાં પણ વંચાય છે.",
+    flow2t: "અમે સમજી લઈએ", flow2p: "ઉત્પાદન, જથ્થો, પરીક્ષણ, સલામતી — કાઢીને તમારી પુષ્ટિ માટે બતાવીએ.",
+    flow3t: "અર્થથી શોધીએ", flow3p: "‘માથાનું રક્ષણ’ લખો તોય હેલ્મેટનાં માનકો મળે — અનેક ભાષાઓમાં.",
+    flow4t: "તમે મંજૂરી આપો", flow4p: "દરેક પરિણામ પોતાનો પુરાવો બતાવે છે. તમારી હા વિના કંઈ અંતિમ નથી.",
+    statCatalogue: "યાદીમાં માનકો", statInvented: "ઘડેલા માનક નંબરો", statTenders: "વિશ્લેષિત ટેન્ડરો",
+    footLang: "૧૦ ભાષાઓ", footLocal: "૧૦૦% સ્થાનિક AI — કંઈ પણ આ મશીન બહાર જતું નથી",
+    footZero: "શૂન્ય ઘડેલા માનક નંબરો", footAudit: "દરેક ક્રિયાની નોંધ",
+    more: "વધુ", moreNet: "સજીવ જ્ઞાન ગ્રાફ", moreAna: "ઊંડું વિશ્લેષણ અને માન્યતા દેખરેખ",
+    moreRep: "રિપોર્ટ ડાઉનલોડ", moreHis: "ઇતિહાસ અને ઓડિટ",
+    newTender: "નવું ટેન્ડર વિશ્લેષણ", browse: "માનકો જુઓ", findStandards: "માનકો શોધો",
+    working: "કામ ચાલુ…", startNew: "નવું વિશ્લેષણ શરૂ કરો", searchPlaceholder: "નામથી માનકો શોધો…",
+    verified: "ચકાસાયેલ", checking: "તપાસ જરૂરી", example: "માત્ર ઉદાહરણ",
+  },
+  pa: {
+    overview: "ਝਲਕ", analyse: "ਟੈਂਡਰ ਵਿਸ਼ਲੇਸ਼ਣ", network: "ਜੋੜ", standards: "ਮਿਆਰ ਸੂਚੀ",
+    analytics: "ਵਿਸ਼ਲੇਸ਼ਣ", reports: "ਰਿਪੋਰਟ ਡਾਊਨਲੋਡ", history: "ਇਤਿਹਾਸ",
+    handWelcome: "ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ਤੁਹਾਡੇ ਲਈ ਸਹੀ ਮਿਆਰ ਲੱਭੀਏ।",
+    heroQ1: "ਅੱਜ ਤੁਸੀਂ", heroQ2: "ਕੀ ਖਰੀਦ ਰਹੇ ਹੋ?",
+    heroSubNew: "ਆਪਣੇ ਸ਼ਬਦਾਂ ਵਿੱਚ ਦੱਸੋ — ਕਿਸੇ ਵੀ ਭਾਰਤੀ ਭਾਸ਼ਾ ਵਿੱਚ। ਲਾਗੂ ਭਾਰਤੀ ਮਿਆਰ ਲੱਭਦੇ ਹਾਂ, ਹਰ ਇੱਕ ਪਿੱਛੇ ਸਬੂਤ ਨਾਲ।",
+    heroPlaceholder: "ਆਪਣੀ ਖਰੀਦ ਆਪਣੇ ਸ਼ਬਦਾਂ ਵਿੱਚ ਲਿਖੋ…", tryWord: "ਅਜ਼ਮਾਓ:",
+    cat1: "ਸੁਰੱਖਿਆ ਅਤੇ PPE", cat1s: "ਹੈਲਮੇਟ, ਬੂਟ, ਦਸਤਾਨੇ।", cat2: "ਉਸਾਰੀ", cat2s: "ਸੀਮਿੰਟ, ਸਟੀਲ, ਕੰਕਰੀਟ।",
+    cat3: "ਬਿਜਲਈ", cat3s: "ਕੇਬਲ, ਵਾਇਰਿੰਗ।", cat4: "ਪਾਣੀ ਅਤੇ ਖੁਰਾਕ", cat4s: "ਪੀਣ ਵਾਲਾ ਪਾਣੀ, ਪੈਕੇਜਿੰਗ।",
+    cat5: "ਦਫ਼ਤਰ ਅਤੇ ਸਕੂਲ", cat5s: "ਡੈਸਕ, ਬੈਂਚ, ਬੋਰਡ।", cat6: "ਬਾਕੀ ਸਭ", cat6s: "੨,੯੦੦+ ਮਿਆਰ ਵੇਖੋ।",
+    journeyTitle: "ਤੁਹਾਡਾ ਵਿਸ਼ਲੇਸ਼ਣ ਸਫ਼ਰ", journeyEmpty: "ਹਾਲੇ ਕੁਝ ਨਹੀਂ ਚੱਲ ਰਿਹਾ — ਉੱਪਰ ਲਿਖੋ ਤੁਸੀਂ ਕੀ ਖਰੀਦ ਰਹੇ ਹੋ।",
+    openIt: "ਖੋਲ੍ਹੋ", j1: "ਟੈਂਡਰ ਪੜ੍ਹਿਆ ਗਿਆ", j2: "ਵੇਰਵੇ ਕੱਢੇ ਗਏ", j3: "ਮਿਆਰ ਲੱਭੇ ਗਏ", j4: "ਤੁਹਾਡਾ ਫੈਸਲਾ",
+    jDone: "ਮੁਕੰਮਲ", jActive: "ਜਾਰੀ", jWait: "ਉਡੀਕ ਵਿੱਚ",
+    howTitle: "ਇਹ ਕਿਵੇਂ ਕੰਮ ਕਰਦਾ ਹੈ", howHand: "੧·੨·੩·੪ ਜਿੰਨਾ ਸੌਖਾ",
+    flow1t: "ਖਰੀਦ ਦਾ ਵੇਰਵਾ ਦਿਓ", flow1p: "ਕੁਝ ਲਾਈਨਾਂ ਲਿਖੋ ਜਾਂ ਟੈਂਡਰ ਅੱਪਲੋਡ ਕਰੋ — ਸਕੈਨ ਪੰਨੇ ਵੀ ਪੜ੍ਹੇ ਜਾਂਦੇ ਹਨ।",
+    flow2t: "ਅਸੀਂ ਸਮਝ ਲੈਂਦੇ ਹਾਂ", flow2p: "ਉਤਪਾਦ, ਮਾਤਰਾ, ਟੈਸਟ, ਸੁਰੱਖਿਆ — ਕੱਢ ਕੇ ਤੁਹਾਡੀ ਪੁਸ਼ਟੀ ਲਈ ਵਿਖਾਉਂਦੇ ਹਾਂ।",
+    flow3t: "ਅਰਥ ਨਾਲ ਖੋਜਦੇ ਹਾਂ", flow3p: "‘ਸਿਰ ਦੀ ਸੁਰੱਖਿਆ’ ਲਿਖੋ ਤਾਂ ਵੀ ਹੈਲਮੇਟ ਦੇ ਮਿਆਰ ਮਿਲਦੇ ਹਨ — ਕਈ ਭਾਸ਼ਾਵਾਂ ਵਿੱਚ।",
+    flow4t: "ਤੁਸੀਂ ਮਨਜ਼ੂਰੀ ਦਿੰਦੇ ਹੋ", flow4p: "ਹਰ ਨਤੀਜਾ ਆਪਣਾ ਸਬੂਤ ਵਿਖਾਉਂਦਾ ਹੈ। ਤੁਹਾਡੀ ਹਾਂ ਬਿਨਾਂ ਕੁਝ ਵੀ ਅੰਤਿਮ ਨਹੀਂ।",
+    statCatalogue: "ਸੂਚੀ ਵਿੱਚ ਮਿਆਰ", statInvented: "ਘੜੇ ਹੋਏ ਮਿਆਰ ਨੰਬਰ", statTenders: "ਵਿਸ਼ਲੇਸ਼ਿਤ ਟੈਂਡਰ",
+    footLang: "੧੦ ਭਾਸ਼ਾਵਾਂ", footLocal: "੧੦੦% ਸਥਾਨਕ AI — ਕੁਝ ਵੀ ਇਸ ਮਸ਼ੀਨ ਤੋਂ ਬਾਹਰ ਨਹੀਂ ਜਾਂਦਾ",
+    footZero: "ਸਿਫ਼ਰ ਘੜੇ ਹੋਏ ਮਿਆਰ ਨੰਬਰ", footAudit: "ਹਰ ਕਾਰਵਾਈ ਦਾ ਲੇਖਾ",
+    more: "ਹੋਰ", moreNet: "ਸਜੀਵ ਗਿਆਨ ਗ੍ਰਾਫ਼", moreAna: "ਡੂੰਘਾ ਵਿਸ਼ਲੇਸ਼ਣ ਅਤੇ ਵੈਧਤਾ ਨਿਗਰਾਨੀ",
+    moreRep: "ਰਿਪੋਰਟ ਡਾਊਨਲੋਡ", moreHis: "ਇਤਿਹਾਸ ਅਤੇ ਆਡਿਟ",
+    newTender: "ਨਵਾਂ ਟੈਂਡਰ ਵਿਸ਼ਲੇਸ਼ਣ", browse: "ਮਿਆਰ ਵੇਖੋ", findStandards: "ਮਿਆਰ ਲੱਭੋ",
+    working: "ਕੰਮ ਜਾਰੀ…", startNew: "ਨਵਾਂ ਵਿਸ਼ਲੇਸ਼ਣ ਸ਼ੁਰੂ ਕਰੋ", searchPlaceholder: "ਨਾਮ ਨਾਲ ਮਿਆਰ ਲੱਭੋ…",
+    verified: "ਤਸਦੀਕਸ਼ੁਦਾ", checking: "ਜਾਂਚ ਲੋੜੀਂਦੀ", example: "ਸਿਰਫ਼ ਉਦਾਹਰਨ",
+  },
+  kn: {
+    overview: "ಅವಲೋಕನ", analyse: "ಟೆಂಡರ್ ವಿಶ್ಲೇಷಣೆ", network: "ಸಂಪರ್ಕಗಳು", standards: "ಮಾನಕ ಪಟ್ಟಿ",
+    analytics: "ವಿಶ್ಲೇಷಣೆಗಳು", reports: "ವರದಿ ಡೌನ್‌ಲೋಡ್", history: "ಇತಿಹಾಸ",
+    handWelcome: "ನಮಸ್ಕಾರ! ನಿಮಗೆ ಸರಿಯಾದ ಮಾನಕಗಳನ್ನು ಹುಡುಕೋಣ.",
+    heroQ1: "ಇಂದು ನೀವು", heroQ2: "ಏನು ಖರೀದಿಸುತ್ತಿದ್ದೀರಿ?",
+    heroSubNew: "ನಿಮ್ಮ ಮಾತಿನಲ್ಲೇ ಹೇಳಿ — ಯಾವುದೇ ಭಾರತೀಯ ಭಾಷೆಯಲ್ಲಿ. ಅನ್ವಯವಾಗುವ ಭಾರತೀಯ ಮಾನಕಗಳನ್ನು, ಪ್ರತಿಯೊಂದರ ಹಿಂದೆ ಪುರಾವೆಯೊಂದಿಗೆ ಹುಡುಕುತ್ತೇವೆ.",
+    heroPlaceholder: "ನಿಮ್ಮ ಖರೀದಿಯನ್ನು ನಿಮ್ಮ ಮಾತಿನಲ್ಲಿ ಬರೆಯಿರಿ…", tryWord: "ಪ್ರಯತ್ನಿಸಿ:",
+    cat1: "ಸುರಕ್ಷತೆ & PPE", cat1s: "ಹೆಲ್ಮೆಟ್, ಬೂಟು, ಕೈಗವಸು.", cat2: "ನಿರ್ಮಾಣ", cat2s: "ಸಿಮೆಂಟ್, ಸ್ಟೀಲ್, ಕಾಂಕ್ರೀಟ್.",
+    cat3: "ವಿದ್ಯುತ್", cat3s: "ಕೇಬಲ್, ವೈರಿಂಗ್.", cat4: "ನೀರು & ಆಹಾರ", cat4s: "ಕುಡಿಯುವ ನೀರು, ಪ್ಯಾಕೇಜಿಂಗ್.",
+    cat5: "ಕಚೇರಿ & ಶಾಲೆ", cat5s: "ಡೆಸ್ಕ್, ಬೆಂಚ್, ಬೋರ್ಡ್.", cat6: "ಉಳಿದೆಲ್ಲವೂ", cat6s: "೨,೯೦೦+ ಮಾನಕಗಳನ್ನು ನೋಡಿ.",
+    journeyTitle: "ನಿಮ್ಮ ವಿಶ್ಲೇಷಣಾ ಪಯಣ", journeyEmpty: "ಇನ್ನೂ ಏನೂ ನಡೆಯುತ್ತಿಲ್ಲ — ಮೇಲೆ ನೀವು ಏನು ಖರೀದಿಸುತ್ತಿದ್ದೀರಿ ಎಂದು ಬರೆಯಿರಿ.",
+    openIt: "ತೆರೆಯಿರಿ", j1: "ಟೆಂಡರ್ ಓದಲಾಗಿದೆ", j2: "ವಿವರಗಳು ತೆಗೆಯಲಾಗಿದೆ", j3: "ಮಾನಕಗಳು ಹುಡುಕಲಾಗಿದೆ", j4: "ನಿಮ್ಮ ನಿರ್ಧಾರ",
+    jDone: "ಮುಗಿದಿದೆ", jActive: "ನಡೆಯುತ್ತಿದೆ", jWait: "ಕಾಯುತ್ತಿದೆ",
+    howTitle: "ಇದು ಹೇಗೆ ಕೆಲಸ ಮಾಡುತ್ತದೆ", howHand: "೧·೨·೩·೪ ರಷ್ಟು ಸುಲಭ",
+    flow1t: "ಖರೀದಿಯನ್ನು ವಿವರಿಸಿ", flow1p: "ಕೆಲವು ಸಾಲು ಬರೆಯಿರಿ ಅಥವಾ ಟೆಂಡರ್ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ — ಸ್ಕ್ಯಾನ್ ಪುಟಗಳೂ ಓದಲ್ಪಡುತ್ತವೆ.",
+    flow2t: "ನಾವು ಅರ್ಥಮಾಡಿಕೊಳ್ಳುತ್ತೇವೆ", flow2p: "ಉತ್ಪನ್ನ, ಪ್ರಮಾಣ, ಪರೀಕ್ಷೆ, ಸುರಕ್ಷತೆ — ತೆಗೆದು ನಿಮ್ಮ ದೃಢೀಕರಣಕ್ಕೆ ತೋರಿಸುತ್ತೇವೆ.",
+    flow3t: "ಅರ್ಥದಿಂದ ಹುಡುಕುತ್ತೇವೆ", flow3p: "‘ತಲೆ ರಕ್ಷಣೆ’ ಎಂದರೂ ಹೆಲ್ಮೆಟ್ ಮಾನಕಗಳು ಸಿಗುತ್ತವೆ — ಹಲವು ಭಾಷೆಗಳಲ್ಲಿ.",
+    flow4t: "ನೀವು ಅನುಮೋದಿಸುತ್ತೀರಿ", flow4p: "ಪ್ರತಿ ಫಲಿತಾಂಶವೂ ತನ್ನ ಪುರಾವೆ ತೋರಿಸುತ್ತದೆ. ನಿಮ್ಮ ಒಪ್ಪಿಗೆ ಇಲ್ಲದೆ ಏನೂ ಅಂತಿಮವಲ್ಲ.",
+    statCatalogue: "ಪಟ್ಟಿಯಲ್ಲಿ ಮಾನಕಗಳು", statInvented: "ಕಲ್ಪಿತ ಮಾನಕ ಸಂಖ್ಯೆಗಳು", statTenders: "ವಿಶ್ಲೇಷಿಸಿದ ಟೆಂಡರ್‌ಗಳು",
+    footLang: "೧೦ ಭಾಷೆಗಳು", footLocal: "೧೦೦% ಸ್ಥಳೀಯ AI — ಏನೂ ಈ ಯಂತ್ರದಿಂದ ಹೊರಹೋಗುವುದಿಲ್ಲ",
+    footZero: "ಶೂನ್ಯ ಕಲ್ಪಿತ ಮಾನಕ ಸಂಖ್ಯೆಗಳು", footAudit: "ಪ್ರತಿ ಕ್ರಿಯೆಗೂ ಲೆಕ್ಕಪರಿಶೋಧನೆ",
+    more: "ಇನ್ನಷ್ಟು", moreNet: "ಸಜೀವ ಜ್ಞಾನ ಗ್ರಾಫ್", moreAna: "ಆಳ ವಿಶ್ಲೇಷಣೆ & ಮಾನ್ಯತೆ ಕಾವಲು",
+    moreRep: "ವರದಿ ಡೌನ್‌ಲೋಡ್", moreHis: "ಇತಿಹಾಸ & ಲೆಕ್ಕಪರಿಶೋಧನೆ",
+    newTender: "ಹೊಸ ಟೆಂಡರ್ ವಿಶ್ಲೇಷಣೆ", browse: "ಮಾನಕಗಳನ್ನು ನೋಡಿ", findStandards: "ಮಾನಕಗಳನ್ನು ಹುಡುಕಿ",
+    working: "ಕೆಲಸ ನಡೆಯುತ್ತಿದೆ…", startNew: "ಹೊಸ ವಿಶ್ಲೇಷಣೆ ಪ್ರಾರಂಭಿಸಿ", searchPlaceholder: "ಹೆಸರಿನಿಂದ ಮಾನಕ ಹುಡುಕಿ…",
+    verified: "ಪರಿಶೀಲಿತ", checking: "ಪರಿಶೀಲನೆ ಅಗತ್ಯ", example: "ಉದಾಹರಣೆ ಮಾತ್ರ",
+  },
+  ml: {
+    overview: "അവലോകനം", analyse: "ടെൻഡർ വിശകലനം", network: "ബന്ധങ്ങൾ", standards: "മാനക പട്ടിക",
+    analytics: "വിശകലനങ്ങൾ", reports: "റിപ്പോർട്ട് ഡൗൺലോഡ്", history: "ചരിത്രം",
+    handWelcome: "നമസ്കാരം! നിങ്ങൾക്ക് ശരിയായ മാനകങ്ങൾ കണ്ടെത്താം.",
+    heroQ1: "ഇന്ന് നിങ്ങൾ", heroQ2: "എന്താണ് വാങ്ങുന്നത്?",
+    heroSubNew: "നിങ്ങളുടെ വാക്കുകളിൽ പറയൂ — ഏത് ഇന്ത്യൻ ഭാഷയിലും. ബാധകമായ ഇന്ത്യൻ മാനകങ്ങൾ, ഓരോന്നിനും പിന്നിൽ തെളിവോടെ കണ്ടെത്തുന്നു.",
+    heroPlaceholder: "നിങ്ങളുടെ വാങ്ങൽ നിങ്ങളുടെ വാക്കുകളിൽ എഴുതൂ…", tryWord: "ശ്രമിക്കൂ:",
+    cat1: "സുരക്ഷയും PPE-യും", cat1s: "ഹെൽമെറ്റ്, ബൂട്ട്, കയ്യുറ.", cat2: "നിർമ്മാണം", cat2s: "സിമന്റ്, സ്റ്റീൽ, കോൺക്രീറ്റ്.",
+    cat3: "വൈദ്യുതം", cat3s: "കേബിൾ, വയറിംഗ്.", cat4: "വെള്ളവും ഭക്ഷണവും", cat4s: "കുടിവെള്ളം, പാക്കേജിംഗ്.",
+    cat5: "ഓഫീസും സ്കൂളും", cat5s: "ഡെസ്ക്, ബെഞ്ച്, ബോർഡ്.", cat6: "ബാക്കിയെല്ലാം", cat6s: "൨,൯൦൦+ മാനകങ്ങൾ കാണൂ.",
+    journeyTitle: "നിങ്ങളുടെ വിശകലന യാത്ര", journeyEmpty: "ഇതുവരെ ഒന്നും നടക്കുന്നില്ല — മുകളിൽ നിങ്ങൾ എന്ത് വാങ്ങുന്നുവെന്ന് എഴുതൂ.",
+    openIt: "തുറക്കൂ", j1: "ടെൻഡർ വായിച്ചു", j2: "വിവരങ്ങൾ എടുത്തു", j3: "മാനകങ്ങൾ തിരഞ്ഞു", j4: "നിങ്ങളുടെ തീരുമാനം",
+    jDone: "പൂർത്തിയായി", jActive: "നടക്കുന്നു", jWait: "കാത്തിരിക്കുന്നു",
+    howTitle: "ഇത് എങ്ങനെ പ്രവർത്തിക്കുന്നു", howHand: "൧·൨·൩·൪ പോലെ എളുപ്പം",
+    flow1t: "വാങ്ങൽ വിവരിക്കൂ", flow1p: "കുറച്ച് വരികൾ എഴുതൂ അല്ലെങ്കിൽ ടെൻഡർ അപ്‌ലോഡ് ചെയ്യൂ — സ്കാൻ പേജുകളും വായിക്കപ്പെടും.",
+    flow2t: "ഞങ്ങൾ മനസ്സിലാക്കുന്നു", flow2p: "ഉൽപ്പന്നം, അളവ്, പരിശോധന, സുരക്ഷ — എടുത്ത് നിങ്ങളുടെ സ്ഥിരീകരണത്തിന് കാണിക്കുന്നു.",
+    flow3t: "അർത്ഥം കൊണ്ട് തിരയുന്നു", flow3p: "‘തല സംരക്ഷണം’ എന്നെഴുതിയാലും ഹെൽമെറ്റ് മാനകങ്ങൾ കിട്ടും — പല ഭാഷകളിലും.",
+    flow4t: "നിങ്ങൾ അംഗീകരിക്കുന്നു", flow4p: "ഓരോ ഫലവും അതിന്റെ തെളിവ് കാണിക്കുന്നു. നിങ്ങളുടെ സമ്മതമില്ലാതെ ഒന്നും അന്തിമമല്ല.",
+    statCatalogue: "പട്ടികയിലെ മാനകങ്ങൾ", statInvented: "കെട്ടിച്ചമച്ച മാനക നമ്പറുകൾ", statTenders: "വിശകലനം ചെയ്ത ടെൻഡറുകൾ",
+    footLang: "൧൦ ഭാഷകൾ", footLocal: "൧൦൦% പ്രാദേശിക AI — ഒന്നും ഈ യന്ത്രത്തിന് പുറത്തുപോകുന്നില്ല",
+    footZero: "പൂജ്യം കെട്ടിച്ചമച്ച മാനക നമ്പറുകൾ", footAudit: "ഓരോ പ്രവൃത്തിക്കും ഓഡിറ്റ്",
+    more: "കൂടുതൽ", moreNet: "ചലിക്കുന്ന വിജ്ഞാന ഗ്രാഫ്", moreAna: "ആഴത്തിലുള്ള വിശകലനവും സാധുത നിരീക്ഷണവും",
+    moreRep: "റിപ്പോർട്ട് ഡൗൺലോഡ്", moreHis: "ചരിത്രവും ഓഡിറ്റും",
+    newTender: "പുതിയ ടെൻഡർ വിശകലനം", browse: "മാനകങ്ങൾ കാണൂ", findStandards: "മാനകങ്ങൾ കണ്ടെത്തൂ",
+    working: "പ്രവർത്തിക്കുന്നു…", startNew: "പുതിയ വിശകലനം തുടങ്ങൂ", searchPlaceholder: "പേര് കൊണ്ട് മാനകം തിരയൂ…",
+    verified: "പരിശോധിച്ചത്", checking: "പരിശോധന ആവശ്യം", example: "ഉദാഹരണം മാത്രം",
   },
 };
 
-const LANGUAGE_NAME: Record<string, string> = { en: "English", hi: "Hindi", te: "Telugu", ta: "Tamil" };
+const LANGUAGE_NAME: Record<string, string> = { en: "English", hi: "Hindi", te: "Telugu", ta: "Tamil", bn: "Bengali", mr: "Marathi", gu: "Gujarati", pa: "Punjabi", kn: "Kannada", ml: "Malayalam" };
 
 function confidenceWord(level: string): string {
   return { high: "Strong match", medium: "Likely match", low: "Weak match" }[level] ?? level;
@@ -750,10 +937,13 @@ function NetworkGraph({ data, onPick }: { data: StandardNetwork; onPick: (id: st
         const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
         const width = e.label.length * 5.4 + 14;
         return (
-          <g key={`${e.source}-${e.target}-${i}`}>
+          <g key={`${e.source}-${e.target}-${i}`} className="net-edge" style={{ animationDelay: `${i * 110}ms` }}>
             <line x1={x1} y1={y1} x2={x2} y2={y2}
               stroke={e.dashed ? "#d3ccbe" : "#bdb5a6"} strokeWidth="1.5"
               strokeDasharray={e.dashed ? "5 4" : undefined} markerEnd="url(#arw)" />
+            {/* The moving dashes are the graph saying it is alive: evidence
+                flowing from the centre outward along every relationship. */}
+            {!e.dashed && <line className="net-flow" x1={x1} y1={y1} x2={x2} y2={y2} />}
             {/* A pill behind the label keeps it readable where it crosses the line. */}
             <rect x={mx - width / 2} y={my - 9} width={width} height="17" rx="8.5" fill="#fbf9f6" stroke="#eae5da" strokeWidth="0.8" />
             <text className="net-edge-label" x={mx} y={my + 2.5} textAnchor="middle">{e.label}</text>
@@ -761,15 +951,15 @@ function NetworkGraph({ data, onPick }: { data: StandardNetwork; onPick: (id: st
         );
       })}
 
-      {data.nodes.map(n => {
+      {data.nodes.map((n, index) => {
         const pos = positions[n.id];
         if (!pos) return null;
         const colour = n.is_centre ? NODE_COLOUR.centre : (NODE_COLOUR[n.kind] ?? NODE_COLOUR.standard);
         const r = n.is_centre ? 44 : 30;
         const lines = wrapTitle(n.label);
         return (
-          <g key={n.id} className="net-node" onClick={() => onPick(n.id)}>
-            {n.is_centre && <circle cx={pos.x} cy={pos.y} r={r + 11} fill={colour} opacity="0.1" />}
+          <g key={n.id} className="net-node" style={{ animationDelay: `${(n.is_centre ? 0 : 180) + index * 90}ms` }} onClick={() => onPick(n.id)}>
+            {n.is_centre && <circle className="net-halo" cx={pos.x} cy={pos.y} r={r + 11} fill={colour} opacity="0.1" />}
             <circle cx={pos.x} cy={pos.y} r={r} fill="#fff" stroke={colour} strokeWidth={n.is_centre ? 2.6 : 2} />
             <circle cx={pos.x} cy={pos.y} r={r - 5} fill={colour} opacity={n.tier === "example" ? 0.1 : 0.14} />
             <NodeGlyph kind={n.is_centre ? "standard" : n.kind} x={pos.x} y={pos.y} colour={colour} />
@@ -963,6 +1153,8 @@ export default function Home() {
   };
 
   const [heroQuery, setHeroQuery] = useState("");
+  const [langOpen, setLangOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // The hero search IS the product: type anything, in any of the four
   // languages, and the full analysis pipeline runs on it.
@@ -1085,28 +1277,63 @@ export default function Home() {
           <small>Verified standards intelligence</small>
         </div>
         <nav className="topnav-links" aria-label="Main">
-          {nav.filter(n => n.show).map(n => (
-            <button key={n.id} className={view === n.id ? "active" : ""} onClick={() => setView(n.id)}>
+          {nav.filter(n => n.show && PRIMARY_VIEWS.includes(n.id)).map(n => (
+            <button key={n.id} className={view === n.id ? "active" : ""} onClick={() => { setView(n.id); setMoreOpen(false); }}>
               <n.icon size={15} />
               <span>{n.label}</span>
               {n.count ? <span className="nav-count">{n.count}</span> : null}
             </button>
           ))}
+          <div className="menu-anchor">
+            <button
+              className={!PRIMARY_VIEWS.includes(view) ? "active" : ""}
+              onClick={() => { setMoreOpen(open => !open); setLangOpen(false); }}
+              aria-expanded={moreOpen}
+              aria-haspopup="menu"
+            >
+              <Sparkles size={15} />
+              <span>{t("more")}</span>
+              <ChevronDown size={13} style={{ transform: moreOpen ? "rotate(180deg)" : undefined, transition: "transform .15s" }} />
+            </button>
+            {moreOpen && (
+              <div className="menu-pop" role="menu">
+                {nav.filter(n => n.show && !PRIMARY_VIEWS.includes(n.id)).map(n => (
+                  <button key={n.id} role="menuitem" className={view === n.id ? "active" : ""} onClick={() => { setView(n.id); setMoreOpen(false); }}>
+                    <span className="menu-ico"><n.icon size={16} /></span>
+                    <span className="min-w-0">
+                      <strong>{n.label}</strong>
+                      <small>{t(MORE_DESC[n.id] ?? "")}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </nav>
         <div className="topnav-right">
-          <div className="langbar" role="group" aria-label="Interface language">
-            <Globe2 size={14} className="text-[var(--faint)]" />
-            {UI_LANGS.map(l => (
-              <button
-                key={l.code}
-                className={uiLang === l.code ? "active" : ""}
-                onClick={() => chooseLang(l.code)}
-                title={l.native}
-                aria-pressed={uiLang === l.code}
-              >
-                {l.label}
-              </button>
-            ))}
+          <div className="menu-anchor">
+            <button
+              className="langmenu-btn"
+              onClick={() => { setLangOpen(open => !open); setMoreOpen(false); }}
+              aria-expanded={langOpen}
+              aria-haspopup="menu"
+              aria-label="Interface language"
+            >
+              <Globe2 size={15} />
+              <span>{UI_LANGS.find(l => l.code === uiLang)?.native}</span>
+              <ChevronDown size={13} style={{ transform: langOpen ? "rotate(180deg)" : undefined, transition: "transform .15s" }} />
+            </button>
+            {langOpen && (
+              <div className="menu-pop lang-pop" role="menu">
+                {UI_LANGS.map(l => (
+                  <button key={l.code} role="menuitem" className={uiLang === l.code ? "active" : ""} onClick={() => { chooseLang(l.code); setLangOpen(false); }}>
+                    <span className="menu-ico langmenu-code">{l.label}</span>
+                    <span className="min-w-0"><strong>{l.native}</strong></span>
+                    {uiLang === l.code && <Check size={15} className="ml-auto shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <button
             className="profile-chip"
@@ -1129,6 +1356,8 @@ export default function Home() {
           </button>
         </div>
       </header>
+
+      {(langOpen || moreOpen) && <button className="menu-scrim" aria-label="Close menu" onClick={() => { setLangOpen(false); setMoreOpen(false); }} />}
 
       <div className="main">
         <div className="page page-wide">
