@@ -1243,7 +1243,7 @@ export default function Home() {
           </button>
           <p className="offline-foot">
             Expecting a different address? The dashboard talks to{" "}
-            <strong>{process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"}</strong>
+            <strong>{process.env.NEXT_PUBLIC_API_URL ?? "this site's own /api/v1"}</strong>
           </p>
         </div>
       </main>
@@ -1323,32 +1323,36 @@ export default function Home() {
               {n.count ? <span className="nav-count">{n.count}</span> : null}
             </button>
           ))}
-          <div className="menu-anchor">
-            <button
-              className={!PRIMARY_VIEWS.includes(view) ? "active" : ""}
-              onClick={() => { setMoreOpen(open => !open); setLangOpen(false); }}
-              aria-expanded={moreOpen}
-              aria-haspopup="menu"
-            >
-              <Sparkles size={15} />
-              <span>{t("more")}</span>
-              <ChevronDown size={13} style={{ transform: moreOpen ? "rotate(180deg)" : undefined, transition: "transform .15s" }} />
-            </button>
-            {moreOpen && (
-              <div className="menu-pop" role="menu">
-                {nav.filter(n => n.show && !PRIMARY_VIEWS.includes(n.id)).map(n => (
-                  <button key={n.id} role="menuitem" className={view === n.id ? "active" : ""} onClick={() => { setView(n.id); setMoreOpen(false); }}>
-                    <span className="menu-ico"><n.icon size={16} /></span>
-                    <span className="min-w-0">
-                      <strong>{n.label}</strong>
-                      <small>{t(MORE_DESC[n.id] ?? "")}</small>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
         </nav>
+
+        {/* Deliberately a sibling of the scrolling nav, not a child of it: an
+            absolutely positioned menu inside an overflow:auto container is
+            clipped by it, which is what made this invisible on a laptop. */}
+        <div className="menu-anchor more-anchor">
+          <button
+            className={`topnav-more ${!PRIMARY_VIEWS.includes(view) ? "active" : ""}`}
+            onClick={() => { setMoreOpen(open => !open); setLangOpen(false); }}
+            aria-expanded={moreOpen}
+            aria-haspopup="menu"
+          >
+            <Sparkles size={15} />
+            <span>{t("more")}</span>
+            <ChevronDown size={13} style={{ transform: moreOpen ? "rotate(180deg)" : undefined, transition: "transform .15s" }} />
+          </button>
+          {moreOpen && (
+            <div className="menu-pop" role="menu">
+              {nav.filter(n => n.show && !PRIMARY_VIEWS.includes(n.id)).map(n => (
+                <button key={n.id} role="menuitem" className={view === n.id ? "active" : ""} onClick={() => { setView(n.id); setMoreOpen(false); }}>
+                  <span className="menu-ico"><n.icon size={16} /></span>
+                  <span className="min-w-0">
+                    <strong>{n.label}</strong>
+                    <small>{t(MORE_DESC[n.id] ?? "")}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="topnav-right">
           <div className="menu-anchor">
             <button

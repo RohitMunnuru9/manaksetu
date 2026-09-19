@@ -81,7 +81,12 @@ export const PERMISSIONS = {
   standardVerify: "standard:verify",
 } as const;
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+// Relative by default: next.config.mjs proxies /api/* to the analysis service,
+// so the browser always talks to the origin it was served from. That works
+// identically on localhost, through a tunnel and behind any host -- and means
+// no CORS. NEXT_PUBLIC_API_URL still overrides it for a split deployment where
+// the API genuinely lives on another origin.
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1";
 const TOKEN_KEY = "manaksetu_access_token";
 
 const getToken = () => typeof window === "undefined" ? null : window.localStorage.getItem(TOKEN_KEY);
