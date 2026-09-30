@@ -119,3 +119,38 @@ def test_draft_without_qco_never_asserts_mandatory_certification():
     ]
     draft = build_clauses(recommendations, product="helmets", quantity=None)
     assert "certification is not asserted as mandatory" in draft.clauses.lower()
+
+
+# --- Validation messages an officer can act on -------------------------------
+
+from app.main import _readable
+
+
+def test_validation_messages_name_the_field_and_the_fix():
+    """Pydantic's own wording is written for developers. An officer sees
+    whatever the API returns, so it has to be a sentence about the box they
+    filled in."""
+    assert _readable({"type": "missing", "loc": ["body", "description"]}) == "Please fill in the description."
+
+    short = _readable({"type": "string_too_short", "loc": ["body", "title"], "ctx": {"min_length": 3}})
+    assert "short title" in short and "3" in short
+
+    long = _readable({"type": "string_too_long", "loc": ["body", "description"], "ctx": {"max_length": 600000}})
+    assert "too long" in long.lower()
+    # It has to say what to do instead, not merely that the input was refused.
+    assert "upload" in long.lower()
+
+    # An unrecognised failure still produces a sentence, never a raw type name.
+    odd = _readable({"type": "some_future_pydantic_rule", "loc": ["body", "title"]})
+    assert odd.endswith(".") and "some_future" not in odd
+
+
+def test_typed_and_uploaded_tenders_share_one_length_limit():
+    """A tender that can be uploaded must also be pasteable. These were 600,000
+    and 50,000, so pasting the same document was refused for no reason the
+    officer could see."""
+    from app.schemas import TenderCreate
+    from app.services.documents import MAX_TEXT_CHARS
+
+    typed_limit = TenderCreate.model_fields["description"].metadata[-1].max_length
+    assert typed_limit == MAX_TEXT_CHARS

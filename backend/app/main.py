@@ -5,7 +5,9 @@ from pathlib import Path
 from uuid import uuid4
 from io import BytesIO
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import StreamingResponse
@@ -101,6 +103,54 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Pydantic's own errors are written for developers: "String should have at most
+# 50000 characters", wrapped in a loc array and a type field. An officer sees
+# whatever the API returns, so it is turned into a sentence about the field
+# they actually filled in.
+_FIELD_NAMES = {
+    "title": "the short title",
+    "description": "the description",
+    "note": "the note",
+    "language": "the language",
+    "file": "the file",
+}
+
+
+def _readable(error: dict) -> str:
+    field = next((str(part) for part in reversed(error.get("loc", [])) if part not in {"body", "query", "path"}), "")
+    name = _FIELD_NAMES.get(field, field.replace("_", " ") or "one of the fields")
+    kind = error.get("type", "")
+    context = error.get("ctx", {}) or {}
+
+    if kind == "missing":
+        return f"Please fill in {name}."
+    if kind == "string_too_short":
+        least = context.get("min_length")
+        return f"Please write a little more in {name}" + (f" — at least {least} characters." if least else ".")
+    if kind == "string_too_long":
+        most = context.get("max_length")
+        return (
+            f"{name.capitalize()} is too long"
+            + (f" — the limit is {most:,} characters. Upload the document instead." if most else ".")
+        )
+    if kind.startswith("string_pattern"):
+        return f"{name.capitalize()} is not in a form this accepts."
+    return f"{name.capitalize()} is not valid."
+
+
+@app.exception_handler(RequestValidationError)
+async def readable_validation_error(_: Request, exc: RequestValidationError):
+    errors = exc.errors() or []
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": " ".join(_readable(error) for error in errors[:3]) or "That request could not be accepted.",
+            # The original stays available for anyone debugging against the API.
+            "errors": [{"field": ".".join(str(part) for part in e.get("loc", [])), "type": e.get("type")} for e in errors],
+        },
+    )
 
 
 @app.get("/api/v1/health", response_model=HealthResponse, tags=["system"])

@@ -34,7 +34,9 @@ class UserRead(BaseModel):
 
 class TenderCreate(BaseModel):
     title: str = Field(min_length=3, max_length=300)
-    description: str = Field(min_length=10, max_length=50_000)
+    # Matches what an uploaded document is allowed to carry. Capping the typed
+    # box lower meant a tender that could be uploaded could not be pasted.
+    description: str = Field(min_length=10, max_length=600_000)
     language: str = Field(default="en", max_length=20)
 
 
