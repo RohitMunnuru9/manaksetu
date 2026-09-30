@@ -9,13 +9,13 @@ from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.orm import Session
 
 from .config import get_settings
 from .database import Base, SessionLocal, engine, get_db
 from .models import AuditLog, ProductCategory, QualityControlOrder, Recommendation, ReviewDecision, Standard, StandardRelationship, StandardStatus, Tender, TenderRequirement, User, VerificationStatus
-from .schemas import GlancePoint, AnalyticsResponse, DraftResponse, EvidenceSpanRead, ScorecardRead, ScoreRowRead, SectorCount, TopStandard, WatchItem, AmendmentRead, AnalysisResponse, CategoryRead, NearestRecord, AuditRead, BriefingResponse, NetworkEdge, NetworkNode, NetworkResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
+from .schemas import AuditDetail, StandardDetail, StandardsPage, VerifyRequest, GlancePoint, AnalyticsResponse, DraftResponse, EvidenceSpanRead, ScorecardRead, ScoreRowRead, SectorCount, TopStandard, WatchItem, AmendmentRead, AnalysisResponse, CategoryRead, NearestRecord, AuditRead, BriefingResponse, NetworkEdge, NetworkNode, NetworkResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
 from .security import Permission, create_access_token, get_current_user, permissions_for, require_permission, verify_password
 from .seed import seed_demo_data
 from .services.summary import document_glance
@@ -55,6 +55,17 @@ def _add_missing_columns() -> None:
 
     if "tenders" in inspector.get_table_names():
         present = {column["name"] for column in inspector.get_columns("tenders")}
+        standard_extra = {
+            "verified_by_id": "INTEGER",
+            "verified_at": "DATETIME",
+            "verification_note": "TEXT",
+        }
+        present_std = {column["name"] for column in inspector.get_columns("standards")}
+        with engine.begin() as connection:
+            for name, ddl in standard_extra.items():
+                if name not in present_std:
+                    connection.execute(sql_text(f"ALTER TABLE standards ADD COLUMN {name} {ddl}"))
+
         tender_columns = {
             "read_method": "VARCHAR(40)",
             "read_quality": "VARCHAR(20)",
@@ -128,12 +139,188 @@ def current_user_profile(user: User = Depends(get_current_user)) -> UserRead:
     )
 
 
-@app.get("/api/v1/standards", response_model=list[StandardRead], tags=["standards"])
-def list_standards(q: str | None = None, db: Session = Depends(get_db), _: User = Depends(require_permission(Permission.TENDER_READ))) -> list:
+# Browsing a 2,914-record catalogue needs paging and filters. Returning the
+# first fifty of everything, as this did, showed under two percent of it.
+MAX_PAGE_SIZE = 100
+
+
+@app.get("/api/v1/standards", response_model=StandardsPage, tags=["standards"])
+def list_standards(
+    q: str | None = None,
+    tier: str | None = None,
+    sector: str | None = None,
+    page: int = 1,
+    page_size: int = 25,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission(Permission.TENDER_READ)),
+) -> StandardsPage:
+    page = max(1, page)
+    page_size = max(1, min(page_size, MAX_PAGE_SIZE))
+
     query = select(Standard)
     if q:
-        query = query.where(Standard.official_title.ilike(f"%{q}%"))
-    return list(db.scalars(query.limit(50)).all())
+        term = f"%{q.strip()}%"
+        # Officers search by number as readily as by name.
+        query = query.where(
+            or_(
+                Standard.official_title.ilike(term),
+                Standard.standard_number.ilike(term),
+                Standard.scope_summary.ilike(term),
+            )
+        )
+    if tier in {"verified", "pending", "demo"}:
+        query = query.where(Standard.verification_status == VerificationStatus(tier))
+    if sector:
+        query = query.where(Standard.bis_sector == sector)
+
+    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+    rows = db.scalars(
+        query.order_by(Standard.standard_number.is_(None), Standard.standard_number)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+
+    tier_counts = {
+        status.value: count
+        for status, count in db.execute(
+            select(Standard.verification_status, func.count(Standard.id)).group_by(Standard.verification_status)
+        ).all()
+    }
+    sectors = [
+        name
+        for (name,) in db.execute(
+            select(Standard.bis_sector)
+            .where(Standard.bis_sector.isnot(None))
+            .group_by(Standard.bis_sector)
+            .order_by(func.count(Standard.id).desc())
+            .limit(60)
+        ).all()
+    ]
+
+    return StandardsPage(
+        items=[StandardRead.model_validate(row) for row in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=max(1, (total + page_size - 1) // page_size),
+        tier_counts=tier_counts,
+        sectors=sectors,
+    )
+
+
+@app.get("/api/v1/standards/{standard_id}", response_model=StandardDetail, tags=["standards"])
+def standard_detail(
+    standard_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission(Permission.TENDER_READ)),
+) -> StandardDetail:
+    """Everything known about one record, so an officer can decide whether it
+    may be cited without leaving the page."""
+    standard = db.get(Standard, standard_id)
+    if not standard:
+        raise HTTPException(status_code=404, detail="Standard not found")
+
+    verifier = db.get(User, standard.verified_by_id) if standard.verified_by_id else None
+    linked = db.scalar(
+        select(func.count(StandardRelationship.id)).where(
+            or_(
+                StandardRelationship.source_id == standard.id,
+                StandardRelationship.target_id == standard.id,
+            )
+        )
+    ) or 0
+    orders = [
+        title
+        for (title,) in db.execute(
+            select(QualityControlOrder.title).where(QualityControlOrder.mandated_standard_id == standard.id)
+        ).all()
+    ]
+    used = db.scalar(
+        select(func.count(Recommendation.id)).where(Recommendation.standard_id == standard.id)
+    ) or 0
+
+    return StandardDetail(
+        **{
+            field: getattr(standard, field)
+            for field in (
+                "id", "standard_number", "catalogue_ref", "official_title", "scope_summary",
+                "publication_year", "status", "official_source_url", "source_organisation",
+                "retrieved_date", "last_checked_date", "valid_until", "bis_sector",
+                "verification_status", "verified_at", "verification_note",
+            )
+        },
+        verified_by=verifier.full_name if verifier else None,
+        category=standard.category.name if standard.category else None,
+        superseded_by=(
+            standard.superseded_by.standard_number or standard.superseded_by.catalogue_ref
+            if standard.superseded_by
+            else None
+        ),
+        amendments=[
+            AmendmentRead(
+                amendment_number=a.amendment_number,
+                issued_date=a.issued_date.isoformat() if a.issued_date else None,
+                summary=a.summary,
+                official_source_url=a.official_source_url,
+            )
+            for a in standard.amendments
+        ],
+        linked_standards=linked,
+        certification_orders=orders,
+        used_in_tenders=used,
+    )
+
+
+@app.post("/api/v1/standards/{standard_id}/verify", response_model=StandardDetail, tags=["standards"])
+def verify_standard(
+    standard_id: int,
+    payload: VerifyRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission(Permission.STANDARD_VERIFY)),
+) -> StandardDetail:
+    """Promote an imported record to verified.
+
+    This is the human step the whole three-tier evidence model rests on, and
+    until now it existed only as a claim. A record moves to verified when a
+    person says they have checked it against the official BIS entry, and their
+    name and note are stored with it -- a tier nobody is accountable for is not
+    evidence.
+
+    Demonstration records can never be promoted: they carry no identifier, so
+    there is nothing to have checked.
+    """
+    standard = db.get(Standard, standard_id)
+    if not standard:
+        raise HTTPException(status_code=404, detail="Standard not found")
+    if not standard.standard_number:
+        raise HTTPException(
+            status_code=422,
+            detail="This record has no standard number, so there is nothing to verify against an official source.",
+        )
+    if not payload.confirmed_against_source:
+        raise HTTPException(
+            status_code=422,
+            detail="A record is only verified once it has been checked against the official BIS entry.",
+        )
+    if standard.verification_status == VerificationStatus.verified:
+        raise HTTPException(status_code=409, detail="This record is already verified.")
+
+    standard.verification_status = VerificationStatus.verified
+    standard.verified_by_id = user.id
+    standard.verified_at = datetime.now(timezone.utc)
+    standard.verification_note = payload.note.strip() or None
+    standard.last_checked_date = datetime.now(timezone.utc).date()
+
+    db.add(AuditLog(
+        actor_id=user.id,
+        action="standard.verified",
+        entity_type="standard",
+        entity_id=str(standard.id),
+        details={"standard_number": standard.standard_number, "note": standard.verification_note or ""},
+    ))
+    db.commit()
+    db.refresh(standard)
+    return standard_detail(standard.id, db, user)
 
 
 # How a relationship type presents in the network view.
@@ -710,9 +897,43 @@ def review_tender(tender_id: int, payload: ReviewCreate, db: Session = Depends(g
     return decision
 
 
-@app.get("/api/v1/audit", response_model=list[AuditRead], tags=["audit"])
-def audit_history(db: Session = Depends(get_db), _: User = Depends(require_permission(Permission.AUDIT_READ))) -> list[AuditLog]:
-    return list(db.scalars(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(200)).all())
+@app.get("/api/v1/audit", response_model=list[AuditDetail], tags=["audit"])
+def audit_history(
+    action: str | None = None,
+    limit: int = 200,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission(Permission.AUDIT_READ)),
+) -> list[AuditDetail]:
+    """The trail, with the actor resolved.
+
+    It recorded who did what from the beginning; the API returned only what,
+    which makes an audit log that cannot answer the question it exists for.
+    """
+    query = select(AuditLog).order_by(AuditLog.created_at.desc())
+    if action:
+        query = query.where(AuditLog.action.ilike(f"%{action}%"))
+    rows = list(db.scalars(query.limit(max(1, min(limit, 500)))).all())
+
+    actor_ids = {row.actor_id for row in rows if row.actor_id}
+    actors = {
+        user.id: user
+        for user in db.scalars(select(User).where(User.id.in_(actor_ids))).all()
+    } if actor_ids else {}
+
+    return [
+        AuditDetail(
+            id=row.id,
+            action=row.action,
+            entity_type=row.entity_type,
+            entity_id=row.entity_id,
+            details=row.details or {},
+            created_at=row.created_at,
+            actor_name=actors[row.actor_id].full_name if row.actor_id in actors else None,
+            actor_email=actors[row.actor_id].email if row.actor_id in actors else None,
+            actor_role=actors[row.actor_id].role if row.actor_id in actors else None,
+        )
+        for row in rows
+    ]
 
 
 @app.get("/api/v1/tenders/{tender_id}/report/{report_format}", tags=["reports"])

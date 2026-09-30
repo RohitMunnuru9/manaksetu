@@ -68,6 +68,11 @@ class Standard(Base):
     retrieved_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     last_checked_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     verification_status: Mapped[VerificationStatus] = mapped_column(SqlEnum(VerificationStatus), default=VerificationStatus.pending)
+    # Who promoted this record to verified, and when. A tier that nobody is
+    # accountable for is not evidence, so verification carries a name.
+    verified_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    verification_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     content_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     category_id: Mapped[int | None] = mapped_column(ForeignKey("product_categories.id"), nullable=True)
     category: Mapped[ProductCategory | None] = relationship(back_populates="standards")

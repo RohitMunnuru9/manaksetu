@@ -77,6 +77,55 @@ class StandardRead(BaseModel):
     official_source_url: str | None
     last_checked_date: date | None
     verification_status: VerificationStatus
+    valid_until: date | None = None
+    bis_sector: str | None = None
+    verified_at: datetime | None = None
+
+
+class StandardDetail(BaseModel):
+    """Everything known about one record, for the officer who has to decide
+    whether it may be cited."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    standard_number: str | None
+    catalogue_ref: str | None
+    official_title: str
+    scope_summary: str
+    publication_year: int | None
+    status: StandardStatus
+    official_source_url: str | None
+    source_organisation: str | None
+    retrieved_date: date | None
+    last_checked_date: date | None
+    valid_until: date | None
+    bis_sector: str | None
+    verification_status: VerificationStatus
+    verified_at: datetime | None = None
+    verified_by: str | None = None
+    verification_note: str | None = None
+    category: str | None = None
+    superseded_by: str | None = None
+    amendments: list["AmendmentRead"] = Field(default_factory=list)
+    linked_standards: int = 0
+    certification_orders: list[str] = Field(default_factory=list)
+    used_in_tenders: int = 0
+
+
+class StandardsPage(BaseModel):
+    """A page of the catalogue, with enough context to navigate 2,914 records."""
+    items: list["StandardRead"]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+    tier_counts: dict[str, int] = Field(default_factory=dict)
+    sectors: list[str] = Field(default_factory=list)
+
+
+class VerifyRequest(BaseModel):
+    """Promoting a record is a claim a person makes, so it carries their note."""
+    note: str = Field(default="", max_length=2_000)
+    confirmed_against_source: bool = True
 
 
 class AmendmentRead(BaseModel):
@@ -201,6 +250,20 @@ class BriefingResponse(BaseModel):
     officer_summary: str | None = None
     officer_summary_status: str = "disabled"
     officer_summary_model: str | None = None
+
+
+class AuditDetail(BaseModel):
+    """An audit row with the actor resolved, not just their id."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    action: str
+    entity_type: str
+    entity_id: str
+    details: dict = Field(default_factory=dict)
+    created_at: datetime
+    actor_name: str | None = None
+    actor_email: str | None = None
+    actor_role: str | None = None
 
 
 class ReviewCreate(BaseModel):

@@ -83,6 +83,11 @@ def _seed_demo_users(db: Session, settings) -> None:
     accounts = [
         (settings.demo_user_email, settings.demo_user_password, "Ananya Rao", "procurement_officer"),
         ("supplier@example.in", settings.demo_user_password, "Vikram Shetty", "supplier"),
+        # Only this role may promote a record from imported to verified. Without
+        # an account holding it, the evidence model's central step -- a person
+        # confirming a record against the official BIS entry -- could not be
+        # performed at all.
+        ("expert@manaksetu.gov.in", settings.demo_user_password, "Dr Meera Iyer", "standards_expert"),
     ]
     for email, password, full_name, role in accounts:
         if db.scalar(select(User.id).where(User.email == email.lower()).limit(1)) is None:
