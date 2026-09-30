@@ -8,7 +8,7 @@ import {
 import { useEffect, useState } from "react";
 import {
   PERMISSIONS, analyseFile, analyseTender, downloadReport, getAuditHistory, getBriefing,
-  getCategories, getCurrentUser, getDashboardStats, getLatestAnalysis, getNetwork, getStandards, login as loginUser,
+  getAnalysis, getCategories, getCurrentUser, getDashboardStats, getLatestAnalysis, getNetwork, getStandards, login as loginUser,
   logout, saveReview,
   type AnalysisResult, type ApiCategory, type ApiRecommendation, type ApiStandard, type AuditEntry,
   type DashboardStats, type StandardNetwork, type UserProfile,
@@ -17,6 +17,7 @@ import { AnalyticsView } from "./components/analytics";
 import { ScorecardPanel } from "./components/scorecard";
 import { DraftPanel } from "./components/draft";
 import { CatalogueBrowser } from "./components/catalogue";
+import { HistoryView } from "./components/history";
 
 type View = "overview" | "analyse" | "network" | "standards" | "analytics" | "reports" | "audit";
 
@@ -186,6 +187,14 @@ const T: Record<UiLang, Record<string, string>> = {
     draftFootnote: "Every standard number in this draft came from retrieval. A model rewrite that invents one is discarded automatically.",
     whereFrom: "Where this comes from in your tender",
     switchRole: "Sign in as", nowSignedInAs: "Now signed in as",
+    historyTitle: "Everything that has happened here", historyLede: "Every analysis you have run, and a record of who did what and when.",
+    pastAnalyses: "Past analyses", auditTrail: "Audit trail", searchTenders: "Search by title, reference or file…",
+    historyUnreachable: "The history could not be loaded.", noAnalysesYet: "No analyses yet",
+    noAnalysesHint: "Analyse a tender and it will appear here, ready to reopen or download.",
+    scanned: "Scanned", approved: "Approved", download: "Download", downloaded: "downloaded",
+    downloadFailed: "The file could not be created.", couldNotOpen: "That analysis could not be reopened.",
+    allActions: "Everything", filterTenders: "Tenders", filterVerifications: "Verifications",
+    filterReviews: "Decisions", filterSignIns: "Sign-ins", systemActor: "System", nothingRecorded: "Nothing recorded yet",
     catalogueTitle: "Every standard we hold", catalogueLede: "Search, filter and open any record. Each one shows where it came from and how far it can be trusted.",
     tierAll: "All", filterTier: "Filter by evidence", filterSector: "Filter by sector", allSectors: "All sectors",
     recordOne: "record", recordMany: "records", loading: "Loading…", tryAgain: "Try again",
@@ -276,6 +285,9 @@ const T: Record<UiLang, Record<string, string>> = {
     draftFootnote: "इस मसौदे का हर मानक क्रमांक पुनर्प्राप्ति से आया है। गढ़ा गया क्रमांक स्वतः हटा दिया जाता है।",
     whereFrom: "आपकी निविदा में यह कहाँ से आया",
     switchRole: "इस रूप में साइन इन करें", nowSignedInAs: "अब साइन इन:",
+    historyTitle: "यहाँ जो कुछ हुआ", pastAnalyses: "पिछले विश्लेषण", auditTrail: "अभिलेख",
+    searchTenders: "शीर्षक, संदर्भ या फ़ाइल से खोजें…", noAnalysesYet: "अभी कोई विश्लेषण नहीं",
+    download: "डाउनलोड", approved: "स्वीकृत", allActions: "सब कुछ", nothingRecorded: "अभी कुछ दर्ज नहीं",
     catalogueTitle: "हमारे पास मौजूद हर मानक", catalogueLede: "खोजें, छाँटें और कोई भी रिकॉर्ड खोलें। हर एक बताता है कि वह कहाँ से आया और उस पर कितना भरोसा किया जा सकता है।",
     tierAll: "सभी", filterTier: "साक्ष्य से छाँटें", filterSector: "क्षेत्र से छाँटें", allSectors: "सभी क्षेत्र",
     recordOne: "रिकॉर्ड", recordMany: "रिकॉर्ड", loading: "लोड हो रहा है…", tryAgain: "फिर कोशिश करें",
@@ -348,6 +360,9 @@ const T: Record<UiLang, Record<string, string>> = {
     draftFootnote: "ఈ ముసాయిదాలోని ప్రతి ప్రమాణ సంఖ్య శోధన నుండే వచ్చింది. కల్పించిన సంఖ్యను స్వయంచాలకంగా తొలగిస్తారు.",
     whereFrom: "మీ టెండర్‌లో ఇది ఎక్కడి నుండి వచ్చింది",
     switchRole: "ఇలా సైన్ ఇన్ అవ్వండి", nowSignedInAs: "ఇప్పుడు సైన్ ఇన్:",
+    historyTitle: "ఇక్కడ జరిగినదంతా", pastAnalyses: "గత విశ్లేషణలు", auditTrail: "ఆడిట్ రికార్డు",
+    searchTenders: "శీర్షిక, రిఫరెన్స్ లేదా ఫైల్‌తో వెతకండి…", noAnalysesYet: "ఇంకా విశ్లేషణలు లేవు",
+    download: "డౌన్‌లోడ్", approved: "ఆమోదించబడింది", allActions: "అన్నీ", nothingRecorded: "ఇంకా ఏమీ నమోదు కాలేదు",
     catalogueTitle: "మా వద్ద ఉన్న ప్రతి ప్రమాణం", catalogueLede: "వెతకండి, వడపోయండి, ఏ రికార్డునైనా తెరవండి. ప్రతి ఒక్కటి ఎక్కడి నుండి వచ్చిందో, ఎంత నమ్మవచ్చో చూపుతుంది.",
     tierAll: "అన్నీ", filterTier: "ఆధారం వారీగా", filterSector: "రంగం వారీగా", allSectors: "అన్ని రంగాలు",
     recordOne: "రికార్డు", recordMany: "రికార్డులు", loading: "లోడ్ అవుతోంది…", tryAgain: "మళ్ళీ ప్రయత్నించండి",
@@ -420,6 +435,9 @@ const T: Record<UiLang, Record<string, string>> = {
     draftFootnote: "இந்த வரைவின் ஒவ்வொரு தரநிலை எண்ணும் தேடலில் இருந்தே வந்தது. கற்பனை எண் தானாக நீக்கப்படும்.",
     whereFrom: "உங்கள் டெண்டரில் இது எங்கிருந்து வந்தது",
     switchRole: "இவ்வாறு உள்நுழைக", nowSignedInAs: "இப்போது உள்நுழைந்தது:",
+    historyTitle: "இங்கு நடந்த அனைத்தும்", pastAnalyses: "முந்தைய பகுப்பாய்வுகள்", auditTrail: "தணிக்கைப் பதிவு",
+    searchTenders: "தலைப்பு, குறிப்பு அல்லது கோப்பால் தேடு…", noAnalysesYet: "இதுவரை பகுப்பாய்வு இல்லை",
+    download: "பதிவிறக்கு", approved: "ஒப்புதல்", allActions: "அனைத்தும்", nothingRecorded: "இதுவரை எதுவும் பதிவாகவில்லை",
     catalogueTitle: "எங்களிடம் உள்ள ஒவ்வொரு தரநிலையும்", catalogueLede: "தேடுங்கள், வடிகட்டுங்கள், எந்தப் பதிவையும் திறக்கலாம். ஒவ்வொன்றும் எங்கிருந்து வந்தது, எவ்வளவு நம்பலாம் என்பதைக் காட்டும்.",
     tierAll: "அனைத்தும்", filterTier: "ஆதாரம் வாரியாக", filterSector: "துறை வாரியாக", allSectors: "அனைத்து துறைகள்",
     recordOne: "பதிவு", recordMany: "பதிவுகள்", loading: "ஏற்றுகிறது…", tryAgain: "மீண்டும் முயற்சி",
@@ -472,7 +490,9 @@ const T: Record<UiLang, Record<string, string>> = {
     footLang: "১০টি ভাষা", footLocal: "১০০% স্থানীয় AI — কিছুই এই মেশিনের বাইরে যায় না",
     footZero: "শূন্য বানানো মান নম্বর", footAudit: "প্রতিটি কাজের নিরীক্ষা",
     more: "আরও", moreNet: "সজীব জ্ঞান গ্রাফ",
-    catalogueTitle: "আমাদের সব মান", tierAll: "সব", recordOne: "রেকর্ড", recordMany: "রেকর্ড",
+    catalogueTitle: "আমাদের সব মান",
+    historyTitle: "এখানে যা ঘটেছে", pastAnalyses: "পূর্ববর্তী বিশ্লেষণ", auditTrail: "নিরীক্ষা রেকর্ড",
+    download: "ডাউনলোড", approved: "অনুমোদিত", allActions: "সবকিছু", tierAll: "সব", recordOne: "রেকর্ড", recordMany: "রেকর্ড",
     loading: "লোড হচ্ছে…", tryAgain: "আবার চেষ্টা", nothingFound: "কিছু পাওয়া যায়নি",
     prev: "আগের", next: "পরের", pageOf: "পৃষ্ঠা {page} / {pages}", verifyAction: "যাচাইকৃত চিহ্নিত করুন", moreAna: "গভীর বিশ্লেষণ ও বৈধতা নজরদারি",
     moreRep: "রিপোর্ট ডাউনলোড", moreHis: "ইতিহাস ও নিরীক্ষা",
@@ -502,7 +522,9 @@ const T: Record<UiLang, Record<string, string>> = {
     footLang: "१० भाषा", footLocal: "१००% स्थानिक AI — काहीही या मशीनबाहेर जात नाही",
     footZero: "शून्य रचलेले मानक क्रमांक", footAudit: "प्रत्येक कृतीची नोंद",
     more: "आणखी", moreNet: "सजीव ज्ञान आलेख",
-    catalogueTitle: "आमच्याकडील प्रत्येक मानक", tierAll: "सर्व", recordOne: "नोंद", recordMany: "नोंदी",
+    catalogueTitle: "आमच्याकडील प्रत्येक मानक",
+    historyTitle: "इथे जे घडले", pastAnalyses: "मागील विश्लेषणे", auditTrail: "लेखापरीक्षण नोंद",
+    download: "डाउनलोड", approved: "मंजूर", allActions: "सर्व काही", tierAll: "सर्व", recordOne: "नोंद", recordMany: "नोंदी",
     loading: "लोड होत आहे…", tryAgain: "पुन्हा प्रयत्न", nothingFound: "काही सापडले नाही",
     prev: "मागील", next: "पुढील", pageOf: "पृष्ठ {page} / {pages}", verifyAction: "पडताळलेले म्हणून खुणा करा", moreAna: "सखोल विश्लेषण व वैधता देखरेख",
     moreRep: "अहवाल डाउनलोड", moreHis: "इतिहास व लेखापरीक्षण",
@@ -532,7 +554,9 @@ const T: Record<UiLang, Record<string, string>> = {
     footLang: "૧૦ ભાષાઓ", footLocal: "૧૦૦% સ્થાનિક AI — કંઈ પણ આ મશીન બહાર જતું નથી",
     footZero: "શૂન્ય ઘડેલા માનક નંબરો", footAudit: "દરેક ક્રિયાની નોંધ",
     more: "વધુ", moreNet: "સજીવ જ્ઞાન ગ્રાફ",
-    catalogueTitle: "અમારી પાસેના દરેક માનક", tierAll: "બધા", recordOne: "રેકોર્ડ", recordMany: "રેકોર્ડ",
+    catalogueTitle: "અમારી પાસેના દરેક માનક",
+    historyTitle: "અહીં જે થયું", pastAnalyses: "અગાઉના વિશ્લેષણો", auditTrail: "ઓડિટ રેકોર્ડ",
+    download: "ડાઉનલોડ", approved: "મંજૂર", allActions: "બધું", tierAll: "બધા", recordOne: "રેકોર્ડ", recordMany: "રેકોર્ડ",
     loading: "લોડ થઈ રહ્યું છે…", tryAgain: "ફરી પ્રયાસ", nothingFound: "કંઈ મળ્યું નહીં",
     prev: "પાછલું", next: "આગળનું", pageOf: "પૃષ્ઠ {page} / {pages}", verifyAction: "ચકાસાયેલ તરીકે ચિહ્નિત કરો", moreAna: "ઊંડું વિશ્લેષણ અને માન્યતા દેખરેખ",
     moreRep: "રિપોર્ટ ડાઉનલોડ", moreHis: "ઇતિહાસ અને ઓડિટ",
@@ -562,7 +586,9 @@ const T: Record<UiLang, Record<string, string>> = {
     footLang: "੧੦ ਭਾਸ਼ਾਵਾਂ", footLocal: "੧੦੦% ਸਥਾਨਕ AI — ਕੁਝ ਵੀ ਇਸ ਮਸ਼ੀਨ ਤੋਂ ਬਾਹਰ ਨਹੀਂ ਜਾਂਦਾ",
     footZero: "ਸਿਫ਼ਰ ਘੜੇ ਹੋਏ ਮਿਆਰ ਨੰਬਰ", footAudit: "ਹਰ ਕਾਰਵਾਈ ਦਾ ਲੇਖਾ",
     more: "ਹੋਰ", moreNet: "ਸਜੀਵ ਗਿਆਨ ਗ੍ਰਾਫ਼",
-    catalogueTitle: "ਸਾਡੇ ਕੋਲ ਹਰ ਮਿਆਰ", tierAll: "ਸਾਰੇ", recordOne: "ਰਿਕਾਰਡ", recordMany: "ਰਿਕਾਰਡ",
+    catalogueTitle: "ਸਾਡੇ ਕੋਲ ਹਰ ਮਿਆਰ",
+    historyTitle: "ਇੱਥੇ ਜੋ ਹੋਇਆ", pastAnalyses: "ਪਿਛਲੇ ਵਿਸ਼ਲੇਸ਼ਣ", auditTrail: "ਆਡਿਟ ਰਿਕਾਰਡ",
+    download: "ਡਾਊਨਲੋਡ", approved: "ਮਨਜ਼ੂਰ", allActions: "ਸਭ ਕੁਝ", tierAll: "ਸਾਰੇ", recordOne: "ਰਿਕਾਰਡ", recordMany: "ਰਿਕਾਰਡ",
     loading: "ਲੋਡ ਹੋ ਰਿਹਾ ਹੈ…", tryAgain: "ਮੁੜ ਕੋਸ਼ਿਸ਼", nothingFound: "ਕੁਝ ਨਹੀਂ ਮਿਲਿਆ",
     prev: "ਪਿਛਲਾ", next: "ਅਗਲਾ", pageOf: "ਪੰਨਾ {page} / {pages}", verifyAction: "ਤਸਦੀਕਸ਼ੁਦਾ ਵਜੋਂ ਨਿਸ਼ਾਨ ਲਾਓ", moreAna: "ਡੂੰਘਾ ਵਿਸ਼ਲੇਸ਼ਣ ਅਤੇ ਵੈਧਤਾ ਨਿਗਰਾਨੀ",
     moreRep: "ਰਿਪੋਰਟ ਡਾਊਨਲੋਡ", moreHis: "ਇਤਿਹਾਸ ਅਤੇ ਆਡਿਟ",
@@ -592,7 +618,9 @@ const T: Record<UiLang, Record<string, string>> = {
     footLang: "೧೦ ಭಾಷೆಗಳು", footLocal: "೧೦೦% ಸ್ಥಳೀಯ AI — ಏನೂ ಈ ಯಂತ್ರದಿಂದ ಹೊರಹೋಗುವುದಿಲ್ಲ",
     footZero: "ಶೂನ್ಯ ಕಲ್ಪಿತ ಮಾನಕ ಸಂಖ್ಯೆಗಳು", footAudit: "ಪ್ರತಿ ಕ್ರಿಯೆಗೂ ಲೆಕ್ಕಪರಿಶೋಧನೆ",
     more: "ಇನ್ನಷ್ಟು", moreNet: "ಸಜೀವ ಜ್ಞಾನ ಗ್ರಾಫ್",
-    catalogueTitle: "ನಮ್ಮಲ್ಲಿರುವ ಪ್ರತಿ ಮಾನಕ", tierAll: "ಎಲ್ಲಾ", recordOne: "ದಾಖಲೆ", recordMany: "ದಾಖಲೆಗಳು",
+    catalogueTitle: "ನಮ್ಮಲ್ಲಿರುವ ಪ್ರತಿ ಮಾನಕ",
+    historyTitle: "ಇಲ್ಲಿ ನಡೆದದ್ದೆಲ್ಲ", pastAnalyses: "ಹಿಂದಿನ ವಿಶ್ಲೇಷಣೆಗಳು", auditTrail: "ಲೆಕ್ಕಪರಿಶೋಧನಾ ದಾಖಲೆ",
+    download: "ಡೌನ್‌ಲೋಡ್", approved: "ಅನುಮೋದಿತ", allActions: "ಎಲ್ಲವೂ", tierAll: "ಎಲ್ಲಾ", recordOne: "ದಾಖಲೆ", recordMany: "ದಾಖಲೆಗಳು",
     loading: "ಲೋಡ್ ಆಗುತ್ತಿದೆ…", tryAgain: "ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ", nothingFound: "ಏನೂ ಸಿಗಲಿಲ್ಲ",
     prev: "ಹಿಂದಿನ", next: "ಮುಂದಿನ", pageOf: "ಪುಟ {page} / {pages}", verifyAction: "ಪರಿಶೀಲಿತ ಎಂದು ಗುರುತಿಸಿ", moreAna: "ಆಳ ವಿಶ್ಲೇಷಣೆ & ಮಾನ್ಯತೆ ಕಾವಲು",
     moreRep: "ವರದಿ ಡೌನ್‌ಲೋಡ್", moreHis: "ಇತಿಹಾಸ & ಲೆಕ್ಕಪರಿಶೋಧನೆ",
@@ -622,7 +650,9 @@ const T: Record<UiLang, Record<string, string>> = {
     footLang: "൧൦ ഭാഷകൾ", footLocal: "൧൦൦% പ്രാദേശിക AI — ഒന്നും ഈ യന്ത്രത്തിന് പുറത്തുപോകുന്നില്ല",
     footZero: "പൂജ്യം കെട്ടിച്ചമച്ച മാനക നമ്പറുകൾ", footAudit: "ഓരോ പ്രവൃത്തിക്കും ഓഡിറ്റ്",
     more: "കൂടുതൽ", moreNet: "ചലിക്കുന്ന വിജ്ഞാന ഗ്രാഫ്",
-    catalogueTitle: "ഞങ്ങളുടെ പക്കലുള്ള എല്ലാ മാനകങ്ങളും", tierAll: "എല്ലാം", recordOne: "രേഖ", recordMany: "രേഖകൾ",
+    catalogueTitle: "ഞങ്ങളുടെ പക്കലുള്ള എല്ലാ മാനകങ്ങളും",
+    historyTitle: "ഇവിടെ നടന്നതെല്ലാം", pastAnalyses: "മുൻ വിശകലനങ്ങൾ", auditTrail: "ഓഡിറ്റ് രേഖ",
+    download: "ഡൗൺലോഡ്", approved: "അംഗീകരിച്ചു", allActions: "എല്ലാം", tierAll: "എല്ലാം", recordOne: "രേഖ", recordMany: "രേഖകൾ",
     loading: "ലോഡ് ചെയ്യുന്നു…", tryAgain: "വീണ്ടും ശ്രമിക്കൂ", nothingFound: "ഒന്നും കണ്ടെത്തിയില്ല",
     prev: "മുമ്പത്തേത്", next: "അടുത്തത്", pageOf: "പേജ് {page} / {pages}", verifyAction: "പരിശോധിച്ചതായി അടയാളപ്പെടുത്തുക", moreAna: "ആഴത്തിലുള്ള വിശകലനവും സാധുത നിരീക്ഷണവും",
     moreRep: "റിപ്പോർട്ട് ഡൗൺലോഡ്", moreHis: "ചരിത്രവും ഓഡിറ്റും",
@@ -1177,7 +1207,7 @@ export default function Home() {
     if (!user) return;
     // The catalogue browser fetches its own pages; only the landing ticker
     // needs a sample here.
-    if (view === "audit" && can(PERMISSIONS.auditRead)) getAuditHistory().then(setAudit).catch(() => notify("Could not load the history"));
+    // The history view fetches its own tenders and audit trail.
     if (view === "overview") {
       getDashboardStats().then(setStats).catch(() => undefined);
       // The ticker on the landing page scrolls real catalogue records.
@@ -1222,6 +1252,19 @@ export default function Home() {
   };
 
   /** Clear the previous analysis so the officer starts from a blank form. */
+  const openSavedAnalysis = (tenderId: number) => {
+    getAnalysis(tenderId)
+      .then(result => {
+        setAnalysis(result);
+        setOpenResult(null);
+        setApproved(result.tender.status === "approved");
+        setTab("results");
+        setStage("results");
+        setView("analyse");
+      })
+      .catch(() => notify(t("couldNotOpen")));
+  };
+
   const startNewAnalysis = () => {
     setAnalysis(null);
     setOpenResult(null);
@@ -2072,20 +2115,16 @@ export default function Home() {
           {/* ---------------- History ---------------- */}
           {view === "audit" && (
             <>
-              <p className="eyebrow">History</p>
-              <h1 className="display mt-3">Who did what, and when</h1>
-              <p className="lede">Every sign-in, analysis, decision and download is recorded here.</p>
-              <div className="card card-pad mt-6">
-                {audit.map(a => (
-                  <div className="rowcard" key={a.id}>
-                    <span className="ico"><History size={16} /></span>
-                    <div className="min-w-0 flex-1">
-                      <dd className="font-semibold">{a.action.replaceAll(".", " ").replaceAll("_", " ")}</dd>
-                      <dt className="mt-1 normal-case tracking-normal">{new Date(a.created_at).toLocaleString()}</dt>
-                    </div>
-                  </div>
-                ))}
-                {!audit.length && <div className="empty"><strong>Nothing recorded yet</strong><span>Activity will appear here as you use the system.</span></div>}
+              <p className="eyebrow">{t("history")}</p>
+              <h1 className="display mt-3">{t("historyTitle")}</h1>
+              <p className="lede">{t("historyLede")}</p>
+              <div className="mt-6">
+                <HistoryView
+                  canExport={can(PERMISSIONS.reportExport)}
+                  onOpenTender={openSavedAnalysis}
+                  onNotify={notify}
+                  t={t}
+                />
               </div>
             </>
           )}

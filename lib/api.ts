@@ -188,9 +188,14 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return response.json();
 }
 
+export const getTenders = () => getJson<TenderSummary[]>("/tenders");
+
+/** Reopen a saved analysis exactly as it was recorded. */
+export const getAnalysis = (tenderId: number) => getJson<AnalysisResult>(`/tenders/${tenderId}`);
+
 export const getLatestAnalysis = async (): Promise<AnalysisResult | null> => {
-  const tenders = await getJson<TenderSummary[]>("/tenders");
-  return tenders.length ? getJson<AnalysisResult>(`/tenders/${tenders[0].id}`) : null;
+  const tenders = await getTenders();
+  return tenders.length ? getAnalysis(tenders[0].id) : null;
 };
 
 export type Briefing = Pick<AnalysisResult, "officer_summary" | "officer_summary_status" | "officer_summary_model">;
