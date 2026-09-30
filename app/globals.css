@@ -712,3 +712,26 @@ a { color: var(--rust); }
 @media (min-width: 1081px) {
   .nav-label { display: inline; }
 }
+
+/* ---- Catalogue browser: filters, paging, verification ---- */
+.cat-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 22px; }
+.cat-sector { max-width: 260px; font-size: 12.5px; padding: 9px 12px; }
+.cat-count { margin: 12px 0 0; font-size: 12.5px; color: var(--faint); }
+
+.chipbar { display: inline-flex; flex-wrap: wrap; gap: 4px; border: 1.5px solid var(--line); border-radius: 999px; padding: 4px; background: #fff; }
+.chipbar button { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 7px 14px; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.chipbar button:hover { background: #f6efe3; color: var(--ink); }
+.chipbar button.active { background: var(--navy); color: #fff; }
+.chip-count { border-radius: 999px; padding: 1px 7px; background: rgba(0,0,0,.08); font-size: 10.5px; font-weight: 800; }
+.chipbar button.active .chip-count { background: rgba(255,255,255,.22); }
+
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; }
+.pager-state { font-size: 12.5px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.verify-box { margin-top: 22px; border: 1.5px solid var(--line); border-radius: 18px; padding: 18px; background: #fbfaf7; }
+.verify-box .label { display: flex; align-items: center; gap: 6px; }
+
+/* ---- Role switcher ---- */
+.role-pop { min-width: 300px; }
+.role-pop-head { margin: 4px 8px 6px; font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); }
+.role-pop button small { white-space: normal; line-height: 1.35; }

@@ -16,6 +16,7 @@ import {
 import { AnalyticsView } from "./components/analytics";
 import { ScorecardPanel } from "./components/scorecard";
 import { DraftPanel } from "./components/draft";
+import { CatalogueBrowser } from "./components/catalogue";
 
 type View = "overview" | "analyse" | "network" | "standards" | "analytics" | "reports" | "audit";
 
@@ -108,6 +109,16 @@ const MORE_DESC: Record<string, string> = {
 const DEMO_OFFICER = { email: "officer@manaksetu.gov.in", password: "ManakSetu@2026" };
 const DEMO_SUPPLIER = { email: "supplier@example.in", password: "ManakSetu@2026" };
 
+// Every role the demonstration can sign in as. The standards expert matters:
+// it is the only one that may promote a record to verified, and a two-way
+// toggle left that workflow unreachable from the interface.
+const DEMO_ROLES = [
+  { email: "officer@manaksetu.gov.in", name: "Ananya Rao", role: "procurement_officer", blurb: "Analyses tenders, approves results, exports reports." },
+  { email: "expert@manaksetu.gov.in", name: "Dr Meera Iyer", role: "standards_expert", blurb: "The only role that can confirm a record against the official BIS entry." },
+  { email: "supplier@example.in", name: "Vikram Shetty", role: "supplier", blurb: "Restricted. Review, export and history are refused by the API." },
+];
+const DEMO_PASSWORD = "ManakSetu@2026";
+
 
 /* ---------------------------------------------------------------------
    Interface language. The tender itself is always read in whatever
@@ -174,6 +185,30 @@ const T: Record<UiLang, Record<string, string>> = {
     draftCopy: "Copy", draftCopied: "Copied",
     draftFootnote: "Every standard number in this draft came from retrieval. A model rewrite that invents one is discarded automatically.",
     whereFrom: "Where this comes from in your tender",
+    switchRole: "Sign in as", nowSignedInAs: "Now signed in as",
+    catalogueTitle: "Every standard we hold", catalogueLede: "Search, filter and open any record. Each one shows where it came from and how far it can be trusted.",
+    tierAll: "All", filterTier: "Filter by evidence", filterSector: "Filter by sector", allSectors: "All sectors",
+    recordOne: "record", recordMany: "records", loading: "Loading…", tryAgain: "Try again",
+    catalogueUnreachable: "The catalogue could not be loaded.", recordUnreachable: "This record could not be loaded.",
+    nothingFound: "Nothing found", nothingFoundHint: "Try a different word, or clear the filters above.",
+    prev: "Previous", next: "Next", pageOf: "Page {page} of {pages}",
+    recordDetail: "Standard details",
+    fieldSector: "BIS sector", fieldCategory: "Category", fieldPublished: "Published",
+    fieldValidUntil: "Valid until", fieldStatus: "Status", fieldSuperseded: "Replaced by",
+    fieldSource: "Source", fieldRetrieved: "Retrieved on", fieldUsedIn: "Used in", fieldLinked: "Connections",
+    usedInTenders: "{n} tender(s) have relied on this", linkedStandards: "{n} linked standard(s)",
+    certMandatory: "BIS certification is mandatory under:", amendments: "Amendments issued",
+    seeConnections: "See how it connects", officialPage: "Official BIS page",
+    tierVerifiedPlain: "A person has checked this against the official BIS entry.",
+    tierChecking: "The number is real and came from the official BIS source, but nobody has confirmed it yet. Check it before citing it in a tender.",
+    tierExample: "This record carries no standard number. It exists to illustrate a relationship and must never be cited.",
+    verifiedBy: "Checked by {name} on {date}.",
+    verifyTitle: "Confirm this record", verifyAction: "Mark as verified", verifySaving: "Saving…",
+    verifyExplain: "Open the official BIS page, compare the number and title, and confirm only if they match. Your name is stored with the record.",
+    verifyNotePlaceholder: "What did you check? (optional, but it helps whoever reads this next)",
+    verifyFootnote: "Only a standards expert can do this, and it cannot be undone from here.",
+    verifyNeedsExpert: "Only a standards expert can promote a record to verified. Sign in as one to confirm this record.",
+    verifyFailed: "The record could not be verified.", verifiedDone: "Record marked as verified",
     handWelcome: "Namaste! Let's get you the right standards.",
     heroQ1: "What are you", heroQ2: "buying today?",
     heroSubNew: "Tell us in your own words — in any of ten Indian languages. We find the Indian Standards that apply, with the proof behind every single one.",
@@ -240,6 +275,12 @@ const T: Record<UiLang, Record<string, string>> = {
     draftCopy: "कॉपी करें", draftCopied: "कॉपी हुआ",
     draftFootnote: "इस मसौदे का हर मानक क्रमांक पुनर्प्राप्ति से आया है। गढ़ा गया क्रमांक स्वतः हटा दिया जाता है।",
     whereFrom: "आपकी निविदा में यह कहाँ से आया",
+    switchRole: "इस रूप में साइन इन करें", nowSignedInAs: "अब साइन इन:",
+    catalogueTitle: "हमारे पास मौजूद हर मानक", catalogueLede: "खोजें, छाँटें और कोई भी रिकॉर्ड खोलें। हर एक बताता है कि वह कहाँ से आया और उस पर कितना भरोसा किया जा सकता है।",
+    tierAll: "सभी", filterTier: "साक्ष्य से छाँटें", filterSector: "क्षेत्र से छाँटें", allSectors: "सभी क्षेत्र",
+    recordOne: "रिकॉर्ड", recordMany: "रिकॉर्ड", loading: "लोड हो रहा है…", tryAgain: "फिर कोशिश करें",
+    nothingFound: "कुछ नहीं मिला", prev: "पिछला", next: "अगला", pageOf: "पृष्ठ {page} / {pages}",
+    verifyTitle: "इस रिकॉर्ड की पुष्टि करें", verifyAction: "सत्यापित चिह्नित करें", verifiedDone: "रिकॉर्ड सत्यापित किया गया",
     handWelcome: "नमस्ते! आपके लिए सही मानक ढूँढते हैं।",
     heroQ1: "आज आप", heroQ2: "क्या खरीद रहे हैं?",
     heroSubNew: "अपने शब्दों में बताइए — English, हिन्दी, తెలుగు या தமிழ். हम लागू भारतीय मानक ढूँढते हैं, हर एक के पीछे प्रमाण के साथ।",
@@ -306,6 +347,12 @@ const T: Record<UiLang, Record<string, string>> = {
     draftCopy: "కాపీ", draftCopied: "కాపీ అయింది",
     draftFootnote: "ఈ ముసాయిదాలోని ప్రతి ప్రమాణ సంఖ్య శోధన నుండే వచ్చింది. కల్పించిన సంఖ్యను స్వయంచాలకంగా తొలగిస్తారు.",
     whereFrom: "మీ టెండర్‌లో ఇది ఎక్కడి నుండి వచ్చింది",
+    switchRole: "ఇలా సైన్ ఇన్ అవ్వండి", nowSignedInAs: "ఇప్పుడు సైన్ ఇన్:",
+    catalogueTitle: "మా వద్ద ఉన్న ప్రతి ప్రమాణం", catalogueLede: "వెతకండి, వడపోయండి, ఏ రికార్డునైనా తెరవండి. ప్రతి ఒక్కటి ఎక్కడి నుండి వచ్చిందో, ఎంత నమ్మవచ్చో చూపుతుంది.",
+    tierAll: "అన్నీ", filterTier: "ఆధారం వారీగా", filterSector: "రంగం వారీగా", allSectors: "అన్ని రంగాలు",
+    recordOne: "రికార్డు", recordMany: "రికార్డులు", loading: "లోడ్ అవుతోంది…", tryAgain: "మళ్ళీ ప్రయత్నించండి",
+    nothingFound: "ఏమీ దొరకలేదు", prev: "మునుపటి", next: "తదుపరి", pageOf: "పేజీ {page} / {pages}",
+    verifyTitle: "ఈ రికార్డును నిర్ధారించండి", verifyAction: "ధృవీకరించినట్లు గుర్తించండి", verifiedDone: "రికార్డు ధృవీకరించబడింది",
     handWelcome: "నమస్తే! మీకు సరైన ప్రమాణాలు వెతుకుదాం.",
     heroQ1: "ఈరోజు మీరు", heroQ2: "ఏమి కొంటున్నారు?",
     heroSubNew: "మీ మాటల్లోనే చెప్పండి — English, हिन्दी, తెలుగు లేదా தமிழ். వర్తించే భారతీయ ప్రమాణాలను, ప్రతి దాని వెనుక ఆధారంతో సహా వెతికిస్తాం.",
@@ -372,6 +419,12 @@ const T: Record<UiLang, Record<string, string>> = {
     draftCopy: "நகலெடு", draftCopied: "நகலானது",
     draftFootnote: "இந்த வரைவின் ஒவ்வொரு தரநிலை எண்ணும் தேடலில் இருந்தே வந்தது. கற்பனை எண் தானாக நீக்கப்படும்.",
     whereFrom: "உங்கள் டெண்டரில் இது எங்கிருந்து வந்தது",
+    switchRole: "இவ்வாறு உள்நுழைக", nowSignedInAs: "இப்போது உள்நுழைந்தது:",
+    catalogueTitle: "எங்களிடம் உள்ள ஒவ்வொரு தரநிலையும்", catalogueLede: "தேடுங்கள், வடிகட்டுங்கள், எந்தப் பதிவையும் திறக்கலாம். ஒவ்வொன்றும் எங்கிருந்து வந்தது, எவ்வளவு நம்பலாம் என்பதைக் காட்டும்.",
+    tierAll: "அனைத்தும்", filterTier: "ஆதாரம் வாரியாக", filterSector: "துறை வாரியாக", allSectors: "அனைத்து துறைகள்",
+    recordOne: "பதிவு", recordMany: "பதிவுகள்", loading: "ஏற்றுகிறது…", tryAgain: "மீண்டும் முயற்சி",
+    nothingFound: "எதுவும் கிடைக்கவில்லை", prev: "முந்தையது", next: "அடுத்தது", pageOf: "பக்கம் {page} / {pages}",
+    verifyTitle: "இந்தப் பதிவை உறுதிப்படுத்து", verifyAction: "சரிபார்க்கப்பட்டதாகக் குறி", verifiedDone: "பதிவு சரிபார்க்கப்பட்டது",
     handWelcome: "வணக்கம்! உங்களுக்கு சரியான தரநிலைகளைக் கண்டுபிடிப்போம்.",
     heroQ1: "இன்று நீங்கள்", heroQ2: "என்ன வாங்குகிறீர்கள்?",
     heroSubNew: "உங்கள் சொற்களிலேயே சொல்லுங்கள் — English, हिन्दी, తెలుగు அல்லது தமிழ். பொருந்தும் இந்தியத் தரநிலைகளை, ஒவ்வொன்றுக்கும் ஆதாரத்துடன் கண்டுபிடிக்கிறோம்.",
@@ -418,7 +471,10 @@ const T: Record<UiLang, Record<string, string>> = {
     statCatalogue: "তালিকায় মান", statInvented: "বানানো মান নম্বর", statTenders: "বিশ্লেষিত টেন্ডার",
     footLang: "১০টি ভাষা", footLocal: "১০০% স্থানীয় AI — কিছুই এই মেশিনের বাইরে যায় না",
     footZero: "শূন্য বানানো মান নম্বর", footAudit: "প্রতিটি কাজের নিরীক্ষা",
-    more: "আরও", moreNet: "সজীব জ্ঞান গ্রাফ", moreAna: "গভীর বিশ্লেষণ ও বৈধতা নজরদারি",
+    more: "আরও", moreNet: "সজীব জ্ঞান গ্রাফ",
+    catalogueTitle: "আমাদের সব মান", tierAll: "সব", recordOne: "রেকর্ড", recordMany: "রেকর্ড",
+    loading: "লোড হচ্ছে…", tryAgain: "আবার চেষ্টা", nothingFound: "কিছু পাওয়া যায়নি",
+    prev: "আগের", next: "পরের", pageOf: "পৃষ্ঠা {page} / {pages}", verifyAction: "যাচাইকৃত চিহ্নিত করুন", moreAna: "গভীর বিশ্লেষণ ও বৈধতা নজরদারি",
     moreRep: "রিপোর্ট ডাউনলোড", moreHis: "ইতিহাস ও নিরীক্ষা",
     newTender: "নতুন টেন্ডার বিশ্লেষণ", browse: "মান দেখুন", findStandards: "মান খুঁজুন",
     working: "কাজ চলছে…", startNew: "নতুন বিশ্লেষণ শুরু করুন", searchPlaceholder: "নাম দিয়ে মান খুঁজুন…",
@@ -445,7 +501,10 @@ const T: Record<UiLang, Record<string, string>> = {
     statCatalogue: "यादीतील मानके", statInvented: "रचलेले मानक क्रमांक", statTenders: "विश्लेषित निविदा",
     footLang: "१० भाषा", footLocal: "१००% स्थानिक AI — काहीही या मशीनबाहेर जात नाही",
     footZero: "शून्य रचलेले मानक क्रमांक", footAudit: "प्रत्येक कृतीची नोंद",
-    more: "आणखी", moreNet: "सजीव ज्ञान आलेख", moreAna: "सखोल विश्लेषण व वैधता देखरेख",
+    more: "आणखी", moreNet: "सजीव ज्ञान आलेख",
+    catalogueTitle: "आमच्याकडील प्रत्येक मानक", tierAll: "सर्व", recordOne: "नोंद", recordMany: "नोंदी",
+    loading: "लोड होत आहे…", tryAgain: "पुन्हा प्रयत्न", nothingFound: "काही सापडले नाही",
+    prev: "मागील", next: "पुढील", pageOf: "पृष्ठ {page} / {pages}", verifyAction: "पडताळलेले म्हणून खुणा करा", moreAna: "सखोल विश्लेषण व वैधता देखरेख",
     moreRep: "अहवाल डाउनलोड", moreHis: "इतिहास व लेखापरीक्षण",
     newTender: "नवीन निविदा विश्लेषण", browse: "मानके पाहा", findStandards: "मानके शोधा",
     working: "काम सुरू…", startNew: "नवीन विश्लेषण सुरू करा", searchPlaceholder: "नावाने मानके शोधा…",
@@ -472,7 +531,10 @@ const T: Record<UiLang, Record<string, string>> = {
     statCatalogue: "યાદીમાં માનકો", statInvented: "ઘડેલા માનક નંબરો", statTenders: "વિશ્લેષિત ટેન્ડરો",
     footLang: "૧૦ ભાષાઓ", footLocal: "૧૦૦% સ્થાનિક AI — કંઈ પણ આ મશીન બહાર જતું નથી",
     footZero: "શૂન્ય ઘડેલા માનક નંબરો", footAudit: "દરેક ક્રિયાની નોંધ",
-    more: "વધુ", moreNet: "સજીવ જ્ઞાન ગ્રાફ", moreAna: "ઊંડું વિશ્લેષણ અને માન્યતા દેખરેખ",
+    more: "વધુ", moreNet: "સજીવ જ્ઞાન ગ્રાફ",
+    catalogueTitle: "અમારી પાસેના દરેક માનક", tierAll: "બધા", recordOne: "રેકોર્ડ", recordMany: "રેકોર્ડ",
+    loading: "લોડ થઈ રહ્યું છે…", tryAgain: "ફરી પ્રયાસ", nothingFound: "કંઈ મળ્યું નહીં",
+    prev: "પાછલું", next: "આગળનું", pageOf: "પૃષ્ઠ {page} / {pages}", verifyAction: "ચકાસાયેલ તરીકે ચિહ્નિત કરો", moreAna: "ઊંડું વિશ્લેષણ અને માન્યતા દેખરેખ",
     moreRep: "રિપોર્ટ ડાઉનલોડ", moreHis: "ઇતિહાસ અને ઓડિટ",
     newTender: "નવું ટેન્ડર વિશ્લેષણ", browse: "માનકો જુઓ", findStandards: "માનકો શોધો",
     working: "કામ ચાલુ…", startNew: "નવું વિશ્લેષણ શરૂ કરો", searchPlaceholder: "નામથી માનકો શોધો…",
@@ -499,7 +561,10 @@ const T: Record<UiLang, Record<string, string>> = {
     statCatalogue: "ਸੂਚੀ ਵਿੱਚ ਮਿਆਰ", statInvented: "ਘੜੇ ਹੋਏ ਮਿਆਰ ਨੰਬਰ", statTenders: "ਵਿਸ਼ਲੇਸ਼ਿਤ ਟੈਂਡਰ",
     footLang: "੧੦ ਭਾਸ਼ਾਵਾਂ", footLocal: "੧੦੦% ਸਥਾਨਕ AI — ਕੁਝ ਵੀ ਇਸ ਮਸ਼ੀਨ ਤੋਂ ਬਾਹਰ ਨਹੀਂ ਜਾਂਦਾ",
     footZero: "ਸਿਫ਼ਰ ਘੜੇ ਹੋਏ ਮਿਆਰ ਨੰਬਰ", footAudit: "ਹਰ ਕਾਰਵਾਈ ਦਾ ਲੇਖਾ",
-    more: "ਹੋਰ", moreNet: "ਸਜੀਵ ਗਿਆਨ ਗ੍ਰਾਫ਼", moreAna: "ਡੂੰਘਾ ਵਿਸ਼ਲੇਸ਼ਣ ਅਤੇ ਵੈਧਤਾ ਨਿਗਰਾਨੀ",
+    more: "ਹੋਰ", moreNet: "ਸਜੀਵ ਗਿਆਨ ਗ੍ਰਾਫ਼",
+    catalogueTitle: "ਸਾਡੇ ਕੋਲ ਹਰ ਮਿਆਰ", tierAll: "ਸਾਰੇ", recordOne: "ਰਿਕਾਰਡ", recordMany: "ਰਿਕਾਰਡ",
+    loading: "ਲੋਡ ਹੋ ਰਿਹਾ ਹੈ…", tryAgain: "ਮੁੜ ਕੋਸ਼ਿਸ਼", nothingFound: "ਕੁਝ ਨਹੀਂ ਮਿਲਿਆ",
+    prev: "ਪਿਛਲਾ", next: "ਅਗਲਾ", pageOf: "ਪੰਨਾ {page} / {pages}", verifyAction: "ਤਸਦੀਕਸ਼ੁਦਾ ਵਜੋਂ ਨਿਸ਼ਾਨ ਲਾਓ", moreAna: "ਡੂੰਘਾ ਵਿਸ਼ਲੇਸ਼ਣ ਅਤੇ ਵੈਧਤਾ ਨਿਗਰਾਨੀ",
     moreRep: "ਰਿਪੋਰਟ ਡਾਊਨਲੋਡ", moreHis: "ਇਤਿਹਾਸ ਅਤੇ ਆਡਿਟ",
     newTender: "ਨਵਾਂ ਟੈਂਡਰ ਵਿਸ਼ਲੇਸ਼ਣ", browse: "ਮਿਆਰ ਵੇਖੋ", findStandards: "ਮਿਆਰ ਲੱਭੋ",
     working: "ਕੰਮ ਜਾਰੀ…", startNew: "ਨਵਾਂ ਵਿਸ਼ਲੇਸ਼ਣ ਸ਼ੁਰੂ ਕਰੋ", searchPlaceholder: "ਨਾਮ ਨਾਲ ਮਿਆਰ ਲੱਭੋ…",
@@ -526,7 +591,10 @@ const T: Record<UiLang, Record<string, string>> = {
     statCatalogue: "ಪಟ್ಟಿಯಲ್ಲಿ ಮಾನಕಗಳು", statInvented: "ಕಲ್ಪಿತ ಮಾನಕ ಸಂಖ್ಯೆಗಳು", statTenders: "ವಿಶ್ಲೇಷಿಸಿದ ಟೆಂಡರ್‌ಗಳು",
     footLang: "೧೦ ಭಾಷೆಗಳು", footLocal: "೧೦೦% ಸ್ಥಳೀಯ AI — ಏನೂ ಈ ಯಂತ್ರದಿಂದ ಹೊರಹೋಗುವುದಿಲ್ಲ",
     footZero: "ಶೂನ್ಯ ಕಲ್ಪಿತ ಮಾನಕ ಸಂಖ್ಯೆಗಳು", footAudit: "ಪ್ರತಿ ಕ್ರಿಯೆಗೂ ಲೆಕ್ಕಪರಿಶೋಧನೆ",
-    more: "ಇನ್ನಷ್ಟು", moreNet: "ಸಜೀವ ಜ್ಞಾನ ಗ್ರಾಫ್", moreAna: "ಆಳ ವಿಶ್ಲೇಷಣೆ & ಮಾನ್ಯತೆ ಕಾವಲು",
+    more: "ಇನ್ನಷ್ಟು", moreNet: "ಸಜೀವ ಜ್ಞಾನ ಗ್ರಾಫ್",
+    catalogueTitle: "ನಮ್ಮಲ್ಲಿರುವ ಪ್ರತಿ ಮಾನಕ", tierAll: "ಎಲ್ಲಾ", recordOne: "ದಾಖಲೆ", recordMany: "ದಾಖಲೆಗಳು",
+    loading: "ಲೋಡ್ ಆಗುತ್ತಿದೆ…", tryAgain: "ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ", nothingFound: "ಏನೂ ಸಿಗಲಿಲ್ಲ",
+    prev: "ಹಿಂದಿನ", next: "ಮುಂದಿನ", pageOf: "ಪುಟ {page} / {pages}", verifyAction: "ಪರಿಶೀಲಿತ ಎಂದು ಗುರುತಿಸಿ", moreAna: "ಆಳ ವಿಶ್ಲೇಷಣೆ & ಮಾನ್ಯತೆ ಕಾವಲು",
     moreRep: "ವರದಿ ಡೌನ್‌ಲೋಡ್", moreHis: "ಇತಿಹಾಸ & ಲೆಕ್ಕಪರಿಶೋಧನೆ",
     newTender: "ಹೊಸ ಟೆಂಡರ್ ವಿಶ್ಲೇಷಣೆ", browse: "ಮಾನಕಗಳನ್ನು ನೋಡಿ", findStandards: "ಮಾನಕಗಳನ್ನು ಹುಡುಕಿ",
     working: "ಕೆಲಸ ನಡೆಯುತ್ತಿದೆ…", startNew: "ಹೊಸ ವಿಶ್ಲೇಷಣೆ ಪ್ರಾರಂಭಿಸಿ", searchPlaceholder: "ಹೆಸರಿನಿಂದ ಮಾನಕ ಹುಡುಕಿ…",
@@ -553,7 +621,10 @@ const T: Record<UiLang, Record<string, string>> = {
     statCatalogue: "പട്ടികയിലെ മാനകങ്ങൾ", statInvented: "കെട്ടിച്ചമച്ച മാനക നമ്പറുകൾ", statTenders: "വിശകലനം ചെയ്ത ടെൻഡറുകൾ",
     footLang: "൧൦ ഭാഷകൾ", footLocal: "൧൦൦% പ്രാദേശിക AI — ഒന്നും ഈ യന്ത്രത്തിന് പുറത്തുപോകുന്നില്ല",
     footZero: "പൂജ്യം കെട്ടിച്ചമച്ച മാനക നമ്പറുകൾ", footAudit: "ഓരോ പ്രവൃത്തിക്കും ഓഡിറ്റ്",
-    more: "കൂടുതൽ", moreNet: "ചലിക്കുന്ന വിജ്ഞാന ഗ്രാഫ്", moreAna: "ആഴത്തിലുള്ള വിശകലനവും സാധുത നിരീക്ഷണവും",
+    more: "കൂടുതൽ", moreNet: "ചലിക്കുന്ന വിജ്ഞാന ഗ്രാഫ്",
+    catalogueTitle: "ഞങ്ങളുടെ പക്കലുള്ള എല്ലാ മാനകങ്ങളും", tierAll: "എല്ലാം", recordOne: "രേഖ", recordMany: "രേഖകൾ",
+    loading: "ലോഡ് ചെയ്യുന്നു…", tryAgain: "വീണ്ടും ശ്രമിക്കൂ", nothingFound: "ഒന്നും കണ്ടെത്തിയില്ല",
+    prev: "മുമ്പത്തേത്", next: "അടുത്തത്", pageOf: "പേജ് {page} / {pages}", verifyAction: "പരിശോധിച്ചതായി അടയാളപ്പെടുത്തുക", moreAna: "ആഴത്തിലുള്ള വിശകലനവും സാധുത നിരീക്ഷണവും",
     moreRep: "റിപ്പോർട്ട് ഡൗൺലോഡ്", moreHis: "ചരിത്രവും ഓഡിറ്റും",
     newTender: "പുതിയ ടെൻഡർ വിശകലനം", browse: "മാനകങ്ങൾ കാണൂ", findStandards: "മാനകങ്ങൾ കണ്ടെത്തൂ",
     working: "പ്രവർത്തിക്കുന്നു…", startNew: "പുതിയ വിശകലനം തുടങ്ങൂ", searchPlaceholder: "പേര് കൊണ്ട് മാനകം തിരയൂ…",
@@ -1104,12 +1175,13 @@ export default function Home() {
 
   useEffect(() => {
     if (!user) return;
-    if (view === "standards") getStandards(standardsQuery).then(setStandards).catch(() => notify("Could not load the standards list"));
+    // The catalogue browser fetches its own pages; only the landing ticker
+    // needs a sample here.
     if (view === "audit" && can(PERMISSIONS.auditRead)) getAuditHistory().then(setAudit).catch(() => notify("Could not load the history"));
     if (view === "overview") {
       getDashboardStats().then(setStats).catch(() => undefined);
       // The ticker on the landing page scrolls real catalogue records.
-      if (!standards.length) getStandards("").then(setStandards).catch(() => undefined);
+      if (!standards.length) getStandards({ pageSize: 24 }).then(page => setStandards(page.items)).catch(() => undefined);
     }
     if (view === "network") {
       // Follow the current analysis unless the officer pinned a record by hand.
@@ -1120,10 +1192,15 @@ export default function Home() {
         setNetworkOf(seed);
         getNetwork(seed.id).then(setNetwork).catch(() => notify("Could not draw the connections"));
       } else {
-        getStandards().then(list => {
-          const first = list.find(s => s.verification_status === "verified") ?? list[0];
-          if (first) { setNetworkOf(first); getNetwork(first.id).then(setNetwork).catch(() => undefined); }
-        }).catch(() => undefined);
+        // Open on a verified record when one exists: it is the most useful
+        // example of a graph, because its edges have been checked too.
+        getStandards({ tier: "verified", pageSize: 1 })
+          .then(page => (page.items.length ? page : getStandards({ pageSize: 1 })))
+          .then(page => {
+            const first = page.items[0];
+            if (first) { setNetworkOf(first); getNetwork(first.id).then(setNetwork).catch(() => undefined); }
+          })
+          .catch(() => undefined);
       }
     }
   }, [view, user, standardsQuery, pinnedRecord, analysis?.tender?.id]);
@@ -1164,6 +1241,21 @@ export default function Home() {
   const [heroQuery, setHeroQuery] = useState("");
   const [langOpen, setLangOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [roleOpen, setRoleOpen] = useState(false);
+
+  const switchRole = async (email: string) => {
+    setRoleOpen(false);
+    if (email === user?.email) return;
+    logout();
+    try {
+      const profile = await loginUser(email, DEMO_PASSWORD);
+      setUser(profile);
+      startNewAnalysis();
+      notify(`${t("nowSignedInAs")} ${profile.full_name}`);
+    } catch {
+      setUser(null);
+    }
+  };
 
   // The hero search IS the product: type anything, in any of the four
   // languages, and the full analysis pipeline runs on it.
@@ -1386,18 +1478,13 @@ export default function Home() {
               </div>
             )}
           </div>
+          <div className="menu-anchor">
           <button
             className="profile-chip"
-            title={user.role === "supplier" ? t("signOutSupplier") : t("signOutOfficer")}
-            onClick={async () => {
-              const next = user.role === "supplier" ? DEMO_OFFICER : DEMO_SUPPLIER;
-              logout();
-              try {
-                setUser(await loginUser(next.email, next.password));
-                startNewAnalysis();
-                notify(next === DEMO_SUPPLIER ? "Now signed in as a supplier — review and export are refused" : "Back to the procurement officer");
-              } catch { setUser(null); }
-            }}
+            title={t("switchRole")}
+            aria-haspopup="menu"
+            aria-expanded={roleOpen}
+            onClick={() => { setRoleOpen(open => !open); setLangOpen(false); setMoreOpen(false); }}
           >
             <span className="avatar">{user.full_name.split(" ").map(p => p[0]).join("").slice(0, 2)}</span>
             <span className="min-w-0">
@@ -1405,10 +1492,31 @@ export default function Home() {
               <small>{user.role.replaceAll("_", " ")}</small>
             </span>
           </button>
+          {roleOpen && (
+            <div className="menu-pop role-pop" role="menu">
+              <p className="role-pop-head">{t("switchRole")}</p>
+              {DEMO_ROLES.map(option => (
+                <button
+                  key={option.email}
+                  role="menuitem"
+                  className={user.email === option.email ? "active" : ""}
+                  onClick={() => switchRole(option.email)}
+                >
+                  <span className="menu-ico">{option.name.split(" ").map(part => part[0]).join("").slice(0, 2)}</span>
+                  <span className="min-w-0">
+                    <strong>{option.name}</strong>
+                    <small>{option.blurb}</small>
+                  </span>
+                  {user.email === option.email && <Check size={15} className="ml-auto shrink-0" />}
+                </button>
+              ))}
+            </div>
+          )}
+          </div>
         </div>
       </header>
 
-      {(langOpen || moreOpen) && <button className="menu-scrim" aria-label="Close menu" onClick={() => { setLangOpen(false); setMoreOpen(false); }} />}
+      {(langOpen || moreOpen || roleOpen) && <button className="menu-scrim" aria-label="Close menu" onClick={() => { setLangOpen(false); setMoreOpen(false); setRoleOpen(false); }} />}
 
       <div className="main">
         <div className="page page-wide">
@@ -1911,37 +2019,16 @@ export default function Home() {
           {/* ---------------- Standards list ---------------- */}
           {view === "standards" && (
             <>
-              <p className="eyebrow">Standards list</p>
-              <h1 className="display mt-3">Everything in the catalogue</h1>
-              <p className="lede">{totalCount.toLocaleString("en-IN")} records, harvested from the official BIS catalogue. {verifiedCount} checked by a person; the rest carry their official source and say they still need checking. The list shows the first 50 matches — search to narrow it.</p>
-              <div className="searchbox mt-5" style={{ maxWidth: 560 }}>
-                <Search size={15} />
-                <input
-                  placeholder={t("searchPlaceholder")}
-                  value={standardsQuery}
-                  onChange={e => setStandardsQuery(e.target.value)}
+              <p className="eyebrow">{t("standards")}</p>
+              <h1 className="display mt-3">{t("catalogueTitle")}</h1>
+              <p className="lede">{t("catalogueLede")}</p>
+              <div className="mt-6">
+                <CatalogueBrowser
+                  canVerify={can(PERMISSIONS.standardVerify)}
+                  onShowNetwork={showNetworkFor}
+                  onNotify={notify}
+                  t={t}
                 />
-              </div>
-              <div className="card card-pad mt-6">
-                {standards.map(s => (
-                  <div className="result" key={s.id} style={{ cursor: "default" }}>
-                    <span className={`ring ${tierOf(s) === "verified" ? "hi" : tierOf(s) === "checking" ? "mid" : "lo"}`}>
-                      {tierOf(s) === "verified" ? <ShieldCheck size={18} /> : tierOf(s) === "checking" ? <Clock3 size={18} /> : <FileText size={18} />}
-                    </span>
-                    <span className="min-w-0">
-                      <Identifier standard={s} />
-                      <h4>{s.official_title}</h4>
-                      <p className="sub">{s.scope_summary.slice(0, 130)}{s.scope_summary.length > 130 ? "…" : ""}</p>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <button className="icon-btn" onClick={() => showNetworkFor(s)} aria-label="See how this connects" title="See how this connects"><Share2 size={16} /></button>
-                      {s.official_source_url
-                        ? <a className="icon-btn" href={s.official_source_url} target="_blank" rel="noopener noreferrer" aria-label="Open official page" title="Open official page"><Link2 size={16} /></a>
-                        : <span className="icon-btn opacity-25" title="No official page"><Link2 size={16} /></span>}
-                    </span>
-                  </div>
-                ))}
-                {!standards.length && <div className="empty"><strong>Nothing found</strong><span>Try a different word, or clear the search box above.</span></div>}
               </div>
             </>
           )}

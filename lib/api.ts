@@ -1,4 +1,7 @@
 export type ApiStandard = {
+  valid_until?: string | null;
+  bis_sector?: string | null;
+  verified_at?: string | null;
   id: number;
   standard_number: string | null;
   catalogue_ref: string | null;
@@ -71,7 +74,7 @@ export type AnalysisResult = {
 };
 
 export type TenderSummary = AnalysisResult["tender"];
-export type AuditEntry = { id: number; action: string; entity_type: string; entity_id: string; details: Record<string, unknown>; created_at: string };
+export type AuditEntry = { id: number; action: string; entity_type: string; entity_id: string; details: Record<string, unknown>; created_at: string; actor_name: string | null; actor_email: string | null; actor_role: string | null };
 export type DashboardStats = { total_tenders: number; pending_reviews: number; verified_standards: number; total_standards: number; completed_reviews: number };
 export type UserProfile = { id: number; email: string; full_name: string; role: string; permissions: string[] };
 
@@ -210,8 +213,52 @@ export type ApiCategory = { name: string; description: string; record_count: num
 /** What the catalogue covers. Shown when a search finds nothing. */
 export const getCategories = () => getJson<ApiCategory[]>("/categories");
 
-export const getStandards = (query = "") => getJson<ApiStandard[]>(`/standards${query ? `?q=${encodeURIComponent(query)}` : ""}`);
-export const getAuditHistory = () => getJson<AuditEntry[]>("/audit");
+export type StandardsPage = {
+  items: ApiStandard[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+  tier_counts: Record<string, number>;
+  sectors: string[];
+};
+
+export type StandardDetail = ApiStandard & {
+  source_organisation: string | null;
+  retrieved_date: string | null;
+  valid_until: string | null;
+  bis_sector: string | null;
+  verified_at: string | null;
+  verified_by: string | null;
+  verification_note: string | null;
+  category: string | null;
+  superseded_by: string | null;
+  amendments: Array<{ amendment_number: string; issued_date: string | null; summary: string; official_source_url: string | null }>;
+  linked_standards: number;
+  certification_orders: string[];
+  used_in_tenders: number;
+};
+
+export function getStandards(options: {
+  q?: string; tier?: string; sector?: string; page?: number; pageSize?: number;
+} = {}): Promise<StandardsPage> {
+  const params = new URLSearchParams();
+  if (options.q) params.set("q", options.q);
+  if (options.tier) params.set("tier", options.tier);
+  if (options.sector) params.set("sector", options.sector);
+  params.set("page", String(options.page ?? 1));
+  params.set("page_size", String(options.pageSize ?? 25));
+  return getJson<StandardsPage>(`/standards?${params.toString()}`);
+}
+
+export const getStandardDetail = (id: number) => getJson<StandardDetail>(`/standards/${id}`);
+
+/** Promote an imported record to verified. Only a standards expert may do this. */
+export const verifyStandard = (id: number, note: string) =>
+  postJson<StandardDetail>(`/standards/${id}/verify`, { note, confirmed_against_source: true });
+
+export const getAuditHistory = (action = "") =>
+  getJson<AuditEntry[]>(`/audit${action ? `?action=${encodeURIComponent(action)}` : ""}`);
 export const getDashboardStats = () => getJson<DashboardStats>("/dashboard");
 
 // ---- Clause-level traceability ----------------------------------------------
