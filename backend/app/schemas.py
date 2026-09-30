@@ -124,6 +124,11 @@ class StandardsPage(BaseModel):
     sectors: list[str] = Field(default_factory=list)
 
 
+class RevokeRequest(BaseModel):
+    """Taking back a verification is a claim too, so it needs a reason."""
+    reason: str = Field(min_length=10, max_length=2_000)
+
+
 class VerifyRequest(BaseModel):
     """Promoting a record is a claim a person makes, so it carries their note."""
     note: str = Field(default="", max_length=2_000)

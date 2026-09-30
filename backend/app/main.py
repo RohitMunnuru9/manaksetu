@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .database import Base, SessionLocal, engine, get_db
 from .models import AuditLog, ProductCategory, QualityControlOrder, Recommendation, ReviewDecision, Standard, StandardRelationship, StandardStatus, Tender, TenderRequirement, User, VerificationStatus
-from .schemas import AuditDetail, StandardDetail, StandardsPage, VerifyRequest, GlancePoint, AnalyticsResponse, DraftResponse, EvidenceSpanRead, ScorecardRead, ScoreRowRead, SectorCount, TopStandard, WatchItem, AmendmentRead, AnalysisResponse, CategoryRead, NearestRecord, AuditRead, BriefingResponse, NetworkEdge, NetworkNode, NetworkResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
+from .schemas import AuditDetail, RevokeRequest, StandardDetail, StandardsPage, VerifyRequest, GlancePoint, AnalyticsResponse, DraftResponse, EvidenceSpanRead, ScorecardRead, ScoreRowRead, SectorCount, TopStandard, WatchItem, AmendmentRead, AnalysisResponse, CategoryRead, NearestRecord, AuditRead, BriefingResponse, NetworkEdge, NetworkNode, NetworkResponse, OutdatedCitation, DashboardStats, HealthResponse, LoginRequest, RecommendationRead, ReviewCreate, ReviewRead, StandardRead, TenderCreate, TenderRead, TokenResponse, UserRead
 from .security import Permission, create_access_token, get_current_user, permissions_for, require_permission, verify_password
 from .seed import seed_demo_data
 from .services.summary import document_glance
@@ -103,6 +103,48 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.post("/api/v1/standards/{standard_id}/revoke", response_model=StandardDetail, tags=["standards"])
+def revoke_verification(
+    standard_id: int,
+    payload: RevokeRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission(Permission.STANDARD_VERIFY)),
+) -> StandardDetail:
+    """Return a verified record to imported, with the reason recorded.
+
+    The same permission that grants verification can withdraw it. The previous
+    verifier's name and note are written into the audit entry before they are
+    cleared, so the history of who claimed what is never lost -- only the
+    current state of the record changes.
+    """
+    standard = db.get(Standard, standard_id)
+    if not standard:
+        raise HTTPException(status_code=404, detail="Standard not found")
+    if standard.verification_status != VerificationStatus.verified:
+        raise HTTPException(status_code=409, detail="This record is not verified, so there is nothing to revoke.")
+
+    previous = db.get(User, standard.verified_by_id) if standard.verified_by_id else None
+    db.add(AuditLog(
+        actor_id=user.id,
+        action="standard.verification_revoked",
+        entity_type="standard",
+        entity_id=str(standard.id),
+        details={
+            "standard_number": standard.standard_number,
+            "reason": payload.reason.strip(),
+            "previously_verified_by": previous.full_name if previous else "seed data",
+            "previous_note": standard.verification_note or "",
+        },
+    ))
+    standard.verification_status = VerificationStatus.pending
+    standard.verified_by_id = None
+    standard.verified_at = None
+    standard.verification_note = None
+    db.commit()
+    db.refresh(standard)
+    return standard_detail(standard.id, db, user)
 
 
 # Pydantic's own errors are written for developers: "String should have at most

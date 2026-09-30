@@ -129,10 +129,12 @@ def seed_demo_data(db: Session) -> None:
         # one -- the officer needs to see it and know it is unconfirmed.
         number = None if verification == VerificationStatus.demo else row.get("standard_number")
         existing = db.scalar(select(Standard).where(Standard.official_title == row["official_title"]))
-        if existing is None:
+        created = existing is None
+        if created:
             existing = Standard(official_title=row["official_title"])
             db.add(existing)
-        existing.standard_number = number
+        if created or verification == VerificationStatus.demo:
+            existing.standard_number = number
         existing.catalogue_ref = f"MS-{row['key'].upper()}"
         existing.scope_summary = row.get("scope_summary", "")
         existing.publication_year = row.get("publication_year")
@@ -141,8 +143,13 @@ def seed_demo_data(db: Session) -> None:
         existing.official_source_url = row.get("official_source_url")
         existing.source_organisation = row.get("source_organisation")
         existing.retrieved_date = _parse_date(row.get("retrieved_date"))
-        existing.last_checked_date = _parse_date(row.get("last_checked_date"))
-        existing.verification_status = verification
+        # Verification is set once, when the record is first created. After that
+        # it belongs to the review workflow: re-applying the file here on every
+        # start silently erased any expert's verification -- and restored any
+        # verification an expert had revoked -- with nothing on the audit trail.
+        if created:
+            existing.verification_status = verification
+            existing.last_checked_date = _parse_date(row.get("last_checked_date"))
         existing.content_hash = _content_hash(row)
         existing.category_id = categories[row["category"]].id
         db.flush()
